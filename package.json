@@ -1,22 +1,22 @@
 {
-	"name": "manager",
-	"module": "index.ts",
-	"type": "module",
-	"scripts": {
-		"dev": "bun run index.ts"
-	},
-	"devDependencies": {
-		"@types/bun": "^1.1.12",
-		"@types/express": "^5.0.0",
-		"@types/ws": "^8.5.12"
-	},
-	"peerDependencies": {
-		"typescript": "^5.0.0"
-	},
-	"dependencies": {
-		"destr": "^2.0.3",
-		"express": "^4.21.1",
-		"prettier": "^3.3.3",
-		"ws": "^8.18.0"
-	}
+    "name": "manager",
+    "module": "index.ts",
+    "type": "module",
+    "scripts": {
+        "dev": "bun run index.ts"
+    },
+    "devDependencies": {
+        "@types/bun": "^1.1.12",
+        "@types/express": "^5.0.0",
+        "@types/ws": "^8.5.12"
+    },
+    "peerDependencies": {
+        "typescript": "^5.0.0"
+    },
+    "dependencies": {
+        "destr": "^2.0.3",
+        "express": "^4.21.1",
+        "prettier": "^3.3.3",
+        "ws": "^8.18.0"
+    }
 }

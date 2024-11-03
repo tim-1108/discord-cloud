@@ -6,32 +6,32 @@ import { PacketReceiver } from "./PacketReceiver.ts";
 import { enqueueUpload } from "./utils/uploads.ts";
 
 export class Client extends PacketReceiver {
-	private readonly uuid: UUID;
+    private readonly uuid: UUID;
 
-	public getUUID() {
-		return this.uuid;
-	}
+    public getUUID() {
+        return this.uuid;
+    }
 
-	public constructor(ws: WebSocket) {
-		super(ws);
-		this.uuid = crypto.randomUUID();
-		const success = this.initialize();
-		if (success) Client.clients.set(this.uuid, this);
-	}
+    public constructor(ws: WebSocket) {
+        super(ws);
+        this.uuid = crypto.randomUUID();
+        const success = this.initialize();
+        if (success) Client.clients.set(this.uuid, this);
+    }
 
-	private static clients = new Map<UUID, Client>();
+    private static clients = new Map<UUID, Client>();
 
-	protected handleSocketClose(event: CloseEvent) {
-		Client.clients.delete(this.uuid);
-	}
+    protected handleSocketClose(event: CloseEvent) {
+        Client.clients.delete(this.uuid);
+    }
 
-	protected handleSocketMessage(event: MessageEvent) {
-		const packet = parsePacket(event.data, PacketType.Client2Server);
-		if (!packet) return;
-		const hasResolved = this.resolveReplies(packet);
+    protected handleSocketMessage(event: MessageEvent) {
+        const packet = parsePacket(event.data, PacketType.Client2Server);
+        if (!packet) return;
+        const hasResolved = this.resolveReplies(packet);
 
-		if (packet instanceof UploadQueueAddPacket) {
-			enqueueUpload(this, packet);
-		}
-	}
+        if (packet instanceof UploadQueueAddPacket) {
+            enqueueUpload(this, packet);
+        }
+    }
 }

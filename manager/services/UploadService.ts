@@ -7,21 +7,21 @@ import { UploadStartPacket } from "../packet/s2u/UploadStartPacket.ts";
 import { PacketType, parsePacket } from "../utils/packets.ts";
 
 export class UploadService extends Service {
-	public constructor(config: ServiceConfig) {
-		super(config);
-		this.initialize();
-	}
+    public constructor(config: ServiceConfig) {
+        super(config);
+        this.initialize();
+    }
 
-	public async requestUploadStart(metadata: UploadMetadata) {
-		const result = await this.sendPacketAndReply(new UploadStartPacket(metadata), UploadStartConfirmPacket);
-		console.log("Received result from uploader:", result?.id);
-	}
+    public async requestUploadStart(metadata: UploadMetadata) {
+        const result = await this.sendPacketAndReply(new UploadStartPacket(metadata), UploadStartConfirmPacket);
+        console.log("Received result from uploader:", result?.getData());
+    }
 
-	protected handleSocketClose(event: CloseEvent): void {}
+    protected handleSocketClose(event: CloseEvent): void {}
 
-	protected handleSocketMessage(event: MessageEvent): void {
-		const packet = parsePacket(event.data, PacketType.Uploader2Server);
-		if (!packet) return;
-		this.resolveReplies(packet);
-	}
+    protected handleSocketMessage(event: MessageEvent): void {
+        const packet = parsePacket(event.data, PacketType.Uploader2Server);
+        if (!packet) return;
+        this.resolveReplies(packet);
+    }
 }

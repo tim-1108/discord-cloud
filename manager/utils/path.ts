@@ -1,3 +1,3 @@
 export function parseStringPath(text: string) {
-	return text.split("/");
+    return text.split("/");
 }
