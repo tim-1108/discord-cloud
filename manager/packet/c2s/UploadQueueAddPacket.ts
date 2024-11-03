@@ -3,14 +3,16 @@ import { patterns } from "../../utils/patterns.ts";
 import type { SchemaToType } from "../../utils/validator.ts";
 
 export class UploadQueueAddPacket extends C2SPacket {
-	protected declare data: SchemaToType<typeof this.dataStructure> | null;
+	protected declare data: DataType;
+
+	public static ID = "c2s:upload-queue-add";
 
 	public getData() {
 		return this.data;
 	}
 
-	public constructor() {
-		super("upload-queue-add");
+	public constructor(data?: DataType) {
+		super("upload-queue-add", data);
 	}
 
 	public readonly dataStructure = {
@@ -19,3 +21,5 @@ export class UploadQueueAddPacket extends C2SPacket {
 		size: { type: "number", required: true, min: 0 }
 	} as const;
 }
+
+type DataType = SchemaToType<UploadQueueAddPacket["dataStructure"]>;

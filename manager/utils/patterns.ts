@@ -22,5 +22,6 @@ export const patterns = {
 	 * specified in {@link ALLOWED_CHARS} and have
 	 * a max length of {@link MAX_TITLE_LENGTH}
 	 */
-	fileName: new RegExp(`^${ALLOWED_CHARS_WITH_LENGTH}$`, "i")
+	fileName: new RegExp(`^${ALLOWED_CHARS_WITH_LENGTH}$`, "i"),
+	uuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 };

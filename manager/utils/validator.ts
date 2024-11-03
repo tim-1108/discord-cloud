@@ -116,7 +116,6 @@ function validateBooleanSchema(schema: BooleanSchemaEntry, value: any, func: Inv
 function validateRecordSchema(schema: RecordSchemaEntry, value: any, func: InvalidateFunction) {
 	if (!isRecord(value)) return func("incorrect_type");
 	const validation = validateObjectBySchema(value, schema.items);
-	console.log(value, validation);
 	if (validation.invalid) return func("items_invalid", validation);
 }
 

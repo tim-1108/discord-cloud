@@ -2,9 +2,10 @@ import { type CloseEvent, type MessageEvent, WebSocket } from "ws";
 import type { UUID } from "../common";
 import { PacketType, parsePacket } from "./utils/packets.ts";
 import { UploadQueueAddPacket } from "./packet/c2s/UploadQueueAddPacket.ts";
+import { PacketReceiver } from "./PacketReceiver.ts";
+import { enqueueUpload } from "./utils/uploads.ts";
 
-export class Client {
-	private ws: WebSocket;
+export class Client extends PacketReceiver {
 	private readonly uuid: UUID;
 
 	public getUUID() {
@@ -12,34 +13,25 @@ export class Client {
 	}
 
 	public constructor(ws: WebSocket) {
-		this.ws = ws;
+		super(ws);
 		this.uuid = crypto.randomUUID();
-		this.initialize();
+		const success = this.initialize();
+		if (success) Client.clients.set(this.uuid, this);
 	}
 
-	private initialize() {
-		if (this.ws.readyState !== WebSocket.OPEN) {
-			return;
-		}
+	private static clients = new Map<UUID, Client>();
 
-		this.ws.onmessage = this.handleSocketMessage;
-		this.ws.onclose = this.handleSocketClose;
-
-		Client.clients.add(this);
+	protected handleSocketClose(event: CloseEvent) {
+		Client.clients.delete(this.uuid);
 	}
 
-	private handleSocketClose(event: CloseEvent) {
-		Client.clients.delete(this);
-	}
-
-	private handleSocketMessage(event: MessageEvent) {
+	protected handleSocketMessage(event: MessageEvent) {
 		const packet = parsePacket(event.data, PacketType.Client2Server);
-		if (packet === null) return;
+		if (!packet) return;
+		const hasResolved = this.resolveReplies(packet);
 
 		if (packet instanceof UploadQueueAddPacket) {
-			const data = packet.getData();
+			enqueueUpload(this, packet);
 		}
 	}
-
-	private static clients = new Set<Client>();
 }
