@@ -26,4 +26,18 @@ export abstract class Service extends PacketReceiver {
     public isBusy() {
         return this.busy;
     }
+
+    /**
+     * This method provides a more explicit call than setBusy(true)
+     */
+    protected markBusy() {
+        this.busy = true;
+    }
+
+    /**
+     * This method provides a more explicit call than setBusy(false)
+     */
+    protected markNotBusy() {
+        this.busy = false;
+    }
 }

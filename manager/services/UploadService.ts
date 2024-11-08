@@ -13,8 +13,18 @@ export class UploadService extends Service {
     }
 
     public async requestUploadStart(metadata: UploadMetadata) {
+        // This should not be possible when called from sendUploadsToServices
+        if (this.isBusy()) {
+            console.warn("[UploadService] Requested upload start while service is busy");
+            return;
+        }
+        this.markBusy();
         const result = await this.sendPacketAndReply(new UploadStartPacket(metadata), UploadStartConfirmPacket);
-        console.log("Received result from uploader:", result?.getData());
+        const accepted = result?.getData().accepted;
+        if (!accepted) {
+            this.markNotBusy();
+            return;
+        }
     }
 
     protected handleSocketClose(event: CloseEvent): void {}

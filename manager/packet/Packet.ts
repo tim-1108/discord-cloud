@@ -2,12 +2,10 @@ import type { PacketType } from "../utils/packets.ts";
 import { type SchemaEntryConsumer, validateObjectBySchema } from "../utils/validator.ts";
 import { isRecord } from "../utils/types.ts";
 import type { UUID } from "../../common";
-import { sleep } from "../utils/util.ts";
 
 export abstract class Packet {
     protected data: Record<string, any> | null;
     public readonly id: string;
-    public static ID = "";
     /**
      * Used to listen for a reply of for this packet.
      *
@@ -16,7 +14,7 @@ export abstract class Packet {
      *
      * If it is not specified, some packets may be ignored due to
      * their dependence on this attribute.
-     * (i.e. accept and deny packets)
+     * (i.e., accept and deny packets)
      */
     private uuid: UUID | null;
     private replyTo: UUID | null;
@@ -35,15 +33,10 @@ export abstract class Packet {
 
         // BE CAREFUL WITH THIS!!!
         this.isReceivedPacket = typeof data === "undefined";
-        if (data) void this.setDataFromConstructor(data);
-    }
-
-    private async setDataFromConstructor(data: Record<string, any>) {
-        // Required so the subclass' super call can finish, and it can set the dataStructure value
-        // Sadly, instance variables of child are unavailable when running constructor of parent class.
-        await sleep(0);
-        const result = this.setData(data);
-        if (!result) throw new SyntaxError("Invalid data provided in constructor for " + this.constructor.name);
+        if (data) {
+            const result = this.setData(data);
+            if (!result) throw new SyntaxError("Invalid data provided in constructor for " + this.constructor.name);
+        }
     }
 
     public setReplyUUID(uuid: UUID) {
@@ -89,7 +82,7 @@ export abstract class Packet {
         return this.uuid;
     }
 
-    public abstract readonly dataStructure: SchemaEntryConsumer | null;
+    public abstract getDataStructure(): SchemaEntryConsumer;
 
     /**
      * Verifies the data inputted and validates it with
@@ -99,12 +92,13 @@ export abstract class Packet {
      * indicating that the data has been stored.
      */
     public setData(incoming: Record<string, any> | null): boolean {
-        if (!this.dataStructure) {
+        const structure = this.getDataStructure();
+        if (!structure) {
             console.warn("No data structure set for packet", this.constructor.name);
             return false;
         }
-        if (!isRecord(incoming) || !this.dataStructure) return false;
-        const validation = validateObjectBySchema(incoming, this.dataStructure);
+        if (!isRecord(incoming)) return false;
+        const validation = validateObjectBySchema(incoming, structure);
         if (!validation.invalid) {
             this.data = incoming;
         }

@@ -20,6 +20,7 @@ export abstract class PacketReceiver {
             }, timeout ?? PacketReceiver.REPLY_TIMEOUT);
 
             const resolveFunc = (data: T) => {
+                this.replies.delete(id);
                 clearTimeout(timer);
                 resolve(data);
             };
@@ -38,10 +39,9 @@ export abstract class PacketReceiver {
     protected resolveReplies(packet: Packet) {
         const uuid = packet.getReplyUUID();
         if (uuid === null || !this.replies.size) return false;
-        const value = this.replies.get(uuid);
-        if (!value) return false;
-        value(packet);
-        this.replies.delete(uuid);
+        const func = this.replies.get(uuid);
+        if (!func) return false;
+        func(packet);
         return true;
     }
 
@@ -75,6 +75,7 @@ export abstract class PacketReceiver {
         if (sent !== null) return null;
         const response = await reply;
 
+        // Only allow packets of the EXACT type the function caller requested
         return response instanceof replyClass ? response : null;
     }
 

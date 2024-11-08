@@ -1,5 +1,6 @@
 import { UploadService } from "./UploadService.ts";
 import type { Service } from "./Service.ts";
+import { sendUploadsToServices } from "../utils/uploads.ts";
 
 /**
  * These uploader services are connected and ready to work!
@@ -50,7 +51,13 @@ export function createService(type: string, config: ServiceConfig) {
 export function findMethodsForServiceType(service: Service) {
     switch (service.constructor) {
         case UploadService: {
-            return { add: () => uploadServices.add(<UploadService>service), delete: () => uploadServices.delete(<UploadService>service) };
+            return {
+                add: () => {
+                    uploadServices.add(<UploadService>service);
+                    void sendUploadsToServices();
+                },
+                delete: () => uploadServices.delete(<UploadService>service)
+            };
         }
         default: {
             // In any situation where this CAN even be called, this should never fail.

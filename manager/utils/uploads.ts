@@ -27,18 +27,19 @@ export function enqueueUpload(client: Client, packet: UploadQueueAddPacket) {
     void sendUploadsToServices();
 }
 
-async function sendUploadsToServices() {
+export async function sendUploadsToServices() {
     const count = getUploadServiceCount();
     if (count.total === 0 || count.total === count.busy) return;
     console.info("Sending uploads to services");
     while (uploadQueue.length > 0) {
         if (count.total === count.busy) break;
         const service = findRandomUploadService();
-        // This should not actually happen.
+        // This should not happen.
         if (!service) break;
 
         const item = uploadQueue.shift();
-        await service.requestUploadStart(item!?.metadata);
+        if (!item) break;
+        await service.requestUploadStart(item.metadata);
 
         // Even without re-fetching the count, we know the service will be busy.
         count.busy++;
