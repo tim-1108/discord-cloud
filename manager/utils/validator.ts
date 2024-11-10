@@ -65,6 +65,7 @@ export function validateObjectBySchema(object: any, consumer: SchemaEntryConsume
         else if (schema.type === "number") validateNumberSchema(schema, value, invalidateKey);
         else if (schema.type === "boolean") validateBooleanSchema(schema, value, invalidateKey);
         else if (schema.type === "record") validateRecordSchema(schema, value, invalidateKey);
+        else if (schema.type === "array") validateArraySchema(schema, value, invalidateKey);
         else throw new SyntaxError("Invalid type for validation");
     }
 
@@ -119,6 +120,25 @@ function validateRecordSchema(schema: RecordSchemaEntry, value: any, func: Inval
     if (validation.invalid) return func("items_invalid", validation);
 }
 
+function validateArraySchema(schema: ArraySchemaEntry, value: any, func: InvalidateFunction) {
+    if (!Array.isArray(value)) return func("incorrect_type");
+
+    const min = schema.min_length ?? 0;
+    const max = schema.max_length ?? MAX_POSITIVE_INTEGER;
+
+    if (value.length < min) return func("too_small");
+    if (value.length > max) return func("too_large");
+
+    const allowedItems = new Set(schema.allowed_items);
+
+    const hasAnyInvalid = value.some((entry) => {
+        if (schema.item_type && typeof entry !== schema.item_type) return true;
+        return !!(schema.allowed_items && !allowedItems.has(entry));
+    });
+
+    if (hasAnyInvalid) return func("items_invalid");
+}
+
 type SchemaOffense =
     | "required_missing"
     | "too_small"
@@ -130,7 +150,9 @@ type SchemaOffense =
     | "float_disallowed"
     | "not_valid_option"
     | "not_expected_value"
-    | "items_invalid";
+    | "items_invalid"
+    | "array_item_incorrect_type"
+    | "array_item_not_allowed";
 
 export type SchemaEntryConsumer = Record<string, SchemaEntry>;
 
@@ -143,7 +165,7 @@ interface BaseSchemaEntry {
     /**
      * Allows for custom checks on schema entries.
      *
-     * Returns whether the data provided is correct.
+     * Returns weather the data provided is correct.
      * (true -> valid, false -> invalid)
      *
      * Is run after the check of {@link BaseSchemaEntry.required} has passed.
@@ -203,7 +225,24 @@ interface RecordSchemaEntry extends BaseSchemaEntry {
     items: SchemaEntryConsumer;
 }
 
-export type SchemaEntry = StringSchemaEntry | NumberSchemaEntry | BooleanSchemaEntry | RecordSchemaEntry;
+interface ArraySchemaEntry<T = any> extends BaseSchemaEntry {
+    type: "array";
+    item_type?: Primitives;
+    min_length?: number;
+    max_length?: number;
+    allowed_items?: T[];
+}
+
+export function createArraySchemaEntry<T>(data: Omit<ArraySchemaEntry, "type">): ArraySchemaEntry<T> {
+    return {
+        type: "array",
+        ...data
+    };
+}
+
+type Primitives = "object" | "boolean" | "number" | "string";
+
+export type SchemaEntry = StringSchemaEntry | NumberSchemaEntry | BooleanSchemaEntry | RecordSchemaEntry | ArraySchemaEntry;
 
 interface SerializedSchemaEntry extends BaseSchemaEntry {
     pattern?: string;
