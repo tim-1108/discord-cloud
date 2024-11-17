@@ -1,14 +1,12 @@
-import type { SchemaToType } from "../../utils/validator.ts";
+import type { SchemaToType } from "../../validator.ts";
 import { U2SPacket } from "../U2SPacket.ts";
 
-const id = "upload-start-confirm";
+const id = "upload-finish";
 
 type DataType = SchemaToType<typeof dataStructure>;
-const dataStructure = {
-    accepted: { type: "boolean", required: true }
-} as const;
+const dataStructure = {} as const;
 
-export class UploadStartConfirmPacket extends U2SPacket {
+export class UploadFinishPacket extends U2SPacket {
     protected declare data: DataType;
     public static readonly ID = id;
 

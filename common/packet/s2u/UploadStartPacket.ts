@@ -1,5 +1,5 @@
-import { patterns } from "../../utils/patterns.ts";
-import type { SchemaToType } from "../../utils/validator.ts";
+import { patterns } from "../../patterns.ts";
+import type { SchemaToType } from "../../validator.ts";
 import { S2UPacket } from "../S2UPacket.ts";
 
 const id = "upload-start";
@@ -9,7 +9,8 @@ const dataStructure = {
     name: { type: "string", required: true, pattern: patterns.fileName },
     path: { type: "string", required: true, pattern: patterns.stringifiedPath },
     size: { type: "number", required: true, min: 0 },
-    client: { type: "string", required: true, pattern: patterns.uuid }
+    client: { type: "string", required: true, pattern: patterns.uuid },
+    upload_id: { type: "string", required: true, pattern: patterns.uuid }
 } as const;
 
 export class UploadStartPacket extends S2UPacket {

@@ -1,7 +1,7 @@
-import type { PacketType } from "../utils/packets.ts";
-import { type SchemaEntryConsumer, validateObjectBySchema } from "../utils/validator.ts";
-import { isRecord } from "../utils/types.ts";
-import type { UUID } from "../../common";
+import type { PacketType } from "./parser.ts";
+import { type SchemaEntryConsumer, validateObjectBySchema } from "../validator.ts";
+import { isRecord } from "../types.ts";
+import type { UUID } from "../index";
 
 export abstract class Packet {
     protected data: Record<string, any> | null;

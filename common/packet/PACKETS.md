@@ -116,7 +116,7 @@ A new packet should inherit a subclass of `Packet`, so i.e. `S2CPacket` or `S2UP
 
 **DO NOT** directly extend `Packet`, as the `id` field will be set incorrectly.
 
-When registering, it is important to add the packet to the list of `packetTypeLists` inside `getPacketList` inside `/utils/packets.ts`.
+When registering, it is important to add the packet to the list of `packetTypeLists` inside `getPacketList` inside `parser.ts`.
 Otherwise, the packet cannot be detected when received by the parser.
 
 Remember to give packets unique IDs to prevent conflicts.

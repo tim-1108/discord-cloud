@@ -1,6 +1,7 @@
 import { UploadService } from "./UploadService.ts";
 import type { Service } from "./Service.ts";
 import { sendUploadsToServices } from "../utils/uploads.ts";
+import { type WebSocket } from "ws";
 
 /**
  * These uploader services are connected and ready to work!

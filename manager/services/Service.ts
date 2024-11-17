@@ -1,5 +1,5 @@
 import type { ServiceConfig } from "./list.ts";
-import { PacketReceiver } from "../PacketReceiver.ts";
+import { PacketReceiver } from "../../common/packet/PacketReceiver.ts";
 
 export abstract class Service extends PacketReceiver {
     /**

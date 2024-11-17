@@ -1,8 +1,8 @@
 import { type CloseEvent, type MessageEvent, WebSocket } from "ws";
 import type { UUID } from "../common";
-import { PacketType, parsePacket } from "./utils/packets.ts";
-import { UploadQueueAddPacket } from "./packet/c2s/UploadQueueAddPacket.ts";
-import { PacketReceiver } from "./PacketReceiver.ts";
+import { PacketType, parsePacket } from "../common/packet/parser.ts";
+import { UploadQueueAddPacket } from "../common/packet/c2s/UploadQueueAddPacket.ts";
+import { PacketReceiver } from "../common/packet/PacketReceiver.ts";
 import { enqueueUpload } from "./utils/uploads.ts";
 
 export class Client extends PacketReceiver {
@@ -20,6 +20,10 @@ export class Client extends PacketReceiver {
     }
 
     private static clients = new Map<UUID, Client>();
+
+    public static getClientById(id: UUID) {
+        return Client.clients.get(id);
+    }
 
     protected handleSocketClose(event: CloseEvent) {
         Client.clients.delete(this.uuid);

@@ -1,16 +1,12 @@
-import { UploadQueueAddPacket } from "../packet/c2s/UploadQueueAddPacket.ts";
-import { UploadStartPacket } from "../packet/s2u/UploadStartPacket.ts";
-import { UploadStartConfirmPacket } from "../packet/u2s/UploadStartConfirmPacket.ts";
-
-import type { Packet } from "../packet/Packet.ts";
+import type { Packet } from "./Packet.ts";
 import { safeDestr } from "destr";
-import type { UnknownPacketStructure } from "../../common/packets";
-import { isRecord } from "./types.ts";
-import { patterns } from "./patterns.ts";
-import type { C2SPacket } from "../packet/C2SPacket.ts";
-import type { S2CPacket } from "../packet/S2CPacket.ts";
-import type { S2UPacket } from "../packet/S2UPacket.ts";
-import type { U2SPacket } from "../packet/U2SPacket.ts";
+import type { UnknownPacketStructure } from "../packets";
+import { isRecord } from "../types.ts";
+import { patterns } from "../patterns.ts";
+import type { C2SPacket } from "./C2SPacket.ts";
+import type { S2CPacket } from "./S2CPacket.ts";
+import type { S2UPacket } from "./S2UPacket.ts";
+import type { U2SPacket } from "./U2SPacket.ts";
 
 export function getPacketClassById<T extends PacketType>(id: string, expectedType: T): Packet | null {
     if (!id.includes(":")) return null;
@@ -54,6 +50,7 @@ export function parsePacket<T extends PacketType>(message: string | Buffer | Arr
     // TODO: optional rework for validation errors to be sent to the client
     if (!isValidData) return null;
 
+    // If a packet is missing the "uuid" field, it just cannot be replied to!
     if (patterns.uuid.test(data.uuid)) packet.setUUID(data.uuid);
     if (patterns.uuid.test(data.reply_uuid)) packet.setReplyUUID(data.reply_uuid);
 
@@ -74,9 +71,13 @@ type PacketTypeMap = {
     [PacketType.Uploader2Server]: U2SPacket;
 };
 
-type PacketWithID<T extends Packet> = { new (): T; ID: string };
+export type PacketWithID<T extends Packet> = { new (): T; ID: string };
 
 function getPacketList<T extends PacketType>(type: T): PacketWithID<PacketTypeMap[T]>[] {
+    const UploadStartPacket = require("./s2u/UploadStartPacket.ts").UploadStartPacket;
+    const UploadFinishPacket = require("./u2s/UploadFinishPacket.ts").UploadFinishPacket;
+    const UploadQueueAddPacket = require("./c2s/UploadQueueAddPacket.ts").UploadQueueAddPacket;
+    const UploadStartConfirmPacket = require("./u2s/UploadStartConfirmPacket.ts").UploadStartConfirmPacket;
     /**
      * All packets are registered here to be dynamically created
      * by {@link getPacketClassById}.
@@ -88,8 +89,8 @@ function getPacketList<T extends PacketType>(type: T): PacketWithID<PacketTypeMa
     const packetTypeLists = {
         [PacketType.Client2Server]: [UploadQueueAddPacket] as PacketWithID<C2SPacket>[],
         [PacketType.Server2Uploader]: [UploadStartPacket] as PacketWithID<S2UPacket>[],
-        [PacketType.Uploader2Server]: [UploadStartConfirmPacket] as PacketWithID<U2SPacket>[],
-        [PacketType.Server2Client]: [] as PacketWithID<S2CPacket>[]
+        [PacketType.Server2Client]: [] as PacketWithID<S2CPacket>[],
+        [PacketType.Uploader2Server]: [UploadStartConfirmPacket, UploadFinishPacket] as PacketWithID<U2SPacket>[]
     };
     return packetTypeLists[type];
 }

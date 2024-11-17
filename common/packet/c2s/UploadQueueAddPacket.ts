@@ -1,6 +1,6 @@
 import { C2SPacket } from "../C2SPacket.ts";
-import { patterns } from "../../utils/patterns.ts";
-import type { SchemaToType } from "../../utils/validator.ts";
+import { patterns } from "../../patterns.ts";
+import type { SchemaToType } from "../../validator.ts";
 
 const id = "upload-queue-add";
 
@@ -8,7 +8,8 @@ type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
     name: { type: "string", required: true, pattern: patterns.fileName },
     path: { type: "string", required: true, pattern: patterns.stringifiedPath },
-    size: { type: "number", required: true, min: 0 }
+    // TODO: allow empty files to be uploaded
+    size: { type: "number", required: true, min: 1 }
 } as const;
 
 export class UploadQueueAddPacket extends C2SPacket {

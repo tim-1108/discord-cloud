@@ -1,5 +1,5 @@
 import { Packet } from "./Packet.ts";
-import { PacketType } from "../utils/packets.ts";
+import { PacketType } from "./parser.ts";
 
 export abstract class U2SPacket extends Packet {
     protected constructor(id: string, data?: Record<string, any>) {

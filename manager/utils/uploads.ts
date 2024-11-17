@@ -1,17 +1,10 @@
-import type { UploadQueueAddPacket } from "../packet/c2s/UploadQueueAddPacket.ts";
-import type { UUID } from "../../common";
+import type { UploadQueueAddPacket } from "../../common/packet/c2s/UploadQueueAddPacket.ts";
 import { findRandomUploadService, getUploadServiceCount } from "../services/list.ts";
 import type { Client } from "../Client.ts";
-
-export interface UploadMetadata {
-    client: UUID;
-    name: string;
-    path: string;
-    size: number;
-}
+import type { UploadMetadataClientProvided } from "../../common/uploads";
 
 interface UploadQueueItem {
-    metadata: UploadMetadata;
+    metadata: UploadMetadataClientProvided;
     queue_position: number;
 }
 

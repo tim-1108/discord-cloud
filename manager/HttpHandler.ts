@@ -44,7 +44,7 @@ export class HttpHandler {
 
         if (type === "client") {
             // The thing just needs to be called and is self-initializing
-            // Might be weird to handle so this might be changed in the future.
+            // Might be weird to handle, so this might be changed in the future.
             new Client(ws);
             return;
         }
