@@ -1,5 +1,4 @@
 import type { UploadMetadata } from "../common/uploads";
-import { generateChunkSizes } from "./file-helper.ts";
 
 export function isBusy() {
     return data.get("busy") === true;
@@ -13,6 +12,11 @@ function markNotBusy() {
 export function getCurrentUpload() {
     return data.get("upload") as UploadData | undefined;
 }
+export function endCurrentUpload() {
+    console.info("We have finished the upload");
+    markNotBusy();
+    data.delete("upload");
+}
 
 type Data = {
     busy: boolean;
@@ -25,6 +29,10 @@ interface UploadData {
      * Discord message IDs mapped to the indices of chunks
      */
     completed_chunks: Map<number, string>;
+    /**
+     * The chunk indices currently processing/uploading
+     */
+    processing: Set<number>;
 }
 type DataMap = Map<
     keyof Data, // Keys are the keys of the Data type
@@ -32,17 +40,19 @@ type DataMap = Map<
 >;
 const data: DataMap = new Map([["busy", false]]);
 
-export function setPendingUpload(metadata: UploadMetadata) {
+export function setPendingUpload(metadata: UploadMetadata, chunks: number[]) {
     if (isBusy()) return false;
-    const chunks = generateChunkSizes(metadata.size);
     // TODO: allow empty files to be uploaded
     if (!chunks.length) return false;
+
+    console.log(chunks, metadata);
 
     markBusy();
     data.set("upload", {
         metadata,
         chunks,
-        completed_chunks: new Map()
+        completed_chunks: new Map(),
+        processing: new Set()
     });
 
     console.log("Now listening for upload");

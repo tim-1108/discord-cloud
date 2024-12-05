@@ -8,6 +8,10 @@ const CHUNK_SIZE = 24 * 1024 * 1024;
  * Generates the desired sizes for all chunks the user should upload.
  *
  * The size the user provides has to match the desired size EXACTLY!
+ *
+ * As the upload service itself is responsible for determining chunk sizes,
+ * not the manager, this data will be communicated to the client via the
+ * manager.
  * @param totalSize The size provided by the socket packet {@link UploadStartPacket}
  */
 export function generateChunkSizes(totalSize: number) {

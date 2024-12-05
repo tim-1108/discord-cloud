@@ -24,5 +24,26 @@ export const patterns = {
      */
     fileName: new RegExp(`^${ALLOWED_CHARS_WITH_LENGTH}$`, "i"),
     uuid: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/,
-    multipart: /^multipart\/form-data;\s*boundary=[a-z0-9'()+_,-.\/:=?]+$/i
+    multipart: /^multipart\/form-data;\s*boundary=[a-z0-9'()+_,-.\/:=?]+$/i,
+    /**
+     * An insecure pattern to make sure only numbers are inputted.
+     * Allows for all digits to be inputted at will but prevents any other
+     * characters.
+     */
+    integer: /^(-)?\d{1,10}$/,
+    webhookUrl: /^https:\/\/((canary|www)\.)?discord\.com\/api\/webhooks\/\d{17,22}\/[a-zA-Z0-9_]{10,100}$/,
+    /**
+     * A packet id should be of format "<from>2<to>:<packet id, containing lowercase chars, numbers and hyphens>".
+     *
+     * From and to consist of one character each.
+     */
+    packetId: /^[a-z]2[a-z]:[a-z\-0-9]+$/,
+    /**
+     * Base64 data compatible to be included inside URL query
+     */
+    base64Url: /^[a-zA-Z0-9_-]+$/,
+    /**
+     * Represents an SHA-256 hash
+     */
+    hash: /^[0-9a-f]{64}$/
 };

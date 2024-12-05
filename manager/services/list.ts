@@ -49,6 +49,11 @@ export function createService(type: string, config: ServiceConfig) {
     return service;
 }
 
+export function onServiceClose(service: Service, deleteFunction: () => any) {
+    console.info(`[onServiceClose] ${service.constructor.name}, busy: ${service.isBusy()}`);
+    deleteFunction();
+}
+
 export function findMethodsForServiceType(service: Service) {
     switch (service.constructor) {
         case UploadService: {

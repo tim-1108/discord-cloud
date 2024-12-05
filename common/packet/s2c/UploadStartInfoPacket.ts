@@ -1,14 +1,17 @@
+import { patterns } from "../../patterns.ts";
 import type { SchemaToType } from "../../validator.ts";
-import { U2SPacket } from "../U2SPacket.ts";
+import { S2CPacket } from "../S2CPacket.ts";
 
-const id = "upload-finish";
+const id = "upload-start-info";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
-    success: { type: "boolean", required: true }
+    chunks: { type: "array", item_type: "number", required: true },
+    upload_id: { type: "string", pattern: patterns.uuid, required: true },
+    address: { type: "string", required: true }
 } as const;
 
-export class UploadFinishPacket extends U2SPacket {
+export class UploadStartInfoPacket extends S2CPacket {
     protected declare data: DataType;
     public static readonly ID = id;
 

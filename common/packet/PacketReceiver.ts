@@ -64,6 +64,7 @@ export abstract class PacketReceiver {
     ): typeof replyPacketClass extends undefined ? Promise<Error | null> : Promise<R | null> {
         const originatorUUID = originator.getUUID();
         // If the original packet has no "uuid" field set, we will just not be able to reply to it.
+        // This function will not fail, only the reply-portion will silently fail
         if (originatorUUID) myPacket.setReplyUUID(originatorUUID);
 
         if (replyPacketClass) {
@@ -80,17 +81,17 @@ export abstract class PacketReceiver {
      * Resolves to a promise once the data has been sent.
      *
      * If an error should occur while sending the packet,
-     * the promise is rejected.
+     * the promise is resolved with the error object.
      */
     public sendPacket(packet: Packet): Promise<Error | null> {
         return new Promise((resolve, reject) => {
             if (this.socket.readyState !== WebSocket.OPEN) {
                 console.warn("A service which has a closed socket has tried to send a message", this.constructor.name);
-                return reject(new Error("Service socket is closed"));
+                return resolve(new Error("Service socket is closed"));
             }
 
             this.socket.send(packet.serialize(), (err) => {
-                err ? reject(err) : resolve(null);
+                err ? resolve(err) : resolve(null);
             });
         });
     }

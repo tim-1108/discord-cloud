@@ -256,7 +256,7 @@ function serializeSchemaEntry(entry: SchemaEntry): SerializedSchemaEntry {
     });
 }
 
-type SchemaEntryType<T extends SchemaEntry> = T extends StringSchemaEntry
+type RequiredSchemaEntryType<T extends SchemaEntry> = T extends StringSchemaEntry
     ? string
     : T extends NumberSchemaEntry
       ? number
@@ -266,6 +266,20 @@ type SchemaEntryType<T extends SchemaEntry> = T extends StringSchemaEntry
           ? SchemaToType<T["items"]>
           : unknown;
 
+type OptionalSchemaEntryType<T extends SchemaEntry> = T extends StringSchemaEntry
+    ? string | undefined
+    : T extends NumberSchemaEntry
+      ? number | undefined
+      : T extends BooleanSchemaEntry
+        ? boolean | undefined
+        : T extends RecordSchemaEntry
+          ? SchemaToType<T["items"]> | undefined
+          : unknown;
+
 export type SchemaToType<T extends SchemaEntryConsumer | null> = {
-    [K in keyof T]: T extends SchemaEntryConsumer ? SchemaEntryType<T[K]> : null;
+    [K in keyof T]: T extends SchemaEntryConsumer
+        ? T[K]["required"] extends true
+            ? RequiredSchemaEntryType<T[K]>
+            : OptionalSchemaEntryType<T[K]>
+        : null;
 };

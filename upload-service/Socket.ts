@@ -3,9 +3,10 @@ import { getEnviromentVariables } from "./index.ts";
 import { PacketReceiver } from "../common/packet/PacketReceiver.ts";
 import { PacketType, parsePacket } from "../common/packet/parser.ts";
 import { UploadStartPacket } from "../common/packet/s2u/UploadStartPacket.ts";
-import { UploadStartConfirmPacket } from "../common/packet/u2s/UploadStartConfirmPacket.ts";
 import { setPendingUpload } from "./state.ts";
 import type { UUID } from "../common";
+import { UploadReadyPacket } from "../common/packet/u2s/UploadReadyPacket.ts";
+import { generateChunkSizes } from "./file-helper.ts";
 
 export class Socket extends PacketReceiver {
     public constructor() {
@@ -36,8 +37,9 @@ export class Socket extends PacketReceiver {
 
         if (packet instanceof UploadStartPacket) {
             const { upload_id, client, ...data } = packet.getData();
-            const accepted = setPendingUpload({ ...data, upload_id: upload_id as UUID, client: client as UUID });
-            this.replyToPacket(packet, new UploadStartConfirmPacket({ accepted }));
+            const chunks = generateChunkSizes(data.size);
+            const accepted = setPendingUpload({ ...data, upload_id: upload_id as UUID, client: client as UUID }, chunks);
+            this.replyToPacket(packet, new UploadReadyPacket({ accepted, chunks }));
         }
     }
 }

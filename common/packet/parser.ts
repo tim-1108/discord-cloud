@@ -9,7 +9,7 @@ import type { S2UPacket } from "./S2UPacket.ts";
 import type { U2SPacket } from "./U2SPacket.ts";
 
 export function getPacketClassById<T extends PacketType>(id: string, expectedType: T): Packet | null {
-    if (!id.includes(":")) return null;
+    if (!patterns.packetId.test(id)) return null;
     const [type, name] = id.split(":");
 
     // Allowing any client to create packets meant to be handled by another service is terrible!!!
@@ -74,10 +74,16 @@ type PacketTypeMap = {
 export type PacketWithID<T extends Packet> = { new (): T; ID: string };
 
 function getPacketList<T extends PacketType>(type: T): PacketWithID<PacketTypeMap[T]>[] {
+    /**
+     * Sadly, this is the only way to consistently bypass an error
+     * which would occur when Node/Bun is loading classes (U2SPacket not initialized)
+     */
     const UploadStartPacket = require("./s2u/UploadStartPacket.ts").UploadStartPacket;
     const UploadFinishPacket = require("./u2s/UploadFinishPacket.ts").UploadFinishPacket;
     const UploadQueueAddPacket = require("./c2s/UploadQueueAddPacket.ts").UploadQueueAddPacket;
-    const UploadStartConfirmPacket = require("./u2s/UploadStartConfirmPacket.ts").UploadStartConfirmPacket;
+    const UploadReadyPacket = require("./u2s/UploadReadyPacket.ts").UploadReadyPacket;
+    const UploadStartInfoPacket = require("./s2c/UploadStartInfoPacket.ts").UploadStartInfoPacket;
+    const UploadFinishInfoPacket = require("./s2c/UploadFinishInfoPacket.ts").UploadFinishInfoPacket;
     /**
      * All packets are registered here to be dynamically created
      * by {@link getPacketClassById}.
@@ -89,8 +95,8 @@ function getPacketList<T extends PacketType>(type: T): PacketWithID<PacketTypeMa
     const packetTypeLists = {
         [PacketType.Client2Server]: [UploadQueueAddPacket] as PacketWithID<C2SPacket>[],
         [PacketType.Server2Uploader]: [UploadStartPacket] as PacketWithID<S2UPacket>[],
-        [PacketType.Server2Client]: [] as PacketWithID<S2CPacket>[],
-        [PacketType.Uploader2Server]: [UploadStartConfirmPacket, UploadFinishPacket] as PacketWithID<U2SPacket>[]
+        [PacketType.Server2Client]: [UploadStartInfoPacket, UploadFinishInfoPacket] as PacketWithID<S2CPacket>[],
+        [PacketType.Uploader2Server]: [UploadReadyPacket, UploadFinishPacket] as PacketWithID<U2SPacket>[]
     };
     return packetTypeLists[type];
 }

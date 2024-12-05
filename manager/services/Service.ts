@@ -1,6 +1,10 @@
 import type { ServiceConfig } from "./list.ts";
 import { PacketReceiver } from "../../common/packet/PacketReceiver.ts";
 
+/**
+ * Services are registered by {@link HttpHandler} and are automatically
+ * dismissed by it.
+ */
 export abstract class Service extends PacketReceiver {
     /**
      * Represents the URL of the service.
@@ -9,7 +13,7 @@ export abstract class Service extends PacketReceiver {
      * @private
      * @readonly
      */
-    private readonly config: ServiceConfig;
+    protected readonly config: ServiceConfig;
     /**
      * Whether the service is currently processing
      * user data. If so, it cannot be chosen to receive

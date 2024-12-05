@@ -1,5 +1,5 @@
 import express, { type Express } from "express";
-import { createService, findMethodsForServiceType } from "./services/list.ts";
+import { createService, findMethodsForServiceType, onServiceClose } from "./services/list.ts";
 import http from "http";
 import { WebSocket, type WebSocketServer } from "ws";
 import { cleanURL, getSearchParamsFromPath } from "./utils/url.ts";
@@ -71,13 +71,6 @@ export class HttpHandler {
         const methods = findMethodsForServiceType(service);
         methods.add();
 
-        ws.onclose = () => {
-            console.info("[HttpHandler] Closed service of type", type);
-            // Sadly, not much we can do.
-            if (service.isBusy()) {
-                console.warn("---> Removed service was still busy :/");
-            }
-            methods.delete();
-        };
+        ws.onclose = () => void onServiceClose(service, methods.delete);
     }
 }
