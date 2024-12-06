@@ -97,8 +97,7 @@ export abstract class PacketReceiver {
     }
 
     public async sendPacketAndReply<R extends Packet>(packet: Packet, replyClass: { new (): R }, timeout?: number): Promise<R | null> {
-        if (!packet.getUUID()) packet.setUUID(crypto.randomUUID());
-        const uuid = packet.getUUID()!;
+        const uuid = packet.setRandomUUID();
         const reply = this.scheduleReply<R>(uuid, timeout);
 
         const sent = await this.sendPacket(packet);

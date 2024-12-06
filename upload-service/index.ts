@@ -77,7 +77,7 @@ async function onFileUpload(req: Request, res: Response): Promise<void> {
     data.completed_chunks.set(chunkId, result);
 
     if (data.completed_chunks.size === data.chunks.length) {
-        void socket.sendPacket(new UploadFinishPacket({ success: true }));
+        void socket.sendPacket(new UploadFinishPacket({ success: true, messages: Array.from(data.completed_chunks.values()) }));
         endCurrentUpload();
     }
 

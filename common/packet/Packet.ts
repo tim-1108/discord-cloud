@@ -51,14 +51,27 @@ export abstract class Packet {
     }
 
     /**
+     * Only sets the UUID of this packet to something random if it is not yet set
+     */
+    public setRandomUUID(): UUID {
+        if (this.uuid) return this.uuid;
+        this.uuid = crypto.randomUUID();
+        return this.uuid;
+    }
+
+    /**
      * Serializes a packet by creating a JSON structure and stringify-ing that.
      */
     public serialize() {
         if (this.isReceivedPacket) throw new SyntaxError("Cannot send a received packet");
-        // On sent packets the UUID is not set by default and thus only required to be set here.
-        // The other side should be able to reply to this message.
-        if (!this.uuid) this.uuid = crypto.randomUUID();
-        return JSON.stringify({ id: this.id, data: this.data ?? {}, uuid: this.uuid, reply_uuid: this.replyTo ?? undefined });
+        return JSON.stringify({
+            id: this.id,
+            data: this.data ?? {},
+            // On sent packets the UUID is not set by default and thus only required to be set here.
+            // The other side should be able to reply to this message.
+            uuid: this.setRandomUUID(),
+            reply_uuid: this.replyTo ?? undefined
+        });
     }
 
     public static createPrefixedId(type: PacketType, id: string) {

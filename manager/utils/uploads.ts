@@ -23,7 +23,7 @@ export function enqueueUpload(client: Client, packet: UploadQueueAddPacket) {
 export async function sendUploadsToServices() {
     const count = getUploadServiceCount();
     if (count.total === 0 || count.total === count.busy) return;
-    console.info("Sending uploads to services");
+    console.info("[Submit Uploads]", uploadQueue.length, "upload(s) scheduled,", count.busy, "of", count.total, "uploaders busy");
     while (uploadQueue.length > 0) {
         if (count.total === count.busy) break;
         const service = findRandomUploadService();

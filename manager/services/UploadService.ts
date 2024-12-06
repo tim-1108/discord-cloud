@@ -68,7 +68,7 @@ export class UploadService extends Service {
          */
 
         if (packet instanceof UploadFinishPacket) {
-            const { success } = packet.getData();
+            const { success, messages } = packet.getData();
             this.notifyClientOfFinish(success);
             this.markNotBusy();
         }

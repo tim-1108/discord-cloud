@@ -5,7 +5,8 @@ const id = "upload-finish";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
-    success: { type: "boolean", required: true }
+    success: { type: "boolean", required: true },
+    messages: { type: "array", item_type: "string", required: true }
 } as const;
 
 export class UploadFinishPacket extends U2SPacket {
