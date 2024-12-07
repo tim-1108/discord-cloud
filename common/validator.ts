@@ -225,18 +225,29 @@ interface RecordSchemaEntry extends BaseSchemaEntry {
     items: SchemaEntryConsumer;
 }
 
-interface ArraySchemaEntry<T = any> extends BaseSchemaEntry {
+export interface ArraySchemaEntry<T = any, Allowed = any, Required extends boolean | undefined = boolean> extends BaseSchemaEntry {
     type: "array";
     item_type?: Primitives;
     min_length?: number;
     max_length?: number;
-    allowed_items?: T[];
+    allowed_items?: Allowed[];
+    /**
+     * This is NOT VALIDATED AGAINST.
+     *
+     * Only meant to have some TypeScript data to work with
+     * assuming the data is trustworthy.
+     */
+    type_declaration?: T;
+    required: Required;
 }
 
-export function createArraySchemaEntry<T>(data: Omit<ArraySchemaEntry, "type">): ArraySchemaEntry<T> {
+export function createArraySchemaEntry<T = any, Allowed = any, Required extends boolean = true | false>(
+    data: Omit<ArraySchemaEntry, "type">
+): ArraySchemaEntry<T, Allowed, Required> {
     return {
         type: "array",
-        ...data
+        ...data,
+        required: data.required as Required
     };
 }
 
@@ -264,7 +275,25 @@ type RequiredSchemaEntryType<T extends SchemaEntry> = T extends StringSchemaEntr
         ? boolean
         : T extends RecordSchemaEntry
           ? SchemaToType<T["items"]>
+          : T extends ArraySchemaEntry
+            ? ArraySchemaEntryTypeDetection<T>
+            : unknown;
+
+type PrimitiveNameToType<T extends Primitives> = T extends "object"
+    ? object
+    : T extends "boolean"
+      ? boolean
+      : T extends "number"
+        ? number
+        : T extends "string"
+          ? string
           : unknown;
+
+type ArraySchemaEntryTypeDetection<T extends ArraySchemaEntry> = T["item_type"] extends Primitives
+    ? Array<PrimitiveNameToType<T["item_type"]>>
+    : T["type_declaration"] extends undefined
+      ? Array<unknown>
+      : Array<T["type_declaration"]>;
 
 type OptionalSchemaEntryType<T extends SchemaEntry> = T extends StringSchemaEntry
     ? string | undefined
@@ -274,7 +303,9 @@ type OptionalSchemaEntryType<T extends SchemaEntry> = T extends StringSchemaEntr
         ? boolean | undefined
         : T extends RecordSchemaEntry
           ? SchemaToType<T["items"]> | undefined
-          : unknown;
+          : T extends ArraySchemaEntry
+            ? ArraySchemaEntryTypeDetection<T> | undefined
+            : unknown;
 
 export type SchemaToType<T extends SchemaEntryConsumer | null> = {
     [K in keyof T]: T extends SchemaEntryConsumer

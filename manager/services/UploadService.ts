@@ -1,6 +1,6 @@
 import { Service } from "./Service.ts";
 import type { ServiceConfig } from "./list.ts";
-import type { UploadMetadataClientProvided } from "../../common/uploads.d.ts";
+import type { UploadMetadata } from "../../common/uploads.d.ts";
 import type { CloseEvent, MessageEvent } from "ws";
 import { UploadStartPacket } from "../../common/packet/s2u/UploadStartPacket.ts";
 import { PacketType, parsePacket } from "../../common/packet/parser.ts";
@@ -24,15 +24,20 @@ export class UploadService extends Service {
         this.initialize();
     }
 
-    public async requestUploadStart(metadata: UploadMetadataClientProvided) {
+    /**
+     * Sends a packet to the upload service to request the start of an upload.
+     *
+     * Automatically informs the client of all activities.
+     * @param metadata The upload metadata to send along.
+     */
+    public async requestUploadStart(metadata: UploadMetadata): Promise<boolean> {
         // This should not be possible when called from sendUploadsToServices
         if (this.isBusy()) {
             console.warn("[UploadService] Requested upload start while service is busy");
-            return;
+            return false;
         }
         this.markBusy();
-        const id = crypto.randomUUID();
-        const result = await this.sendPacketAndReply(new UploadStartPacket({ ...metadata, upload_id: id }), UploadReadyPacket);
+        const result = await this.sendPacketAndReply(new UploadStartPacket(metadata), UploadReadyPacket);
         const data = result?.getData();
 
         // The client id can be trusted as it is defined by the server
@@ -40,17 +45,20 @@ export class UploadService extends Service {
         // In the time awaiting a response from the uploader, the client might have disconnected
         if (!client) {
             this.markNotBusy();
-            return;
+            return false;
         }
 
         if (!data || !data.accepted) {
             this.markNotBusy();
             this.notifyClientOfFinish(false, "Uploader rejected request");
-            return;
+            return false;
         }
 
         this.clientId = metadata.client;
-        await client.sendPacket(new UploadStartInfoPacket({ upload_id: id, chunks: data.chunks, address: this.config.address }));
+        const hasInformedClient = await client.sendPacket(
+            new UploadStartInfoPacket({ upload_id: metadata.upload_id, chunks: data.chunks, address: this.config.address })
+        );
+        return hasInformedClient === null;
     }
 
     protected handleSocketClose(event: CloseEvent): void {
@@ -69,6 +77,7 @@ export class UploadService extends Service {
 
         if (packet instanceof UploadFinishPacket) {
             const { success, messages } = packet.getData();
+            // TODO: Write to database
             this.notifyClientOfFinish(success);
             this.markNotBusy();
         }

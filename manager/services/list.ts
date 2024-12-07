@@ -1,6 +1,6 @@
 import { UploadService } from "./UploadService.ts";
 import type { Service } from "./Service.ts";
-import { sendUploadsToServices } from "../utils/uploads.ts";
+import { sendUploadsToServices } from "../uploads.ts";
 import { type WebSocket } from "ws";
 
 /**
@@ -15,7 +15,7 @@ export function findRandomUploadService() {
     const list = getFilteredUploadServices((service) => !service.isBusy());
     if (!list.length) return null;
     // More secure than Math.random, gets a value for an index
-    // When length of list would only be 1, diving by 0 => NaN
+    // When length of "list" would only be 1, diving by 0 => NaN
     const index = list.length > 1 ? crypto.getRandomValues(new Uint8Array(1))[0] % (list.length - 1) : 0;
     if (Number.isNaN(index)) return null;
     return list[index];

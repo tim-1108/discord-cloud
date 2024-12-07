@@ -39,6 +39,10 @@ export abstract class Packet {
         }
     }
 
+    /**
+     * Set the UUID of what this packet is replying to
+     * @param uuid The UUID of the originator packet
+     */
     public setReplyUUID(uuid: UUID) {
         this.replyTo = uuid;
     }
@@ -118,6 +122,10 @@ export abstract class Packet {
         return !validation.invalid;
     }
 
+    /**
+     * USE ONLY WHEN GENERATING PACKET INSTANCES WHEN RECEIVED BY THE SOCKET.
+     * @deprecated
+     */
     public setUUID(uuid: UUID) {
         this.uuid = uuid;
     }

@@ -3,7 +3,7 @@ import type { UUID } from "../common";
 import { PacketType, parsePacket } from "../common/packet/parser.ts";
 import { UploadQueueAddPacket } from "../common/packet/c2s/UploadQueueAddPacket.ts";
 import { PacketReceiver } from "../common/packet/PacketReceiver.ts";
-import { enqueueUpload } from "./utils/uploads.ts";
+import { enqueueUpload, removeClientItemsFromQueue } from "./uploads.ts";
 
 export class Client extends PacketReceiver {
     private readonly uuid: UUID;
@@ -25,8 +25,12 @@ export class Client extends PacketReceiver {
         return Client.clients.get(id);
     }
 
+    // TODO: Whenever a client disconnects, also force the uploader (if one is connected to this client)
+    //  to close any in-progress uploads
     protected handleSocketClose(event: CloseEvent) {
         Client.clients.delete(this.uuid);
+        const clearedUploads = removeClientItemsFromQueue(this.uuid);
+        console.info(`Client ${this.uuid} disconnected | Removed ${clearedUploads} queued upload(s)`);
     }
 
     protected handleSocketMessage(event: MessageEvent) {
