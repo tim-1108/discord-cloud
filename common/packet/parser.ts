@@ -84,6 +84,8 @@ function getPacketList<T extends PacketType>(type: T): PacketWithID<PacketTypeMa
     const UploadReadyPacket = require("./u2s/UploadReadyPacket.ts").UploadReadyPacket;
     const UploadStartInfoPacket = require("./s2c/UploadStartInfoPacket.ts").UploadStartInfoPacket;
     const UploadFinishInfoPacket = require("./s2c/UploadFinishInfoPacket.ts").UploadFinishInfoPacket;
+    const UploadQueueingPacket = require("./s2c/UploadQueueingPacket.ts").UploadQueueingPacket;
+    const UploadQueueUpdatePacket = require("./s2c/UploadQueueingPacket.ts").UploadQueueingPacket;
     /**
      * All packets are registered here to be dynamically created
      * by {@link getPacketClassById}.
@@ -95,7 +97,12 @@ function getPacketList<T extends PacketType>(type: T): PacketWithID<PacketTypeMa
     const packetTypeLists = {
         [PacketType.Client2Server]: [UploadQueueAddPacket] as PacketWithID<C2SPacket>[],
         [PacketType.Server2Uploader]: [UploadStartPacket] as PacketWithID<S2UPacket>[],
-        [PacketType.Server2Client]: [UploadStartInfoPacket, UploadFinishInfoPacket] as PacketWithID<S2CPacket>[],
+        [PacketType.Server2Client]: [
+            UploadStartInfoPacket,
+            UploadFinishInfoPacket,
+            UploadQueueingPacket,
+            UploadQueueUpdatePacket
+        ] as PacketWithID<S2CPacket>[],
         [PacketType.Uploader2Server]: [UploadReadyPacket, UploadFinishPacket] as PacketWithID<U2SPacket>[]
     };
     return packetTypeLists[type];

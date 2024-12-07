@@ -8,19 +8,14 @@ import { Client } from "../Client.ts";
 import { UploadFinishPacket } from "../../common/packet/u2s/UploadFinishPacket.ts";
 import { UploadReadyPacket } from "../../common/packet/u2s/UploadReadyPacket.ts";
 import { UploadStartInfoPacket } from "../../common/packet/s2c/UploadStartInfoPacket.ts";
-import type { UUID } from "../../common";
-import { UploadFinishInfoPacket } from "../../common/packet/s2c/UploadFinishInfoPacket.ts";
+import { failUpload, finishUpload } from "../uploads.ts";
 
 export class UploadService extends Service {
-    /**
-     * The Client this uploader is currently working with
-     * @private
-     */
-    private clientId: UUID | null;
+    private uploadMetadata: UploadMetadata | null;
 
     public constructor(config: ServiceConfig) {
         super(config);
-        this.clientId = null;
+        this.uploadMetadata = null;
         this.initialize();
     }
 
@@ -50,11 +45,11 @@ export class UploadService extends Service {
 
         if (!data || !data.accepted) {
             this.markNotBusy();
-            this.notifyClientOfFinish(false, "Uploader rejected request");
+            failUpload(metadata, "The service rejected the upload");
             return false;
         }
 
-        this.clientId = metadata.client;
+        this.uploadMetadata = metadata;
         const hasInformedClient = await client.sendPacket(
             new UploadStartInfoPacket({ upload_id: metadata.upload_id, chunks: data.chunks, address: this.config.address })
         );
@@ -62,7 +57,9 @@ export class UploadService extends Service {
     }
 
     protected handleSocketClose(event: CloseEvent): void {
-        this.notifyClientOfFinish(false, "The uploader has unexpectedly been disconnected");
+        if (!this.uploadMetadata) return;
+        failUpload(this.uploadMetadata, "The uploader has unexpectedly disconnected");
+        this.uploadMetadata = null;
     }
 
     protected handleSocketMessage(event: MessageEvent): void {
@@ -76,19 +73,19 @@ export class UploadService extends Service {
          */
 
         if (packet instanceof UploadFinishPacket) {
-            const { success, messages } = packet.getData();
-            // TODO: Write to database
-            this.notifyClientOfFinish(success);
+            if (!this.uploadMetadata) {
+                console.warn("[UploadService] Received a finish packet when no upload was marked for this service");
+                return;
+            }
+            const { success, messages, hash, is_encrypted, reason, type } = packet.getData();
+            // TODO: Remove manual validation
             this.markNotBusy();
+            if (success && Array.isArray(messages) && typeof hash === "string" && typeof is_encrypted === "boolean" && typeof type === "string") {
+                finishUpload(this.uploadMetadata, messages, is_encrypted, hash, type);
+            } else {
+                failUpload(this.uploadMetadata, reason);
+            }
+            this.uploadMetadata = null;
         }
-    }
-
-    private notifyClientOfFinish(success: boolean, reason?: string) {
-        if (!this.clientId || !this.isBusy()) return;
-        const client = Client.getClientById(this.clientId);
-        if (!client) return;
-
-        void client.sendPacket(new UploadFinishInfoPacket({ success, reason }));
-        this.markNotBusy();
     }
 }

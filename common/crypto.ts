@@ -1,9 +1,9 @@
 import crypto, { type BinaryLike } from "node:crypto";
 import { createReadStream } from "node:fs";
+import { getEnvironmentVariables } from "./environment.ts";
 
 function createEncryptionKey() {
-    const encodedKey = process.env.CRYPTO_KEY;
-    if (!encodedKey) throw new ReferenceError("Cannot encrypt w/o key");
+    const encodedKey = getEnvironmentVariables("common").CRYPTO_KEY;
     return Buffer.from(encodedKey, "base64");
 }
 
@@ -45,10 +45,6 @@ export function decryptBuffer(data: Buffer) {
     const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
     console.info(`Decryption of size ${decrypted.length} took ${Date.now() - decryptionStart}ms`);
     return decrypted;
-}
-
-export function isEncryptionEnabled() {
-    return process.env.ENCRYPTION === "1";
 }
 
 export function createHashFromBinaryLike(value: BinaryLike) {

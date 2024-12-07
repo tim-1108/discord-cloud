@@ -5,12 +5,16 @@ import type { UploadMetadata } from "../common/uploads";
 import type { UUID } from "../common";
 import { UploadQueueUpdatePacket } from "../common/packet/s2c/UploadQueueUpdatePacket.ts";
 import { UploadQueueingPacket } from "../common/packet/s2c/UploadQueueingPacket.ts";
+import { UploadFinishInfoPacket } from "../common/packet/s2c/UploadFinishInfoPacket.ts";
+import { addFileToDatabase } from "./database/creating.ts";
 
 const uploadQueue = new Array<UploadMetadata>();
 
 export function enqueueUpload(client: Client, packet: UploadQueueAddPacket) {
     const data = packet.getData();
     if (!data) return;
+
+    // TODO: Overwriting checks (does file already exist in DB?)
 
     const { name, path, size } = data;
 
@@ -100,4 +104,24 @@ function removeIndicesFromQueue(indices: number[]) {
     for (const index of indices) {
         indices.splice(index, 1);
     }
+}
+
+export async function finishUpload(metadata: UploadMetadata, messages: string[], isEncrypted: boolean, hash: string, type: string) {
+    const client = Client.getClientById(metadata.client);
+    if (!client) return;
+
+    const fileHandle = await addFileToDatabase(metadata, hash, type, isEncrypted, messages);
+    if (!fileHandle) {
+        failUpload(metadata, "Failed to save metadata to database");
+        return;
+    }
+    void client.sendPacket(new UploadFinishInfoPacket({ success: true, upload_id: metadata.upload_id, reason: undefined }));
+    void sendUploadsToServices();
+}
+
+export function failUpload(metadata: UploadMetadata, reason?: string) {
+    const client = Client.getClientById(metadata.client);
+    if (!client) return;
+    void client.sendPacket(new UploadFinishInfoPacket({ success: false, upload_id: metadata.upload_id, reason }));
+    void sendUploadsToServices();
 }

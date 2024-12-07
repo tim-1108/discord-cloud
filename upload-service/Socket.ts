@@ -1,5 +1,4 @@
 import { WebSocket, type MessageEvent, type CloseEvent } from "ws";
-import { getEnviromentVariables } from "./index.ts";
 import { PacketReceiver } from "../common/packet/PacketReceiver.ts";
 import { PacketType, parsePacket } from "../common/packet/parser.ts";
 import { UploadStartPacket } from "../common/packet/s2u/UploadStartPacket.ts";
@@ -7,14 +6,15 @@ import { setPendingUpload } from "./state.ts";
 import type { UUID } from "../common";
 import { UploadReadyPacket } from "../common/packet/u2s/UploadReadyPacket.ts";
 import { generateChunkSizes } from "./file-helper.ts";
+import { getEnvironmentVariables } from "../common/environment.ts";
 
 export class Socket extends PacketReceiver {
     public constructor() {
-        const env = getEnviromentVariables();
-        const address = new URL(env.socketAddress);
+        const env = getEnvironmentVariables("upload-service");
+        const address = new URL(env.MANAGER_ADDRESS);
         address.searchParams.append("type", "upload");
-        address.searchParams.append("key", env.password);
-        address.searchParams.append("address", env.address);
+        address.searchParams.append("key", env.PASSWORD);
+        address.searchParams.append("address", env.OWN_ADDRESS);
 
         const socket = new WebSocket(address);
         super(socket);
@@ -28,6 +28,7 @@ export class Socket extends PacketReceiver {
 
     protected handleSocketClose(event: CloseEvent) {
         console.log("This socket is now closed");
+        process.exit(1);
     }
 
     protected handleSocketMessage(event: MessageEvent) {

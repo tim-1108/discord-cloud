@@ -291,9 +291,11 @@ type PrimitiveNameToType<T extends Primitives> = T extends "object"
 
 type ArraySchemaEntryTypeDetection<T extends ArraySchemaEntry> = T["item_type"] extends Primitives
     ? Array<PrimitiveNameToType<T["item_type"]>>
-    : T["type_declaration"] extends undefined
-      ? Array<unknown>
-      : Array<T["type_declaration"]>;
+    : T["allowed_items"] extends Array<any>
+      ? T["allowed_items"]
+      : T["type_declaration"] extends undefined
+        ? Array<unknown>
+        : Array<T["type_declaration"]>;
 
 type OptionalSchemaEntryType<T extends SchemaEntry> = T extends StringSchemaEntry
     ? string | undefined

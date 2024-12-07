@@ -4,6 +4,7 @@ import http from "http";
 import { WebSocket, type WebSocketServer } from "ws";
 import { cleanURL, getSearchParamsFromPath } from "./utils/url.ts";
 import { Client } from "./Client.ts";
+import { getEnvironmentVariables } from "../common/environment.ts";
 
 export class HttpHandler {
     private readonly server: http.Server;
@@ -35,36 +36,40 @@ export class HttpHandler {
     }
 
     private handleSocketConnection(ws: WebSocket) {
+        const { CLIENT_PASSWORD, SERVICE_PASSWORD } = getEnvironmentVariables("manager");
         // Note: This should be impossible
         if (!this.isReady()) {
             ws.close();
             return;
         }
         const [type, key, address] = getSearchParamsFromPath(ws.url, "type", "key", "address");
+        if (!key) {
+            return void ws.close();
+        }
 
         if (type === "client") {
+            if (key !== CLIENT_PASSWORD) {
+                return void ws.close();
+            }
             // The thing just needs to be called and is self-initializing
             // Might be weird to handle, so this might be changed in the future.
             new Client(ws);
             return;
         }
 
-        if (!type || !key || !address) {
+        if (!type || !address) {
             // No justice for you!
-            ws.close();
-            return;
+            return void ws.close();
         }
 
         const url = cleanURL(address);
-        if (!url || key !== process.env.SERVICE_LOGIN_KEY) {
-            ws.close();
-            return;
+        if (!url || key !== SERVICE_PASSWORD) {
+            return void ws.close();
         }
         // Without proper credentials, the requester should never reach this point
         const service = createService(type, { address: url, socket: ws });
         if (!service) {
-            ws.close();
-            return;
+            return void ws.close();
         }
 
         console.info("[HttpHandler] New service created of type", type);

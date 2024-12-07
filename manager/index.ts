@@ -1,5 +1,6 @@
-import dotenv from "dotenv";
+import { validateEnviromentVariables } from "../common/environment.ts";
 import { HttpHandler } from "./HttpHandler.ts";
-dotenv.config({ path: `${__dirname}/.env` });
+
+validateEnviromentVariables("common", "manager");
 
 const requestHandler = new HttpHandler(4000);

@@ -1,6 +1,7 @@
 import { type DatabaseFileRow, type FolderOrRoot, ROOT_FOLDER_ID, supabase } from "./core";
 import { findFolderByNameAndParent, createOrGetFolderByPath, getFolderById } from "./finding";
 import { parsePostgrestResponse } from "./helper.ts";
+import type { UploadMetadata } from "../../common/uploads";
 
 export async function createFolderWithParent(name: string, parent: FolderOrRoot) {
     const parentId = parent === ROOT_FOLDER_ID ? null : parent;
@@ -29,7 +30,10 @@ export async function createFolderWithParent(name: string, parent: FolderOrRoot)
  * When overwriting a file, provide the unique id.
  */
 export async function addFileToDatabase(
-    { path, name, size, hash, should_encrypt, type }: UploadFileProperties,
+    { path, name, size }: UploadMetadata,
+    hash: string,
+    type: string,
+    isEncrypted: boolean,
     messages: string[],
     isOverwriting?: number
 ) {
@@ -39,14 +43,14 @@ export async function addFileToDatabase(
 
     if (typeof isOverwriting === "number") {
         return parsePostgrestResponse<DatabaseFileRow>(
-            supabase.from("files").update({ hash, size, messages, is_encrypted: should_encrypt, type }).eq("id", isOverwriting).select().single()
+            supabase.from("files").update({ hash, size, messages, is_encrypted: isEncrypted, type }).eq("id", isOverwriting).select().single()
         );
     }
 
     return parsePostgrestResponse<DatabaseFileRow>(
         supabase
             .from("files")
-            .insert({ name, size, hash, folder: folder === ROOT_FOLDER_ID ? null : folder, messages, is_encrypted: should_encrypt, type })
+            .insert({ name, size, hash, folder: folder === ROOT_FOLDER_ID ? null : folder, messages, is_encrypted: isEncrypted, type })
             .select()
             .single()
     );
