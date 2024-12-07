@@ -1,11 +1,13 @@
-import type { SchemaToType } from "../../validator.ts";
-import { S2CPacket } from "../S2CPacket.ts";
+import type { SchemaToType } from "../../validator";
+import { S2CPacket } from "../S2CPacket";
+import { patterns } from "../../patterns";
 
 const id = "upload-finish-info";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
     success: { type: "boolean", required: true },
+    upload_id: { type: "string", required: true, pattern: patterns.uuid },
     /**
      * Optional: (if known) why an upload completely failed
      */

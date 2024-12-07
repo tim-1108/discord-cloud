@@ -1,5 +1,5 @@
-import type { SchemaToType } from "../../validator.ts";
-import { U2SPacket } from "../U2SPacket.ts";
+import type { SchemaToType } from "../../validator";
+import { U2SPacket } from "../U2SPacket";
 
 const id = "upload-start-info";
 

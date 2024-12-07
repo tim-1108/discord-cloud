@@ -1,6 +1,6 @@
-import type { PacketType } from "./parser.ts";
-import { type SchemaEntryConsumer, validateObjectBySchema } from "../validator.ts";
-import { isRecord } from "../types.ts";
+import type { PacketType } from "./parser";
+import { type SchemaEntryConsumer, validateObjectBySchema } from "../validator";
+import { isRecord } from "../types";
 import type { UUID } from "../index";
 
 export abstract class Packet {

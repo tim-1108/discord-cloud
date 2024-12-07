@@ -6,7 +6,7 @@ const MAX_TITLE_LENGTH = 127;
  *
  * No slashes, backslashes or double-dots allowed!
  */
-const ALLOWED_CHARS = `((?!\\.\\.)[\\d\\w-+#.*~^°!"'§$%&()[\\]{}=?ß,; ])`;
+const ALLOWED_CHARS = `((?!\\.\\.)[\\d\\w-+#.*~^°!"'’_§$%&()[\\]{}=?ß,; ])`;
 const ALLOWED_CHARS_WITH_LENGTH = `${ALLOWED_CHARS}{1,${MAX_TITLE_LENGTH}}`;
 
 export const patterns = {

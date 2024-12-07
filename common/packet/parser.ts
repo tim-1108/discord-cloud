@@ -1,12 +1,12 @@
-import type { Packet } from "./Packet.ts";
+import type { Packet } from "./Packet";
 import { safeDestr } from "destr";
 import type { UnknownPacketStructure } from "../packets";
-import { isRecord } from "../types.ts";
-import { patterns } from "../patterns.ts";
-import type { C2SPacket } from "./C2SPacket.ts";
-import type { S2CPacket } from "./S2CPacket.ts";
-import type { S2UPacket } from "./S2UPacket.ts";
-import type { U2SPacket } from "./U2SPacket.ts";
+import { isRecord } from "../types";
+import { patterns } from "../patterns";
+import type { C2SPacket } from "./C2SPacket";
+import type { S2CPacket } from "./S2CPacket";
+import type { S2UPacket } from "./S2UPacket";
+import type { U2SPacket } from "./U2SPacket";
 
 export function getPacketClassById<T extends PacketType>(id: string, expectedType: T): Packet | null {
     if (!patterns.packetId.test(id)) return null;
@@ -78,12 +78,14 @@ function getPacketList<T extends PacketType>(type: T): PacketWithID<PacketTypeMa
      * Sadly, this is the only way to consistently bypass an error
      * which would occur when Node/Bun is loading classes (U2SPacket not initialized)
      */
-    const UploadStartPacket = require("./s2u/UploadStartPacket.ts").UploadStartPacket;
-    const UploadFinishPacket = require("./u2s/UploadFinishPacket.ts").UploadFinishPacket;
-    const UploadQueueAddPacket = require("./c2s/UploadQueueAddPacket.ts").UploadQueueAddPacket;
-    const UploadReadyPacket = require("./u2s/UploadReadyPacket.ts").UploadReadyPacket;
-    const UploadStartInfoPacket = require("./s2c/UploadStartInfoPacket.ts").UploadStartInfoPacket;
-    const UploadFinishInfoPacket = require("./s2c/UploadFinishInfoPacket.ts").UploadFinishInfoPacket;
+    const UploadStartPacket = require("./s2u/UploadStartPacket").UploadStartPacket;
+    const UploadFinishPacket = require("./u2s/UploadFinishPacket").UploadFinishPacket;
+    const UploadQueueAddPacket = require("./c2s/UploadQueueAddPacket").UploadQueueAddPacket;
+    const UploadReadyPacket = require("./u2s/UploadReadyPacket").UploadReadyPacket;
+    const UploadStartInfoPacket = require("./s2c/UploadStartInfoPacket").UploadStartInfoPacket;
+    const UploadFinishInfoPacket = require("./s2c/UploadFinishInfoPacket").UploadFinishInfoPacket;
+    const UploadQueueingPacket = require("./s2c/UploadQueueingPacket").UploadQueueingPacket;
+    const UploadQueueUpdatePacket = require("./s2c/UploadQueueingPacket").UploadQueueingPacket;
     /**
      * All packets are registered here to be dynamically created
      * by {@link getPacketClassById}.
@@ -95,7 +97,12 @@ function getPacketList<T extends PacketType>(type: T): PacketWithID<PacketTypeMa
     const packetTypeLists = {
         [PacketType.Client2Server]: [UploadQueueAddPacket] as PacketWithID<C2SPacket>[],
         [PacketType.Server2Uploader]: [UploadStartPacket] as PacketWithID<S2UPacket>[],
-        [PacketType.Server2Client]: [UploadStartInfoPacket, UploadFinishInfoPacket] as PacketWithID<S2CPacket>[],
+        [PacketType.Server2Client]: [
+            UploadStartInfoPacket,
+            UploadFinishInfoPacket,
+            UploadQueueingPacket,
+            UploadQueueUpdatePacket
+        ] as PacketWithID<S2CPacket>[],
         [PacketType.Uploader2Server]: [UploadReadyPacket, UploadFinishPacket] as PacketWithID<U2SPacket>[]
     };
     return packetTypeLists[type];

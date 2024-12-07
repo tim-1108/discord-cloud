@@ -1,6 +1,7 @@
-import { patterns } from "../common/patterns.ts";
+import { patterns } from "../common/patterns";
 import FormData from "form-data";
 import type { Message } from "../common/discord";
+import { getEnvironmentVariables } from "../common/environment";
 
 export async function sendWebhookMessage(attachment: Buffer, index: number, message: string) {
     const url = getWebhookURL();
@@ -28,8 +29,8 @@ export async function sendWebhookMessage(attachment: Buffer, index: number, mess
     }
 }
 function getWebhookURL() {
-    const env = process.env.WEBHOOK_URL;
-    if (!env || patterns.webhookUrl.test(env)) {
+    const env = getEnvironmentVariables("upload-service").WEBHOOK_URL;
+    if (!patterns.webhookUrl.test(env)) {
         console.warn("Invalid webhook URL", env);
         return null;
     }

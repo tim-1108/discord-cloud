@@ -19,3 +19,19 @@ export function parseFileSize(size: number) {
         return (size / divider).toFixed(1) + FILE_SIZE_IDENTIFIERS[i];
     }
 }
+
+export function areAllEntriesDefined<T>(array: (T | undefined)[]): array is T[] {
+    return !array.some((item) => typeof item === "undefined" || item === null);
+}
+
+export function createRecordFromKeyValueArrays<K extends readonly string[], V = any>(keys: K, values: V[]): { [Key in keyof K]: V } {
+    if (keys.length !== values.length) {
+        console.warn("[createRecordFromKeyValueArrays] Received arrays with two different lengths:", keys, values);
+    }
+    const record = {} as { [Key in keyof K]: V };
+    for (let i = 0; i < keys.length; i++) {
+        const key = keys[i] as keyof K;
+        record[key] = values[i];
+    }
+    return record;
+}

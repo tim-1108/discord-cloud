@@ -1,5 +1,5 @@
 import { type CloseEvent, type MessageEvent, WebSocket } from "ws";
-import type { Packet } from "./Packet.ts";
+import type { Packet } from "./Packet";
 import type { UUID } from "../index";
 
 export abstract class PacketReceiver {

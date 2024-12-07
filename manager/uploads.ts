@@ -1,16 +1,20 @@
-import type { UploadQueueAddPacket } from "../common/packet/c2s/UploadQueueAddPacket.ts";
-import { findRandomUploadService, getUploadServiceCount } from "./services/list.ts";
-import { Client } from "./Client.ts";
+import type { UploadQueueAddPacket } from "../common/packet/c2s/UploadQueueAddPacket";
+import { findRandomUploadService, getUploadServiceCount } from "./services/list";
+import { Client } from "./Client";
 import type { UploadMetadata } from "../common/uploads";
 import type { UUID } from "../common";
-import { UploadQueueUpdatePacket } from "../common/packet/s2c/UploadQueueUpdatePacket.ts";
-import { UploadQueueingPacket } from "../common/packet/s2c/UploadQueueingPacket.ts";
+import { UploadQueueUpdatePacket } from "../common/packet/s2c/UploadQueueUpdatePacket";
+import { UploadQueueingPacket } from "../common/packet/s2c/UploadQueueingPacket";
+import { UploadFinishInfoPacket } from "../common/packet/s2c/UploadFinishInfoPacket";
+import { addFileToDatabase } from "./database/creating";
 
 const uploadQueue = new Array<UploadMetadata>();
 
 export function enqueueUpload(client: Client, packet: UploadQueueAddPacket) {
     const data = packet.getData();
     if (!data) return;
+
+    // TODO: Overwriting checks (does file already exist in DB?)
 
     const { name, path, size } = data;
 
@@ -25,7 +29,7 @@ export function enqueueUpload(client: Client, packet: UploadQueueAddPacket) {
 export async function sendUploadsToServices(isInitial?: boolean, isRetry?: boolean): Promise<void> {
     const count = getUploadServiceCount();
     if (count.total === 0 || count.total === count.busy) return;
-    console.info("[Submit Uploads]", uploadQueue.length, "upload(s) scheduled,", count.busy, "of", count.total, "uploaders busy");
+    console.info("[Submit Uploads]", uploadQueue.length, "upload(s) queued,", count.busy, "of", count.total, "uploaders busy");
     while (uploadQueue.length > 0) {
         if (count.total === count.busy) break;
         const service = findRandomUploadService();
@@ -41,6 +45,8 @@ export async function sendUploadsToServices(isInitial?: boolean, isRetry?: boole
             // If this did not work this time, we will try again.
             return void sendUploadsToServices(isInitial, true);
         }
+
+        console.info("[Submit Uploads] Sent upload to service");
 
         // Even without re-fetching the count, we know the service will be busy.
         count.busy++;
@@ -100,4 +106,27 @@ function removeIndicesFromQueue(indices: number[]) {
     for (const index of indices) {
         indices.splice(index, 1);
     }
+}
+
+export async function finishUpload(metadata: UploadMetadata, messages: string[], isEncrypted: boolean, hash: string, type: string) {
+    const client = Client.getClientById(metadata.client);
+    if (!client) return;
+
+    console.info("[Upload] Finish!");
+
+    const fileHandle = await addFileToDatabase(metadata, hash, type, isEncrypted, messages);
+    if (!fileHandle) {
+        failUpload(metadata, "Failed to save metadata to database");
+        return;
+    }
+    void client.sendPacket(new UploadFinishInfoPacket({ success: true, upload_id: metadata.upload_id, reason: undefined }));
+    void sendUploadsToServices();
+}
+
+export function failUpload(metadata: UploadMetadata, reason?: string) {
+    const client = Client.getClientById(metadata.client);
+    if (!client) return;
+    console.info("[Upload] Fail!", reason);
+    void client.sendPacket(new UploadFinishInfoPacket({ success: false, upload_id: metadata.upload_id, reason }));
+    void sendUploadsToServices();
 }

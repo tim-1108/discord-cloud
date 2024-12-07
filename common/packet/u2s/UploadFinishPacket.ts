@@ -1,12 +1,20 @@
-import type { SchemaToType } from "../../validator.ts";
-import { U2SPacket } from "../U2SPacket.ts";
+import type { SchemaToType } from "../../validator";
+import { U2SPacket } from "../U2SPacket";
+import { patterns } from "../../patterns";
 
 const id = "upload-finish";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
     success: { type: "boolean", required: true },
-    messages: { type: "array", item_type: "string", required: true }
+    messages: { type: "array", item_type: "string", required: false },
+    hash: { type: "string", required: false, pattern: patterns.hash },
+    is_encrypted: { type: "boolean", required: false },
+    type: { type: "string", required: false },
+    /**
+     * Can be provided whenever the upload fails
+     */
+    reason: { type: "string", required: false }
 } as const;
 
 export class UploadFinishPacket extends U2SPacket {

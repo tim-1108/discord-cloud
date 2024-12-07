@@ -1,5 +1,5 @@
 import type { Response } from "express";
-import httpStatusCodes from "../http-status-codes.ts";
+import httpStatusCodes from "../http-status-codes";
 
 export function generateResponse(res: Response, status: number = 200, data: Record<string, any> = {}, errorDetails?: any) {
     const shouldHaveError = status !== 200;

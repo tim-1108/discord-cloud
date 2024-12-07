@@ -1,5 +1,5 @@
-import type { ServiceConfig } from "./list.ts";
-import { PacketReceiver } from "../../common/packet/PacketReceiver.ts";
+import type { ServiceConfig } from "./list";
+import { PacketReceiver } from "../../common/packet/PacketReceiver";
 
 /**
  * Services are registered by {@link HttpHandler} and are automatically

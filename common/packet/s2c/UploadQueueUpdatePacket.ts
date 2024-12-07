@@ -1,5 +1,5 @@
-import { type ArraySchemaEntry, type SchemaToType } from "../../validator.ts";
-import { S2CPacket } from "../S2CPacket.ts";
+import { type ArraySchemaEntry, type SchemaToType } from "../../validator";
+import { S2CPacket } from "../S2CPacket";
 import type { UUID } from "../../index";
 
 const id = "upload-queue-update";

@@ -1,8 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "./types";
-import { patterns } from "../../common/patterns.ts";
+import { patterns } from "../../common/patterns";
 import { createFolderWithParent } from "./creating";
 import { findFolderByNameAndParent } from "./finding";
+import { getEnvironmentVariables } from "../../common/environment";
 
 export type DatabaseFileRow = Database["public"]["Tables"]["files"]["Row"];
 export type DatabaseFolderRow = Database["public"]["Tables"]["folders"]["Row"];
@@ -15,9 +16,8 @@ export type DatabaseFolderRow = Database["public"]["Tables"]["folders"]["Row"];
 export type PartialDatabaseFileRow = Omit<DatabaseFileRow, "id" | "folder" | "hash" | "messages" | "is_encrypted">;
 export type PartialDatabaseFolderRow = Omit<DatabaseFolderRow, "parent_folder">;
 
-const url = process.env.SUPABASE_URL as string;
-const anonKey = process.env.SUPABASE_KEY as string;
-export const supabase = createClient<Database>(url, anonKey);
+const env = getEnvironmentVariables("manager");
+export const supabase = createClient<Database>(env.SUPABASE_URL, env.SUPABASE_KEY);
 
 export const ROOT_FOLDER_ID = "root" as const;
 

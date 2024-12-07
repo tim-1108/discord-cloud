@@ -1,6 +1,6 @@
-import { UploadService } from "./UploadService.ts";
-import type { Service } from "./Service.ts";
-import { sendUploadsToServices } from "../uploads.ts";
+import { UploadService } from "./UploadService";
+import type { Service } from "./Service";
+import { sendUploadsToServices } from "../uploads";
 import { type WebSocket } from "ws";
 
 /**

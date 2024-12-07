@@ -1,6 +1,6 @@
-import { patterns } from "../../patterns.ts";
-import type { SchemaToType } from "../../validator.ts";
-import { S2CPacket } from "../S2CPacket.ts";
+import { patterns } from "../../patterns";
+import type { SchemaToType } from "../../validator";
+import { S2CPacket } from "../S2CPacket";
 
 const id = "upload-start-info";
 
