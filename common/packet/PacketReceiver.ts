@@ -2,6 +2,24 @@ import { type CloseEvent, type MessageEvent, WebSocket } from "ws";
 import type { Packet } from "./Packet";
 import type { UUID } from "../index";
 
+interface ResolveFunction {
+    /**
+     * The thing to actually call when we received a reply
+     * @param packet The reply packet
+     */
+    callable: (packet: Packet) => void;
+    /**
+     * A reference to the actual "resolve" function of the Promise.
+     *
+     * In some circumstances, the link between this and the actual Promise
+     * seems to be severed.
+     * Thus, calling this will never resolve the Promise.
+     *
+     * Maybe this is some strange quirk, and this implementation may not work either.
+     */
+    resolve: (data: unknown) => void;
+}
+
 export abstract class PacketReceiver {
     protected socket: WebSocket;
 
@@ -9,24 +27,28 @@ export abstract class PacketReceiver {
         this.socket = socket;
     }
 
-    private replies = new Map<UUID, (data: Packet) => void>();
+    private replies = new Map<UUID, ResolveFunction>();
 
     private static REPLY_TIMEOUT = 10_000 as const;
     protected scheduleReply<T extends Packet>(id: UUID, timeout?: number): Promise<T | null> {
+        const t = new Promise((resolve) => void 0);
+
         return new Promise((resolve) => {
             const timer = setTimeout(() => {
+                console.log(`[scheduleReply] Woops, the time ran out for ${id}`);
+                this.replies.get(id)?.resolve(null);
                 this.replies.delete(id);
-                resolve(null);
             }, timeout ?? PacketReceiver.REPLY_TIMEOUT);
 
             const resolveFunc = (data: T) => {
-                this.replies.delete(id);
                 clearTimeout(timer);
-                resolve(data);
+                console.log(`[scheduleReply] Resolved ${id} with`, data);
+                this.replies.get(id)?.resolve(data);
+                this.replies.delete(id);
             };
 
-            // @ts-ignore
-            this.replies.set(id, resolveFunc);
+            // @ts-expect-error
+            this.replies.set(id, { resolve, callable: resolveFunc });
         });
     }
 
@@ -38,10 +60,11 @@ export abstract class PacketReceiver {
      */
     protected resolveReplies(packet: Packet) {
         const uuid = packet.getReplyUUID();
+        console.log(`[resolveReplies] reply map:`, this.replies, uuid);
         if (uuid === null || !this.replies.size) return false;
         const func = this.replies.get(uuid);
         if (!func) return false;
-        func(packet);
+        func.callable(packet);
         return true;
     }
 
