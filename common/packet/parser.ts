@@ -86,6 +86,7 @@ function getPacketList<T extends PacketType>(type: T): PacketWithID<PacketTypeMa
     const UploadFinishInfoPacket = require("./s2c/UploadFinishInfoPacket").UploadFinishInfoPacket;
     const UploadQueueingPacket = require("./s2c/UploadQueueingPacket").UploadQueueingPacket;
     const UploadQueueUpdatePacket = require("./s2c/UploadQueueingPacket").UploadQueueingPacket;
+    const PingServicesPacket = require("./c2s/PingServicesPacket").PingServicesPacket;
     /**
      * All packets are registered here to be dynamically created
      * by {@link getPacketClassById}.
@@ -95,7 +96,7 @@ function getPacketList<T extends PacketType>(type: T): PacketWithID<PacketTypeMa
      * (their files have not yet been loaded)
      */
     const packetTypeLists = {
-        [PacketType.Client2Server]: [UploadQueueAddPacket] as PacketWithID<C2SPacket>[],
+        [PacketType.Client2Server]: [UploadQueueAddPacket, PingServicesPacket] as PacketWithID<C2SPacket>[],
         [PacketType.Server2Uploader]: [UploadStartPacket] as PacketWithID<S2UPacket>[],
         [PacketType.Server2Client]: [
             UploadStartInfoPacket,

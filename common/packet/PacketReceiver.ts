@@ -84,6 +84,7 @@ export abstract class PacketReceiver {
      * the promise is resolved with the error object.
      */
     public sendPacket(packet: Packet): Promise<Error | null> {
+        console.info(`[${this.constructor.name}] Sending packet ${packet.id} with data`, JSON.parse(packet.serialize()));
         return new Promise((resolve, reject) => {
             if (this.socket.readyState !== WebSocket.OPEN) {
                 console.warn("A service which has a closed socket has tried to send a message", this.constructor.name);
