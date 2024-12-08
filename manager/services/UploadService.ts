@@ -63,11 +63,11 @@ export class UploadService extends Service {
     }
 
     protected handleSocketMessage(event: MessageEvent): void {
-        console.info("[UploadService] Received message with data", event.data);
         const packet = parsePacket(event.data, PacketType.Uploader2Server);
         if (!packet) return;
         console.info(`[UploadService] Received packet ${packet.id} with data`, packet.getData());
-        this.resolveReplies(packet);
+        const hasResolved = this.resolveReplies(packet);
+        console.info(`[UploadService] Resolved replies: ${hasResolved}`);
 
         /**
          * A {@link UploadReadyPacket} is parsed directly via {@link requestUploadStart}

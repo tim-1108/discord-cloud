@@ -1,7 +1,7 @@
 import type { SchemaToType } from "../../validator";
 import { U2SPacket } from "../U2SPacket";
 
-const id = "upload-start-info";
+const id = "upload-ready";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
