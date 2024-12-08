@@ -32,11 +32,14 @@ export class UploadService extends Service {
             return false;
         }
         this.markBusy();
+        console.log("[requestUploadStart] Awaiting upload start");
         const result = await this.sendPacketAndReply(new UploadStartPacket(metadata), UploadReadyPacket);
         const data = result?.getData();
 
         // The client id can be trusted as it is defined by the server
         const client = Client.getClientById(metadata.client);
+
+        console.log("[requestUploadStart] client:", client, " | data:", data);
         // In the time awaiting a response from the uploader, the client might have disconnected
         if (!client) {
             this.markNotBusy();
@@ -50,9 +53,11 @@ export class UploadService extends Service {
         }
 
         this.uploadMetadata = metadata;
+        console.log("[requestUploadStart] Informing client");
         const hasInformedClient = await client.sendPacket(
             new UploadStartInfoPacket({ upload_id: metadata.upload_id, chunks: data.chunks, address: this.config.address })
         );
+
         return hasInformedClient === null;
     }
 

@@ -38,7 +38,6 @@ export abstract class PacketReceiver {
      */
     protected resolveReplies(packet: Packet) {
         const uuid = packet.getReplyUUID();
-        console.info("[Resolve Replies] reply map: ", this.replies, uuid);
         if (uuid === null || !this.replies.size) return false;
         const func = this.replies.get(uuid);
         if (!func) return false;
