@@ -1,5 +1,5 @@
-import { Packet } from "./Packet";
-import { PacketType } from "./parser";
+import { Packet } from "./Packet.js";
+import { PacketType } from "./parser.js";
 
 export abstract class S2UPacket extends Packet {
     protected constructor(id: string, data?: Record<string, any>) {

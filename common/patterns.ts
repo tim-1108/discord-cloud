@@ -6,7 +6,7 @@ const MAX_TITLE_LENGTH = 127;
  *
  * No slashes, backslashes or double-dots allowed!
  */
-const ALLOWED_CHARS = `((?!\\.\\.)[\\d\\w-+#.*~^°!"'’_§$%&()[\\]{}=?ß,; ])`;
+const ALLOWED_CHARS = `((?!\\.\\.)[\\d\\w-+#.*~^°!"'’_§$%&()[\\]{}=?ß,;äöüéèêëáàâäíìîïóòôöúùûüñç ])`;
 const ALLOWED_CHARS_WITH_LENGTH = `${ALLOWED_CHARS}{1,${MAX_TITLE_LENGTH}}`;
 
 export const patterns = {
@@ -45,5 +45,6 @@ export const patterns = {
     /**
      * Represents an SHA-256 hash
      */
-    hash: /^[0-9a-f]{64}$/
+    hash: /^[0-9a-f]{64}$/,
+    snowflake: /^[0-9]{15,22}$/
 };

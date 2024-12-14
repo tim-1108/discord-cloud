@@ -1,4 +1,4 @@
-import type { UUID } from "./index";
+import type { UUID } from "./index.js";
 
 export interface PacketStructure extends UnknownPacketStructure {
     id: string;

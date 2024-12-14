@@ -1,5 +1,5 @@
-import type { ServiceConfig } from "./list";
-import { PacketReceiver } from "../../common/packet/PacketReceiver";
+import type { ServiceConfig } from "./list.js";
+import { PacketReceiver } from "../../common/packet/PacketReceiver.js";
 
 /**
  * Services are registered by {@link HttpHandler} and are automatically

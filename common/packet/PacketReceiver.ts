@@ -1,6 +1,6 @@
 import { type CloseEvent, type MessageEvent, WebSocket } from "ws";
-import type { Packet } from "./Packet";
-import type { UUID } from "../index";
+import type { Packet } from "./Packet.js";
+import type { UUID } from "../index.js";
 
 interface ResolveFunction {
     /**
@@ -31,8 +31,6 @@ export abstract class PacketReceiver {
 
     private static REPLY_TIMEOUT = 10_000 as const;
     protected scheduleReply<T extends Packet>(id: UUID, timeout?: number): Promise<T | null> {
-        const t = new Promise((resolve) => void 0);
-
         return new Promise((resolve) => {
             const timer = setTimeout(() => {
                 console.log(`[scheduleReply] Woops, the time ran out for ${id}`);
@@ -60,7 +58,6 @@ export abstract class PacketReceiver {
      */
     protected resolveReplies(packet: Packet) {
         const uuid = packet.getReplyUUID();
-        console.log(`[resolveReplies] reply map:`, this.replies, uuid);
         if (uuid === null || !this.replies.size) return false;
         const func = this.replies.get(uuid);
         if (!func) return false;
@@ -107,8 +104,7 @@ export abstract class PacketReceiver {
      * the promise is resolved with the error object.
      */
     public sendPacket(packet: Packet): Promise<Error | null> {
-        console.info(`[${this.constructor.name}] Sending packet ${packet.id} with data`, JSON.parse(packet.serialize()));
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
             if (this.socket.readyState !== WebSocket.OPEN) {
                 console.warn("A service which has a closed socket has tried to send a message", this.constructor.name);
                 return resolve(new Error("Service socket is closed"));

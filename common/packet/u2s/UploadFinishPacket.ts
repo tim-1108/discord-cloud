@@ -1,6 +1,6 @@
-import type { SchemaToType } from "../../validator";
-import { U2SPacket } from "../U2SPacket";
-import { patterns } from "../../patterns";
+import type { SchemaToType } from "../../validator.js";
+import { U2SPacket } from "../U2SPacket.js";
+import { patterns } from "../../patterns.js";
 
 const id = "upload-finish";
 
@@ -11,6 +11,7 @@ const dataStructure = {
     hash: { type: "string", required: false, pattern: patterns.hash },
     is_encrypted: { type: "boolean", required: false },
     type: { type: "string", required: false },
+    channel: { type: "string", required: false, pattern: patterns.snowflake },
     /**
      * Can be provided whenever the upload fails
      */

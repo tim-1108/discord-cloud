@@ -1,7 +1,7 @@
-import { type DatabaseFileRow, type FolderOrRoot, ROOT_FOLDER_ID, supabase } from "./core";
-import { findFolderByNameAndParent, createOrGetFolderByPath, getFolderById } from "./finding";
-import { parsePostgrestResponse } from "./helper";
-import type { UploadMetadata } from "../../common/uploads";
+import { type DatabaseFileRow, type FolderOrRoot, ROOT_FOLDER_ID, supabase } from "./core.js";
+import { findFolderByNameAndParent, createOrGetFolderByPath, getFolderById } from "./finding.js";
+import { parsePostgrestResponse } from "./helper.js";
+import type { UploadMetadata } from "../../common/uploads.js";
 
 export async function createFolderWithParent(name: string, parent: FolderOrRoot) {
     const parentId = parent === ROOT_FOLDER_ID ? null : parent;
@@ -28,6 +28,14 @@ export async function createFolderWithParent(name: string, parent: FolderOrRoot)
  * they will be created.
  *
  * When overwriting a file, provide the unique id.
+ *
+ * On the database side, an already existing file cannot just be overwritten.
+ * Even if not provided in a call of this function,
+ * the database automatically removes another entry with the same name
+ * and parent folder that already sits in the database.
+ * The other entry will not be updated, a new one is created.
+ *
+ * This "silent replacement" is not communicated to this caller.
  */
 export async function addFileToDatabase(
     { path, name, size }: UploadMetadata,
@@ -35,6 +43,7 @@ export async function addFileToDatabase(
     type: string,
     isEncrypted: boolean,
     messages: string[],
+    channel: string,
     isOverwriting?: number
 ) {
     // If the folder does not exist, we will always create it.
@@ -43,14 +52,19 @@ export async function addFileToDatabase(
 
     if (typeof isOverwriting === "number") {
         return parsePostgrestResponse<DatabaseFileRow>(
-            supabase.from("files").update({ hash, size, messages, is_encrypted: isEncrypted, type }).eq("id", isOverwriting).select().single()
+            supabase
+                .from("files")
+                .update({ hash, size, messages, is_encrypted: isEncrypted, type, channel })
+                .eq("id", isOverwriting)
+                .select()
+                .single()
         );
     }
 
     return parsePostgrestResponse<DatabaseFileRow>(
         supabase
             .from("files")
-            .insert({ name, size, hash, folder: folder === ROOT_FOLDER_ID ? null : folder, messages, is_encrypted: isEncrypted, type })
+            .insert({ name, size, hash, folder: folder === ROOT_FOLDER_ID ? null : folder, messages, is_encrypted: isEncrypted, type, channel })
             .select()
             .single()
     );

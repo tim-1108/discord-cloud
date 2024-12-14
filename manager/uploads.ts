@@ -1,16 +1,17 @@
-import type { UploadQueueAddPacket } from "../common/packet/c2s/UploadQueueAddPacket";
-import { findRandomUploadService, getUploadServiceCount } from "./services/list";
-import { Client } from "./Client";
-import type { UploadMetadata } from "../common/uploads";
+import type { UploadQueueAddPacket } from "../common/packet/c2s/UploadQueueAddPacket.js";
+import { findRandomUploadService, getUploadServiceCount } from "./services/list.js";
+import { Client } from "./Client.js";
+import type { UploadMetadata } from "../common/uploads.js";
 import type { UUID } from "../common";
-import { UploadQueueUpdatePacket } from "../common/packet/s2c/UploadQueueUpdatePacket";
-import { UploadQueueingPacket } from "../common/packet/s2c/UploadQueueingPacket";
-import { UploadFinishInfoPacket } from "../common/packet/s2c/UploadFinishInfoPacket";
-import { addFileToDatabase } from "./database/creating";
+import { UploadQueueUpdatePacket } from "../common/packet/s2c/UploadQueueUpdatePacket.js";
+import { UploadQueueingPacket } from "../common/packet/s2c/UploadQueueingPacket.js";
+import { UploadFinishInfoPacket } from "../common/packet/s2c/UploadFinishInfoPacket.js";
+import { addFileToDatabase } from "./database/creating.js";
+import type { UploadFinishPacket } from "../common/packet/u2s/UploadFinishPacket.js";
 
 const uploadQueue = new Array<UploadMetadata>();
 
-export function enqueueUpload(client: Client, packet: UploadQueueAddPacket) {
+export function performEnqueueUploadOperation(client: Client, packet: UploadQueueAddPacket) {
     const data = packet.getData();
     if (!data) return;
 
@@ -108,13 +109,20 @@ function removeIndicesFromQueue(indices: number[]) {
     }
 }
 
-export async function finishUpload(metadata: UploadMetadata, messages: string[], isEncrypted: boolean, hash: string, type: string) {
+export async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket) {
     const client = Client.getClientById(metadata.client);
     if (!client) return;
 
     console.info("[Upload] Finish!");
 
-    const fileHandle = await addFileToDatabase(metadata, hash, type, isEncrypted, messages);
+    const data = packet.getData();
+
+    if (typeof data.hash !== "string" || typeof data.type !== "string" || typeof data.channel !== "string") {
+        failUpload(metadata, "Invalid metadata exchange between manager and service");
+        return;
+    }
+
+    const fileHandle = await addFileToDatabase(metadata, data.hash, data.type, data.is_encrypted ?? false, data.messages ?? [], data.channel);
     if (!fileHandle) {
         failUpload(metadata, "Failed to save metadata to database");
         return;

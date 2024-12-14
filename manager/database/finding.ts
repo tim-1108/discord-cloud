@@ -7,8 +7,8 @@ import {
     resolvePathToFolderId_Cached,
     type PartialDatabaseFileRow,
     type PartialDatabaseFolderRow
-} from "./core";
-import { parsePostgrestResponse } from "./helper";
+} from "./core.js";
+import { parsePostgrestResponse } from "./helper.js";
 
 export function findFolderByNameAndParent(name: string, parent: FolderOrRoot): Promise<DatabaseFolderRow | null> {
     const lookup = supabase.from("folders").select("*").eq("name", name);

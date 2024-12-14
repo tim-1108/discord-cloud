@@ -1,4 +1,4 @@
-import { isRecord } from "./types";
+import { isRecord } from "./types.js";
 
 /**
  * Used for validating the max value of a number and the length of a string.

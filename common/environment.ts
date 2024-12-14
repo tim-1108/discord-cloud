@@ -1,4 +1,4 @@
-import { areAllEntriesDefined, createRecordFromKeyValueArrays } from "./useless";
+import { areAllEntriesDefined, createRecordFromKeyValueArrays } from "./useless.js";
 
 export function getEnvironmentVariables<T extends EnvSubsetKey, Optional extends boolean = false>(
     subset: T,

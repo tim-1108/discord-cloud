@@ -1,6 +1,6 @@
-import type { UploadMetadata } from "../common/uploads";
-import { startWatchingTimeout } from "./index";
-import { getEnvironmentVariables } from "../common/environment";
+import type { UploadMetadata } from "../common/uploads.js";
+import { startWatchingTimeout } from "./index.js";
+import { getEnvironmentVariables } from "../common/environment.js";
 
 export function isBusy() {
     return data.get("busy") === true;
@@ -45,6 +45,11 @@ export interface UploadData {
      */
     hashes: string[];
     should_encrypt: boolean;
+    /**
+     * As uploads are only handled by one web socket at a time,
+     * this is the same for every chunk running on this uploader.
+     */
+    channel_id: string | null;
 }
 type DataMap = Map<
     keyof Data, // Keys are the keys of the Data type
@@ -65,7 +70,8 @@ export function setPendingUpload(metadata: UploadMetadata, chunks: number[]) {
         processing: new Set(),
         type: "application/octet-stream",
         hashes: new Array<string>(chunks.length),
-        should_encrypt: getEnvironmentVariables("upload-service").ENCRYPTION === "1"
+        should_encrypt: getEnvironmentVariables("upload-service").ENCRYPTION === "1",
+        channel_id: null
     });
 
     console.log("[Upload] Started!", data);

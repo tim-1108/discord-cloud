@@ -1,12 +1,14 @@
-import type { Packet } from "./Packet";
+import type { Packet } from "./Packet.js";
 import { safeDestr } from "destr";
-import type { UnknownPacketStructure } from "../packets";
-import { isRecord } from "../types";
-import { patterns } from "../patterns";
-import type { C2SPacket } from "./C2SPacket";
-import type { S2CPacket } from "./S2CPacket";
-import type { S2UPacket } from "./S2UPacket";
-import type { U2SPacket } from "./U2SPacket";
+import type { UnknownPacketStructure } from "../packets.js";
+import { isRecord } from "../types.js";
+import { patterns } from "../patterns.js";
+import { C2SPacket } from "./C2SPacket.js";
+import { S2CPacket } from "./S2CPacket.js";
+import { S2UPacket } from "./S2UPacket.js";
+import { U2SPacket } from "./U2SPacket.js";
+import fs from "node:fs";
+import path from "node:path";
 
 export function getPacketClassById<T extends PacketType>(id: string, expectedType: T): Packet | null {
     if (!patterns.packetId.test(id)) return null;
@@ -73,38 +75,77 @@ type PacketTypeMap = {
 
 export type PacketWithID<T extends Packet> = { new (): T; ID: string };
 
+async function loadClassesForFolder<T extends PacketType>(folder: T) {
+    /**
+     * Needs to be defined in here to prevent initialization issues
+     */
+    const packetTypes = {
+        [PacketType.Client2Server]: C2SPacket,
+        [PacketType.Server2Client]: S2CPacket,
+        [PacketType.Server2Uploader]: S2UPacket,
+        [PacketType.Uploader2Server]: U2SPacket
+    } as const;
+    const folderPath = path.join(__dirname, folder);
+
+    const list = new Array<PacketWithID<PacketTypeMap[T]>>();
+    const expectedType = packetTypes[folder];
+
+    if (!fs.existsSync(folderPath)) {
+        console.warn(`Folder not found: ${folderPath}`);
+        return list;
+    }
+
+    const files = fs.readdirSync(folderPath);
+
+    for (const file of files) {
+        const filePath = path.join(folderPath, file);
+        const stat = fs.statSync(filePath);
+
+        if (!stat.isFile() || !/\.(js|ts)$/.test(file)) continue;
+        const className = path.basename(file, path.extname(file));
+
+        const classVar = await importFileWithClass<typeof expectedType>(filePath, className);
+        if (!classVar || Object.getPrototypeOf(classVar) !== expectedType) {
+            console.warn(`${folder}/${className} not found or does not extend ${expectedType.name}`);
+            continue;
+        }
+
+        // @ts-expect-error We check above whether this object is a child of the type we wish to read.
+        list.push(classVar);
+    }
+
+    return list;
+}
+
+async function importFileWithClass<Class = Object>(path: string, className: string): Promise<Class | null> {
+    try {
+        const ref = await import(path);
+        return ref[className] ?? null;
+    } catch {
+        return null;
+    }
+}
+
+const packetTypeLists: Record<PacketType, PacketWithID<Packet>[]> = {
+    [PacketType.Client2Server]: [],
+    [PacketType.Server2Client]: [],
+    [PacketType.Server2Uploader]: [],
+    [PacketType.Uploader2Server]: []
+};
+
 function getPacketList<T extends PacketType>(type: T): PacketWithID<PacketTypeMap[T]>[] {
-    /**
-     * Sadly, this is the only way to consistently bypass an error
-     * which would occur when Node/Bun is loading classes (U2SPacket not initialized)
-     */
-    const UploadStartPacket = require("./s2u/UploadStartPacket").UploadStartPacket;
-    const UploadFinishPacket = require("./u2s/UploadFinishPacket").UploadFinishPacket;
-    const UploadQueueAddPacket = require("./c2s/UploadQueueAddPacket").UploadQueueAddPacket;
-    const UploadReadyPacket = require("./u2s/UploadReadyPacket").UploadReadyPacket;
-    const UploadStartInfoPacket = require("./s2c/UploadStartInfoPacket").UploadStartInfoPacket;
-    const UploadFinishInfoPacket = require("./s2c/UploadFinishInfoPacket").UploadFinishInfoPacket;
-    const UploadQueueingPacket = require("./s2c/UploadQueueingPacket").UploadQueueingPacket;
-    const UploadQueueUpdatePacket = require("./s2c/UploadQueueingPacket").UploadQueueingPacket;
-    const PingServicesPacket = require("./c2s/PingServicesPacket").PingServicesPacket;
-    /**
-     * All packets are registered here to be dynamically created
-     * by {@link getPacketClassById}.
-     *
-     * They have to be listed INSIDE the function to prevent
-     * an "access before initialization" error of these classes
-     * (their files have not yet been loaded)
-     */
-    const packetTypeLists = {
-        [PacketType.Client2Server]: [UploadQueueAddPacket, PingServicesPacket] as PacketWithID<C2SPacket>[],
-        [PacketType.Server2Uploader]: [UploadStartPacket] as PacketWithID<S2UPacket>[],
-        [PacketType.Server2Client]: [
-            UploadStartInfoPacket,
-            UploadFinishInfoPacket,
-            UploadQueueingPacket,
-            UploadQueueUpdatePacket
-        ] as PacketWithID<S2CPacket>[],
-        [PacketType.Uploader2Server]: [UploadReadyPacket, UploadFinishPacket] as PacketWithID<U2SPacket>[]
-    };
     return packetTypeLists[type];
 }
+
+async function loadPackets() {
+    console.info(`[Packet Parser] Loading packets`);
+    packetTypeLists[PacketType.Client2Server] = await loadClassesForFolder(PacketType.Client2Server);
+    packetTypeLists[PacketType.Server2Client] = await loadClassesForFolder(PacketType.Server2Client);
+    packetTypeLists[PacketType.Server2Uploader] = await loadClassesForFolder(PacketType.Server2Uploader);
+    packetTypeLists[PacketType.Uploader2Server] = await loadClassesForFolder(PacketType.Uploader2Server);
+    for (const type in packetTypeLists) {
+        console.info(`[Packet Parser] ${type}:`, packetTypeLists[type as PacketType]);
+    }
+}
+
+setTimeout(loadPackets, 1);

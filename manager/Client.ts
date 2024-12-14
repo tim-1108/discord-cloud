@@ -1,11 +1,13 @@
 import { type CloseEvent, type MessageEvent, WebSocket } from "ws";
 import type { UUID } from "../common";
-import { PacketType, parsePacket } from "../common/packet/parser";
-import { UploadQueueAddPacket } from "../common/packet/c2s/UploadQueueAddPacket";
-import { PacketReceiver } from "../common/packet/PacketReceiver";
-import { enqueueUpload, removeClientItemsFromQueue } from "./uploads";
-import { PingServicesPacket } from "../common/packet/c2s/PingServicesPacket";
-import { pingServices } from "./pinging";
+import { PacketType, parsePacket } from "../common/packet/parser.js";
+import { UploadQueueAddPacket } from "../common/packet/c2s/UploadQueueAddPacket.js";
+import { PacketReceiver } from "../common/packet/PacketReceiver.js";
+import { performEnqueueUploadOperation, removeClientItemsFromQueue } from "./uploads.js";
+import { PingServicesPacket } from "../common/packet/c2s/PingServicesPacket.js";
+import { pingServices } from "./pinging.js";
+import { ListRequestPacket } from "../common/packet/c2s/ListRequestPacket.js";
+import { performListPacketOperation } from "./client-operations/listing.js";
 
 export class Client extends PacketReceiver {
     private readonly uuid: UUID;
@@ -47,9 +49,11 @@ export class Client extends PacketReceiver {
         const hasResolved = this.resolveReplies(packet);
 
         if (packet instanceof UploadQueueAddPacket) {
-            enqueueUpload(this, packet);
+            performEnqueueUploadOperation(this, packet);
         } else if (packet instanceof PingServicesPacket) {
             pingServices();
+        } else if (packet instanceof ListRequestPacket) {
+            void performListPacketOperation(this, packet);
         }
     }
 }

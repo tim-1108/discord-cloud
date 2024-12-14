@@ -1,6 +1,6 @@
-import type { SchemaToType } from "../../validator";
-import { S2CPacket } from "../S2CPacket";
-import { patterns } from "../../patterns";
+import type { SchemaToType } from "../../validator.js";
+import { S2CPacket } from "../S2CPacket.js";
+import { patterns } from "../../patterns.js";
 
 const id = "upload-finish-info";
 

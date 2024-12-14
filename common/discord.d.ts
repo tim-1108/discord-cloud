@@ -1,5 +1,6 @@
 export interface Message {
     id: Snowflake;
+    channel_id: Snowflake;
     attachments: Attachment[];
 }
 

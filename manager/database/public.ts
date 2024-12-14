@@ -1,10 +1,10 @@
 import { safeDestr } from "destr";
-import { encryptBuffer, decryptBuffer } from "../../common/crypto";
-import { patterns } from "../../common/patterns";
-import { type SchemaToType, validateObjectBySchema } from "../../common/validator";
-import { resolvePathToFolderId_Cached, supabase } from "./core";
-import { getFileFromDatabase } from "./finding";
-import { folderOrRootToDatabaseType, nullOrTypeSelection } from "./helper";
+import { encryptBuffer, decryptBuffer } from "../../common/crypto.js";
+import { patterns } from "../../common/patterns.js";
+import { type SchemaToType, validateObjectBySchema } from "../../common/validator.js";
+import { resolvePathToFolderId_Cached, supabase } from "./core.js";
+import { getFileFromDatabase } from "./finding.js";
+import { folderOrRootToDatabaseType, nullOrTypeSelection } from "./helper.js";
 
 /**
  * Generates an encrypted JSON object containing name, path, and hash.

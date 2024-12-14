@@ -1,6 +1,6 @@
-import { type ArraySchemaEntry, type SchemaToType } from "../../validator";
-import { S2CPacket } from "../S2CPacket";
-import type { UUID } from "../../index";
+import { type ArraySchemaEntry, type SchemaToType } from "../../validator.js";
+import { S2CPacket } from "../S2CPacket.js";
+import type { UUID } from "../../index.js";
 
 const id = "upload-queue-update";
 

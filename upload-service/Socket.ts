@@ -1,12 +1,12 @@
 import { WebSocket, type MessageEvent, type CloseEvent } from "ws";
-import { PacketReceiver } from "../common/packet/PacketReceiver";
-import { PacketType, parsePacket } from "../common/packet/parser";
-import { UploadStartPacket } from "../common/packet/s2u/UploadStartPacket";
-import { setPendingUpload } from "./state";
+import { PacketReceiver } from "../common/packet/PacketReceiver.js";
+import { PacketType, parsePacket } from "../common/packet/parser.js";
+import { UploadStartPacket } from "../common/packet/s2u/UploadStartPacket.js";
+import { setPendingUpload } from "./state.js";
 import type { UUID } from "../common";
-import { UploadReadyPacket } from "../common/packet/u2s/UploadReadyPacket";
-import { generateChunkSizes } from "./file-helper";
-import { getEnvironmentVariables } from "../common/environment";
+import { UploadReadyPacket } from "../common/packet/u2s/UploadReadyPacket.js";
+import { generateChunkSizes } from "./file-helper.js";
+import { getEnvironmentVariables } from "../common/environment.js";
 
 export class Socket extends PacketReceiver {
     public constructor() {

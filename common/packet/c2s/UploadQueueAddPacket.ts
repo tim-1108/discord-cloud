@@ -1,6 +1,6 @@
-import { C2SPacket } from "../C2SPacket";
-import { patterns } from "../../patterns";
-import type { SchemaToType } from "../../validator";
+import { C2SPacket } from "../C2SPacket.js";
+import { patterns } from "../../patterns.js";
+import type { SchemaToType } from "../../validator.js";
 
 const id = "upload-queue-add";
 

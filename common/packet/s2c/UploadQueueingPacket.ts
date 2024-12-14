@@ -1,5 +1,5 @@
-import type { SchemaToType } from "../../validator";
-import { S2CPacket } from "../S2CPacket";
+import type { SchemaToType } from "../../validator.js";
+import { S2CPacket } from "../S2CPacket.js";
 
 const id = "upload-queueing";
 

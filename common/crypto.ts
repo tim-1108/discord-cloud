@@ -1,6 +1,6 @@
 import crypto, { type BinaryLike } from "node:crypto";
 import { createReadStream } from "node:fs";
-import { getEnvironmentVariables } from "./environment";
+import { getEnvironmentVariables } from "./environment.js";
 
 function createEncryptionKey() {
     const encodedKey = getEnvironmentVariables("common").CRYPTO_KEY;

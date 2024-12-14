@@ -1,5 +1,5 @@
-import { C2SPacket } from "../C2SPacket";
-import type { SchemaToType } from "../../validator";
+import { C2SPacket } from "../C2SPacket.js";
+import type { SchemaToType } from "../../validator.js";
 
 const id = "ping-services";
 

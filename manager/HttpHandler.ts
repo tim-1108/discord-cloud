@@ -1,10 +1,10 @@
 import express, { type Express } from "express";
-import { createService, findMethodsForServiceType, onServiceClose } from "./services/list";
-import http from "http";
+import { createService, findMethodsForServiceType, onServiceClose } from "./services/list.js";
+import http from "node:http";
 import { WebSocket, type WebSocketServer } from "ws";
-import { cleanURL, getSearchParamsFromPath } from "./utils/url";
-import { Client } from "./Client";
-import { getEnvironmentVariables } from "../common/environment";
+import { cleanURL, getSearchParamsFromPath } from "./utils/url.js";
+import { Client } from "./Client.js";
+import { getEnvironmentVariables } from "../common/environment.js";
 
 export class HttpHandler {
     private readonly server: http.Server;

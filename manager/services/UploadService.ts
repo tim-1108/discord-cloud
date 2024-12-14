@@ -1,14 +1,14 @@
-import { Service } from "./Service";
-import type { ServiceConfig } from "./list";
-import type { UploadMetadata } from "../../common/uploads";
+import { Service } from "./Service.js";
+import type { ServiceConfig } from "./list.js";
+import type { UploadMetadata } from "../../common/uploads.js";
 import type { CloseEvent, MessageEvent } from "ws";
-import { UploadStartPacket } from "../../common/packet/s2u/UploadStartPacket";
-import { PacketType, parsePacket } from "../../common/packet/parser";
-import { Client } from "../Client";
-import { UploadFinishPacket } from "../../common/packet/u2s/UploadFinishPacket";
-import { UploadReadyPacket } from "../../common/packet/u2s/UploadReadyPacket";
-import { UploadStartInfoPacket } from "../../common/packet/s2c/UploadStartInfoPacket";
-import { failUpload, finishUpload } from "../uploads";
+import { UploadStartPacket } from "../../common/packet/s2u/UploadStartPacket.js";
+import { PacketType, parsePacket } from "../../common/packet/parser.js";
+import { Client } from "../Client.js";
+import { UploadFinishPacket } from "../../common/packet/u2s/UploadFinishPacket.js";
+import { UploadReadyPacket } from "../../common/packet/u2s/UploadReadyPacket.js";
+import { UploadStartInfoPacket } from "../../common/packet/s2c/UploadStartInfoPacket.js";
+import { failUpload, finishUpload } from "../uploads.js";
 
 export class UploadService extends Service {
     private uploadMetadata: UploadMetadata | null;
@@ -84,11 +84,11 @@ export class UploadService extends Service {
                 console.warn("[UploadService] Received a finish packet when no upload was marked for this service");
                 return;
             }
-            const { success, messages, hash, is_encrypted, reason, type } = packet.getData();
+            const { success, reason } = packet.getData();
             // TODO: Remove manual validation
             this.markNotBusy();
-            if (success && Array.isArray(messages) && typeof hash === "string" && typeof is_encrypted === "boolean" && typeof type === "string") {
-                finishUpload(this.uploadMetadata, messages, is_encrypted, hash, type);
+            if (success) {
+                void finishUpload(this.uploadMetadata, packet);
             } else {
                 failUpload(this.uploadMetadata, reason);
             }

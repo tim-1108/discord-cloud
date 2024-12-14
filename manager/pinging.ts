@@ -1,5 +1,5 @@
-import { getEnvironmentVariables } from "../common/environment";
-import { cleanURL } from "./utils/url";
+import { getEnvironmentVariables } from "../common/environment.js";
+import { cleanURL } from "./utils/url.js";
 
 let lastPingTimestamp = 0;
 const DELTA_PING_MS = 60_000 as const;

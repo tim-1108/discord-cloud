@@ -1,9 +1,9 @@
 import { createClient } from "@supabase/supabase-js";
-import type { Database } from "./types";
-import { patterns } from "../../common/patterns";
-import { createFolderWithParent } from "./creating";
-import { findFolderByNameAndParent } from "./finding";
-import { getEnvironmentVariables } from "../../common/environment";
+import type { Database } from "./types.js";
+import { patterns } from "../../common/patterns.js";
+import { createFolderWithParent } from "./creating.js";
+import { findFolderByNameAndParent } from "./finding.js";
+import { getEnvironmentVariables } from "../../common/environment.js";
 
 export type DatabaseFileRow = Database["public"]["Tables"]["files"]["Row"];
 export type DatabaseFolderRow = Database["public"]["Tables"]["folders"]["Row"];
@@ -13,7 +13,7 @@ export type DatabaseFolderRow = Database["public"]["Tables"]["folders"]["Row"];
  * Returning these properties does not create a security risk,
  * but just contains useless data.
  */
-export type PartialDatabaseFileRow = Omit<DatabaseFileRow, "id" | "folder" | "hash" | "messages" | "is_encrypted">;
+export type PartialDatabaseFileRow = Omit<DatabaseFileRow, "id" | "folder" | "hash" | "messages" | "is_encrypted" | "channel">;
 export type PartialDatabaseFolderRow = Omit<DatabaseFolderRow, "parent_folder">;
 
 const env = getEnvironmentVariables("manager");
@@ -39,12 +39,15 @@ function pathToRoute(path: string): string[] | null {
 }
 
 /**
- * Retrieves the "id" field from the database of the last item of the path.
+ * Retrieves the "id" field from the database from the last item of the path.
  *
  * If root is specified, {@link ROOT_FOLDER_ID} is returned.
  *
  * Use {@link invalidateFolderCache} with a path to invalidate the last item,
  * should anything about it change (removed, renamed).
+ *
+ * When {@link shouldCreateFolders} is true, the cache will be updated
+ * automatically if subfolders are created.
  * @param path The full path of the folder
  * @param shouldCreateFolders Whether non-existing folders along the path should be created
  * @returns The database "id" field or null, if non-existent
@@ -59,6 +62,16 @@ export async function resolvePathToFolderId_Cached(path: string, shouldCreateFol
     // We start with the root
     let parent = folderCache;
 
+    /**
+     * Navigates the cache tree a layer deeper by creating a new entry inside the map
+     * of the current folder.
+     * It then sets the subfolder as the current folder for the loop.
+     *
+     * This automatically updates the folder cache as everything
+     * still happens inside the layers of {@link folderCache}
+     * @param name
+     * @param id
+     */
     function setNewParent(name: string, id: number) {
         const value = { id, subfolders: new Map() as FolderCache, nonExistentSubfolders: new Set<string>() };
         parent.subfolders.set(name, value);

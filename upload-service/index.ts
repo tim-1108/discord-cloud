@@ -1,15 +1,15 @@
 import express, { type Request, type Response } from "express";
 import multer from "multer";
-import { clearUploadState, getUploadState, isBusy, type UploadData } from "./state";
-import { patterns } from "../common/patterns";
-import { Socket } from "./Socket";
-import { sendWebhookMessage } from "./discord";
-import { formatJSON } from "../common/useless";
-import { UploadFinishPacket } from "../common/packet/u2s/UploadFinishPacket";
+import { clearUploadState, getUploadState, isBusy, type UploadData } from "./state.js";
+import { patterns } from "../common/patterns.js";
+import { Socket } from "./Socket.js";
+import { sendWebhookMessage } from "./discord.js";
+import { formatJSON } from "../common/useless.js";
+import { UploadFinishPacket } from "../common/packet/u2s/UploadFinishPacket.js";
 import { fileTypeFromBuffer } from "file-type";
-import { createHashFromBinaryLike, encryptBuffer } from "../common/crypto";
-import { lengthenTimeout, resetRequestTimeout, startRequestTimeout } from "./timeout";
-import { getEnvironmentVariables, validateEnvironmentVariables } from "../common/environment";
+import { createHashFromBinaryLike, encryptBuffer } from "../common/crypto.js";
+import { lengthenTimeout, resetRequestTimeout, startRequestTimeout } from "./timeout.js";
+import { getEnvironmentVariables, validateEnvironmentVariables } from "../common/environment.js";
 validateEnvironmentVariables("common", "upload-service");
 
 const app = express();
@@ -103,13 +103,14 @@ async function onFileUpload(req: Request, res: Response): Promise<void> {
     // However, the call to the Discord api may be in a timeout, so this may take some time
     if (!result) {
         data.processing.delete(chunkId);
-        return respondWithError(res, "Failed to upload chunk to Discord - please try again", 500);
+        return respondWithError(res, "Failed to upload chunk to Discord", 500);
     }
 
     console.info("[Upload] Finished chunk", chunkId);
 
     data.processing.delete(chunkId);
-    data.completed_chunks.set(chunkId, result);
+    data.completed_chunks.set(chunkId, result.id);
+    data.channel_id = result.channel_id;
 
     // This is called every time, even if not yet done,
     // to renew the possible timeout looming
@@ -125,6 +126,11 @@ function finishUploadIfDone(data: UploadData) {
         return;
     }
 
+    if (!data.channel_id) {
+        cancelUpload("Channel id not set properly");
+        return;
+    }
+
     void socket.sendPacket(
         new UploadFinishPacket({
             success: true,
@@ -132,6 +138,7 @@ function finishUploadIfDone(data: UploadData) {
             is_encrypted: data.should_encrypt,
             hash: combineHashes(data),
             type: data.type,
+            channel: data.channel_id,
             reason: undefined
         })
     );
@@ -154,6 +161,7 @@ export function cancelUpload(reason?: string) {
             is_encrypted: undefined,
             hash: undefined,
             type: undefined,
+            channel: undefined,
             reason
         })
     );

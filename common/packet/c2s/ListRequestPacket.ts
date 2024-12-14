@@ -1,17 +1,15 @@
+import { C2SPacket } from "../C2SPacket.js";
 import { patterns } from "../../patterns.js";
 import type { SchemaToType } from "../../validator.js";
-import { S2CPacket } from "../S2CPacket.js";
 
-const id = "upload-start-info";
+const id = "list-request";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
-    chunks: { type: "array", item_type: "number", required: true },
-    upload_id: { type: "string", pattern: patterns.uuid, required: true },
-    address: { type: "string", required: true }
+    path: { type: "string", required: true, pattern: patterns.stringifiedPath }
 } as const;
 
-export class UploadStartInfoPacket extends S2CPacket {
+export class ListRequestPacket extends C2SPacket {
     protected declare data: DataType;
     public static readonly ID = id;
 
