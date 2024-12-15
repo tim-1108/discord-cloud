@@ -5,7 +5,7 @@ import { WebSocket, WebSocketServer } from "ws";
 import { cleanURL, getSearchParamsFromPath } from "./utils/url.js";
 import { Client } from "./Client.js";
 import { getEnvironmentVariables } from "../common/environment.js";
-import socketClosureCodes from "../common/socket-closure-codes.ts";
+import socketClosureCodes from "../common/socket-closure-codes.js";
 
 export class HttpHandler {
     private readonly server: http.Server;
