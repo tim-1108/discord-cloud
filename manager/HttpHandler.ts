@@ -1,7 +1,7 @@
 import express, { type Express } from "express";
 import { createService, findMethodsForServiceType, onServiceClose } from "./services/list.js";
 import http from "node:http";
-import { WebSocket, type WebSocketServer } from "ws";
+import { WebSocket, WebSocketServer } from "ws";
 import { cleanURL, getSearchParamsFromPath } from "./utils/url.js";
 import { Client } from "./Client.js";
 import { getEnvironmentVariables } from "../common/environment.js";
@@ -16,7 +16,7 @@ export class HttpHandler {
     public constructor(port: number) {
         this.app = express();
         this.server = http.createServer(this.app);
-        this.socket = new WebSocket.Server({ server: this.server });
+        this.socket = new WebSocketServer({ server: this.server });
 
         /* === HTTP === */
         this.app.use(express.json());
