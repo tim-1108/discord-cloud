@@ -76,6 +76,10 @@ type PacketTypeMap = {
 export type PacketWithID<T extends Packet> = { new (): T; ID: string };
 
 async function loadClassesForFolder<T extends PacketType>(folder: T) {
+    if (!import.meta.dirname) {
+        console.warn("[Packet Parser] import.meta.dirname not defined");
+        return [];
+    }
     /**
      * Needs to be defined in here to prevent initialization issues
      */
@@ -85,7 +89,7 @@ async function loadClassesForFolder<T extends PacketType>(folder: T) {
         [PacketType.Server2Uploader]: S2UPacket,
         [PacketType.Uploader2Server]: U2SPacket
     } as const;
-    const folderPath = path.join(__dirname, folder);
+    const folderPath = path.join(import.meta.dirname, folder);
 
     const list = new Array<PacketWithID<PacketTypeMap[T]>>();
     const expectedType = packetTypes[folder];
