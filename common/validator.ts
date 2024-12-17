@@ -3,11 +3,11 @@ import { isRecord } from "./types.js";
 /**
  * Used for validating the max value of a number and the length of a string.
  */
-const MAX_POSITIVE_INTEGER = Math.pow(2, 31) - 1;
+const MAX_POSITIVE_INTEGER = Number.MAX_SAFE_INTEGER;
 /**
  * Used for validating the min value of a number
  */
-const MAX_NEGATIVE_INTEGER = -Math.pow(2, 31);
+const MAX_NEGATIVE_INTEGER = Number.MIN_SAFE_INTEGER;
 
 interface ValidationResponse {
     invalid: boolean;

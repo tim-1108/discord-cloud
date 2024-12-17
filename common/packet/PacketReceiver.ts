@@ -55,6 +55,7 @@ export abstract class PacketReceiver {
      * might have by looking up the reply-UUID for this packet in its list.
      * @param packet
      * @protected
+     * @returns Whether something was resolved by this packet
      */
     protected resolveReplies(packet: Packet) {
         const uuid = packet.getReplyUUID();
