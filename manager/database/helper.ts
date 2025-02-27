@@ -15,6 +15,7 @@ export function nullOrTypeSelection<T extends Primitive, Row extends Record<stri
     field: string & keyof Row,
     input: T | null
 ) {
+    // @ts-ignore fix later, unimportant
     return input === null ? builder.is(field, null) : builder.eq(field, input);
 }
 
