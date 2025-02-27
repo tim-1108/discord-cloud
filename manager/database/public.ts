@@ -17,6 +17,7 @@ import { folderOrRootToDatabaseType, nullOrTypeSelection } from "./helper.js";
  */
 export async function generateSignedFileDownload(name: string, path: string) {
     const file = await getFileFromDatabase(name, path);
+    console.log(name, path, file);
     if (file === null) return null;
 
     const data = {

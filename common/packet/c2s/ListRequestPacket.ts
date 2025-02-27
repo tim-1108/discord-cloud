@@ -10,7 +10,7 @@ const dataStructure = {
 } as const;
 
 export class ListRequestPacket extends C2SPacket {
-    protected declare data: DataType;
+    declare protected data: DataType;
     public static readonly ID = id;
 
     public getDataStructure() {

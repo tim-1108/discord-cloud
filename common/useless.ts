@@ -35,3 +35,18 @@ export function createRecordFromKeyValueArrays<K extends readonly string[], V = 
     }
     return record;
 }
+
+/**
+ * This function is stupid.
+ * TODO: Document this thing at some point.
+ */
+export function sortMapValuesAsArrayByKeyArray<K, V>(map: Map<K, V>, keys: K[]): V[] | null {
+    const list = new Array<V>(map.size);
+    for (const [key, value] of map) {
+        const index = keys.indexOf(key);
+        // If so, this failed.
+        if (index === -1) return null;
+        list[index] = value;
+    }
+    return list;
+}

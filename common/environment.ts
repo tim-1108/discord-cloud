@@ -18,7 +18,8 @@ const ENV_SUBSETS = {
     common: ["CRYPTO_KEY"],
     manager: ["SERVICE_PASSWORD", "CLIENT_PASSWORD", "SUPABASE_URL", "SUPABASE_KEY", "DISCORD_CHANNEL_ID"],
     "upload-service": ["PASSWORD", "OWN_ADDRESS", "MANAGER_ADDRESS", "ENCRYPTION", "WEBHOOK_URL", "PORT"],
-    "service-pinger": ["SERVICE_PINGING_ENABLED", "SERVICES"]
+    "service-pinger": ["SERVICE_PINGING_ENABLED", "SERVICES"],
+    discord: ["BOT_TOKEN"]
 } as const;
 
 /**

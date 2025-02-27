@@ -3,6 +3,8 @@ import { type FolderOrRoot, ROOT_FOLDER_ID } from "./core.js";
 
 export async function parsePostgrestResponse<K, B extends PostgrestBuilder<K> = PostgrestBuilder<K>>(request: B) {
     const { data, error } = await request;
+    // This just helps debugging, might prove annoying
+    if (error) console.debug("[Postgres error]", error);
     return error ? null : data;
 }
 

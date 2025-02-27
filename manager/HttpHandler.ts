@@ -6,6 +6,8 @@ import { cleanURL, getSearchParamsFromPath } from "./utils/url.js";
 import { Client } from "./Client.js";
 import { getEnvironmentVariables } from "../common/environment.js";
 import socketClosureCodes from "../common/socket-closure-codes.js";
+import signedDownloadRoute from "./routes/signed-download.js";
+import generateSignedDownloadRoute from "./routes/generate-signed-download.js";
 
 export class HttpHandler {
     private readonly server: http.Server;
@@ -13,6 +15,7 @@ export class HttpHandler {
     private readonly socket: WebSocketServer;
 
     private ready: boolean = false;
+    private hasInitializedRoutes: boolean = false;
 
     public constructor(port: number) {
         this.app = express();
@@ -21,6 +24,7 @@ export class HttpHandler {
 
         /* === HTTP === */
         this.app.use(express.json());
+        this.setupRoutes();
 
         /* === SOCKET === */
         this.socket.on("connection", (ws, request) => void this.handleSocketConnection(ws, request));
@@ -34,6 +38,17 @@ export class HttpHandler {
 
     public isReady() {
         return this.ready;
+    }
+
+    private setupRoutes() {
+        if (this.hasInitializedRoutes) {
+            console.warn("[HttpHandler] Attempted to call setupRoutes twice");
+            return;
+        }
+        this.app.get("/signed-download", signedDownloadRoute);
+        this.app.get("/generate-signed-download", generateSignedDownloadRoute);
+
+        this.hasInitializedRoutes = true;
     }
 
     private handleSocketConnection(ws: WebSocket, request: IncomingMessage) {

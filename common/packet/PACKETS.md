@@ -18,10 +18,10 @@ The packet ID is formatted in kebab case.
 
 ### Packet Categories
 
--   `c2s`: Client to Server
--   `s2c`: Server to Client
--   `s2u`: Server to Uploader
--   `u2s`: Uploader to Service
+- `c2s`: Client to Server
+- `s2c`: Server to Client
+- `s2u`: Server to Uploader
+- `u2s`: Uploader to Service
 
 All services use the same packet protocol.
 
@@ -139,7 +139,7 @@ const dataStructure = {
 } as const;
 
 export class UploadQueueAddPacket extends C2SPacket {
-    protected declare data: DataType;
+    declare protected data: DataType;
     public static readonly ID = id;
 
     public getDataStructure() {

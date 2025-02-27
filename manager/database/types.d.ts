@@ -5,6 +5,7 @@ export type Database = {
         Tables: {
             files: {
                 Row: {
+                    channel: string | null;
                     created_at: string | null;
                     folder: number | null;
                     hash: string | null;
@@ -17,6 +18,7 @@ export type Database = {
                     updated_at: string | null;
                 };
                 Insert: {
+                    channel?: string | null;
                     created_at?: string | null;
                     folder?: number | null;
                     hash?: string | null;
@@ -29,6 +31,7 @@ export type Database = {
                     updated_at?: string | null;
                 };
                 Update: {
+                    channel?: string | null;
                     created_at?: string | null;
                     folder?: number | null;
                     hash?: string | null;

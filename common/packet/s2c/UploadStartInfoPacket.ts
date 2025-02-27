@@ -12,7 +12,7 @@ const dataStructure = {
 } as const;
 
 export class UploadStartInfoPacket extends S2CPacket {
-    protected declare data: DataType;
+    declare protected data: DataType;
     public static readonly ID = id;
 
     public getDataStructure() {
