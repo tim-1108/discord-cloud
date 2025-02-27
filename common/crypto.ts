@@ -21,8 +21,10 @@ export function encryptBuffer(data: Buffer) {
     // For security reasons, every buffer has to have its own IV
     // This can be stored without issue at the beginning of the data
     const iv = crypto.randomBytes(16);
+    // @ts-ignore
     const cipher = crypto.createCipheriv(algorithm, key, iv);
     // By overwriting data, some memory should be saved
+    // @ts-ignore
     data = Buffer.concat([iv, cipher.update(data), new Uint8Array(cipher.final())]);
     return data;
 }
@@ -42,6 +44,7 @@ export function decryptBuffer(data: Buffer) {
     const ciphertext = Uint8Array.prototype.slice.apply(data, [0x10]);
     const decipher = crypto.createCipheriv(algorithm, key, iv);
 
+    // @ts-ignore
     const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
     console.info(`Decryption of size ${decrypted.length} took ${Date.now() - decryptionStart}ms`);
     return decrypted;
