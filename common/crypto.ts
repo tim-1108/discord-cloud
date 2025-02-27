@@ -42,6 +42,7 @@ export function decryptBuffer(data: Buffer) {
     key ??= createEncryptionKey();
     const iv = Uint8Array.prototype.slice.apply(data, [0x00, 0x10]);
     const ciphertext = Uint8Array.prototype.slice.apply(data, [0x10]);
+    // @ts-ignore
     const decipher = crypto.createCipheriv(algorithm, key, iv);
 
     // @ts-ignore
