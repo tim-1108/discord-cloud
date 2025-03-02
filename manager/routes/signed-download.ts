@@ -41,7 +41,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
                 <meta property="og:title" content="${escapeQuotes(fileData.name)}" />
                 <meta property="og:type" content="website" />
                 <meta property="og:url" content="${getRequestUrl(req)?.toString()}" />
-                <meta property="og:description" content="File ${escapeQuotes(fileData.name)} at ${escapeQuotes(fileData.path)} (${parseFileSize(file.size)})"
+                <meta property="og:description" content="File "${escapeQuotes(fileData.name)}" at ${escapeQuotes(fileData.path)} (${parseFileSize(file.size)})"
             </head>
             <body></body>
         </html>
@@ -57,7 +57,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
     await queueRequest(req);
 
     res.setHeader("Content-Disposition", `attachment; filename="${file.name}"`);
-    res.setHeader("Content-Size", file.size);
+    res.setHeader("Content-Length", file.size);
     res.write("");
 
     const links = await getBulkMessageAttachments(file.messages, file.channel);

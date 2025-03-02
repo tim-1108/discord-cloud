@@ -14,9 +14,16 @@ export const patterns = {
      * A path may only consist of {@link MAX_SUBFOLDER_COUNT} subfolders, each with
      * a length of {@link MAX_TITLE_LENGTH}.
      *
-     * It may also be just /, but every path has to end with another /.
+     * Any path may also only be a "/", indicating the root folder.
+     *
+     * Paths are structured using subfolders, seperated with a slash.
+     * This follows Unix-like pathing, thus not having a slash at the very end.
+     *
+     * - /folder/deeper-folder/thus/thusly
+     *
+     * But: We also accept these slashes at the very end, but just ignore them.
      */
-    stringifiedPath: new RegExp(`^\/(${ALLOWED_CHARS_WITH_LENGTH}\/){0,${MAX_SUBFOLDER_COUNT}}$`, "i"),
+    stringifiedPath: new RegExp(`^\/((${ALLOWED_CHARS_WITH_LENGTH}\/){0,${MAX_SUBFOLDER_COUNT - 1}}(${ALLOWED_CHARS_WITH_LENGTH})){0,1}\/?$`, "i"),
     /**
      * A file or folder name may only consist of specific characters
      * specified in {@link ALLOWED_CHARS} and have

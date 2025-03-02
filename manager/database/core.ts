@@ -32,6 +32,16 @@ type FolderCache = Map<string, FolderCacheValue>;
  */
 const folderCache: FolderCacheValue = { id: ROOT_FOLDER_ID, subfolders: new Map(), nonExistentSubfolders: new Set() };
 
+/**
+ * Converts a path, ideally of the pattern {@link patterns.stringifiedPath},
+ * to a route, a list of subfolders.
+ *
+ * - /etc/net/secrets => [etc,net,secrets]
+ * - Any invalid path will fail and return null
+ * - The path may optionally also end with a slash
+ * @param path
+ * @returns
+ */
 function pathToRoute(path: string): string[] | null {
     if (!patterns.stringifiedPath.test(path)) return null;
     // To get only the relevant folders, we remove the first and last slash.

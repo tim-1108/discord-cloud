@@ -24,11 +24,11 @@ export function getPacketClassById<T extends PacketType>(id: string, expectedTyp
 }
 
 export function parsePacket<T extends PacketType>(message: string | Buffer | ArrayBuffer | Buffer[], type: T): PacketTypeMap[T] | null {
-    if (message instanceof Buffer || message instanceof ArrayBuffer) {
-        message = message.toString();
-    } else if (Array.isArray(message)) {
+    if (Array.isArray(message)) {
         message = Buffer.concat(message.map((x) => new Uint8Array(x))).toString();
     }
+
+    message = message.toString();
 
     // Is an INSECURE check to make sure only pseudo-Records are sent
     // (validated properly later on)
