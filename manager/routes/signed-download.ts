@@ -1,5 +1,5 @@
 import type { Request, Response } from "express";
-import { generateErrorResponse, getQuery, getRequestUrl, isCrawlerRequest } from "../utils/http.js";
+import { generateErrorResponse, getRequestQuery, getRequestUrl, isCrawlerRequest } from "../utils/http.js";
 import { patterns } from "../../common/patterns.js";
 import { parseSignedFileDownload } from "../database/public.js";
 import { escapeQuotes, parseFileSize, sortMapValuesAsArrayByKeyArray } from "../../common/useless.js";
@@ -7,9 +7,10 @@ import { getFileFromDatabase } from "../database/finding.js";
 import { nextRequest, queueRequest } from "../http-queue.js";
 import { getBulkMessageAttachments } from "../../common/discord.js";
 import { decryptBuffer } from "../../common/crypto.js";
+import { logDebug, logInfo } from "../../common/logging.js";
 
 export default async function handleRequest(req: Request, res: Response): Promise<void> {
-    const query = getQuery(req);
+    const query = getRequestQuery(req);
     if (!query) {
         return void generateErrorResponse(res, 400, "Bad request query");
     }
@@ -22,6 +23,8 @@ export default async function handleRequest(req: Request, res: Response): Promis
     if (!fileData) {
         return void generateErrorResponse(res, 400, "Failed to parse encrypted metadata");
     }
+
+    logDebug("Requested signed file download with", fileData);
 
     const { name, path, hash } = fileData;
     const file = await getFileFromDatabase(name, path);
@@ -41,7 +44,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
                 <meta property="og:title" content="${escapeQuotes(fileData.name)}" />
                 <meta property="og:type" content="website" />
                 <meta property="og:url" content="${getRequestUrl(req)?.toString()}" />
-                <meta property="og:description" content="File "${escapeQuotes(fileData.name)}" at ${escapeQuotes(fileData.path)} (${parseFileSize(file.size)})"
+                <meta property="og:description" content="File \"${escapeQuotes(fileData.name)}\" at ${escapeQuotes(fileData.path)} (${parseFileSize(file.size)})"
             </head>
             <body></body>
         </html>
@@ -75,15 +78,23 @@ export default async function handleRequest(req: Request, res: Response): Promis
         return void generateErrorResponse(res, 500, "If you see this error, The Impossible has arrived");
     }
 
+    logDebug("File with name", name, "has attachments", sortedLinks);
+
     // This incremental download of chunks (24mb each at most) should prevent
     // any memory overruns. If we'd have to download all chunks and patch them together,
     // this might create big big problems (especially decrypting them all as one)
     for (const link of sortedLinks) {
-        const arrayBuffer = await downloadBinaryData(link as string /* we can be sure this is a string */);
+        const arrayBuffer = await downloadBinaryData(
+            link as string /* we can be sure this is a string, due to links.values().some() check - maybe clear this up */
+        );
         if (!arrayBuffer) {
             nextRequest();
             res.end();
             // Sadly, this is a silent fail.
+            // It appears we cannot tell the client that this failed
+            // - Status codes and headers might have already been sent
+            // - If we were to send an error message, it might just append it to the download
+            // - If the Content-Length should then something else than the header, it might fail client-side (CHECK THIS)
             console.error("[SignedDownload] Failed to download chunk", link, "for file", file);
             return;
         }

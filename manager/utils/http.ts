@@ -19,7 +19,7 @@ export function getRequestUrl(req: Request) {
     }
 }
 
-export function getQuery(req: Request) {
+export function getRequestQuery(req: Request): URLSearchParams | null {
     const url = getRequestUrl(req);
     return url?.searchParams ?? null;
 }
@@ -34,7 +34,7 @@ const CRAWLER_AGENTS = [
     "LinkedInBot" // LinkedIn
 ].map((crawler) => crawler.toLowerCase());
 
-export function isCrawlerRequest(req: Request) {
+export function isCrawlerRequest(req: Request): boolean {
     const userAgent = req.headers["user-agent"];
     if (!userAgent) return false;
     return CRAWLER_AGENTS.some((crawler) => userAgent.toLowerCase().includes(crawler));

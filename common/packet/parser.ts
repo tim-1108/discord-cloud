@@ -3,27 +3,45 @@ import { safeDestr } from "destr";
 import type { UnknownPacketStructure } from "../packets.js";
 import { isRecord } from "../types.js";
 import { patterns } from "../patterns.js";
-import { C2SPacket } from "./C2SPacket.js";
-import { S2CPacket } from "./S2CPacket.js";
-import { S2UPacket } from "./S2UPacket.js";
-import { U2SPacket } from "./U2SPacket.js";
-import fs from "node:fs";
-import path from "node:path";
+import type { C2SPacket } from "./C2SPacket.js";
+import type { S2CPacket } from "./S2CPacket.js";
+import type { S2UPacket } from "./S2UPacket.js";
+import type { U2SPacket } from "./U2SPacket.js";
 
-export function getPacketClassById<T extends PacketType>(id: string, expectedType: T): Packet | null {
+type PacketProvider<T extends PacketType> = (type: T) => PacketWithID<PacketTypeMap[T]>[];
+
+/**
+ * Instantiates a Packet subclass with a given id with a type (c2s, s2c) prefix.
+ *
+ * Only instantiates that class if the type matches the {@link expectedType} allowed for the callee,
+ * as one service should not be able to send packets meant to be coming from another.
+ *
+ * The {@link packetProvider} should use {@link getServersidePacketList} from reader.js, possible to use in server-side
+ * circumstances. However, a client-side application cannot use this provider (never should call it!),
+ * and thus has to provide their own list of packets.
+ * @param id The raw id sent over the socket
+ * @param expectedType The type we expect this packet to be of
+ * @param packetProvider A provider to get a packet list from
+ * @returns The instantiated packet, or `null`, if the passed id did not meet the requirements
+ */
+function getPacketClassById<T extends PacketType>(id: string, expectedType: T, packetProvider: PacketProvider<T>): Packet | null {
     if (!patterns.packetId.test(id)) return null;
     const [type, name] = id.split(":");
 
     // Allowing any client to create packets meant to be handled by another service is terrible!!!
     if (type !== expectedType) return null;
 
-    const list = getPacketList(expectedType);
+    const list = packetProvider(expectedType);
     const classVar = list.find(({ ID }) => ID === name);
     if (!classVar) return null;
     return new classVar();
 }
 
-export function parsePacket<T extends PacketType>(message: string | Buffer | ArrayBuffer | Buffer[], type: T): PacketTypeMap[T] | null {
+export function parsePacket<T extends PacketType>(
+    message: string | Buffer | ArrayBuffer | Buffer[],
+    type: T,
+    packetProvider: PacketProvider<T>
+): PacketTypeMap[T] | null {
     if (Array.isArray(message)) {
         message = Buffer.concat(message.map((x) => new Uint8Array(x))).toString();
     }
@@ -45,7 +63,7 @@ export function parsePacket<T extends PacketType>(message: string | Buffer | Arr
         return null;
     }
 
-    const packet = getPacketClassById(data.id, type) as PacketTypeMap[T] | null;
+    const packet = getPacketClassById(data.id, type, packetProvider) as PacketTypeMap[T] | null;
     if (packet === null) return null;
 
     const isValidData = packet.setData(data.data);
@@ -66,7 +84,7 @@ export enum PacketType {
     Uploader2Server = "u2s"
 }
 
-type PacketTypeMap = {
+export type PacketTypeMap = {
     [PacketType.Client2Server]: C2SPacket;
     [PacketType.Server2Client]: S2CPacket;
     [PacketType.Server2Uploader]: S2UPacket;
@@ -74,82 +92,3 @@ type PacketTypeMap = {
 };
 
 export type PacketWithID<T extends Packet> = { new (): T; ID: string };
-
-async function loadClassesForFolder<T extends PacketType>(folder: T) {
-    if (!import.meta.dirname) {
-        console.warn("[Packet Parser] import.meta.dirname not defined");
-        return [];
-    }
-    /**
-     * Needs to be defined in here to prevent initialization issues
-     */
-    const packetTypes = {
-        [PacketType.Client2Server]: C2SPacket,
-        [PacketType.Server2Client]: S2CPacket,
-        [PacketType.Server2Uploader]: S2UPacket,
-        [PacketType.Uploader2Server]: U2SPacket
-    } as const;
-    const folderPath = path.join(import.meta.dirname, folder);
-
-    const list = new Array<PacketWithID<PacketTypeMap[T]>>();
-    const expectedType = packetTypes[folder];
-
-    if (!fs.existsSync(folderPath)) {
-        console.warn(`Folder not found: ${folderPath}`);
-        return list;
-    }
-
-    const files = fs.readdirSync(folderPath);
-
-    for (const file of files) {
-        const filePath = path.join(folderPath, file);
-        const stat = fs.statSync(filePath);
-
-        if (!stat.isFile() || !/\.(js|ts)$/.test(file)) continue;
-        const className = path.basename(file, path.extname(file));
-
-        const classVar = await importFileWithClass<typeof expectedType>(filePath, className);
-        if (!classVar || Object.getPrototypeOf(classVar) !== expectedType) {
-            console.warn(`${folder}/${className} not found or does not extend ${expectedType.name}`);
-            continue;
-        }
-
-        // @ts-expect-error We check above whether this object is a child of the type we wish to read.
-        list.push(classVar);
-    }
-
-    return list;
-}
-
-async function importFileWithClass<Class = Object>(path: string, className: string): Promise<Class | null> {
-    try {
-        const ref = await import(path);
-        return ref[className] ?? null;
-    } catch {
-        return null;
-    }
-}
-
-const packetTypeLists: Record<PacketType, PacketWithID<Packet>[]> = {
-    [PacketType.Client2Server]: [],
-    [PacketType.Server2Client]: [],
-    [PacketType.Server2Uploader]: [],
-    [PacketType.Uploader2Server]: []
-};
-
-function getPacketList<T extends PacketType>(type: T): PacketWithID<PacketTypeMap[T]>[] {
-    return packetTypeLists[type];
-}
-
-async function loadPackets() {
-    console.info(`[Packet Parser] Loading packets`);
-    packetTypeLists[PacketType.Client2Server] = await loadClassesForFolder(PacketType.Client2Server);
-    packetTypeLists[PacketType.Server2Client] = await loadClassesForFolder(PacketType.Server2Client);
-    packetTypeLists[PacketType.Server2Uploader] = await loadClassesForFolder(PacketType.Server2Uploader);
-    packetTypeLists[PacketType.Uploader2Server] = await loadClassesForFolder(PacketType.Uploader2Server);
-    for (const type in packetTypeLists) {
-        console.info(`[Packet Parser] ${type}:`, packetTypeLists[type as PacketType]);
-    }
-}
-
-setTimeout(loadPackets, 1);

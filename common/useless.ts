@@ -37,8 +37,11 @@ export function createRecordFromKeyValueArrays<K extends readonly string[], V = 
 }
 
 /**
- * This function is stupid.
- * TODO: Document this thing at some point.
+ * Creates an array of map values and sorts them by the indices
+ * of their keys inside another array passed to the function.
+ *
+ * This function fails if any of the keys inside the map are not
+ * present within the list.
  */
 export function sortMapValuesAsArrayByKeyArray<K, V>(map: Map<K, V>, keys: K[]): V[] | null {
     const list = new Array<V>(map.size);

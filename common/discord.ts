@@ -1,4 +1,5 @@
 import { getEnvironmentVariables } from "./environment.js";
+import { logDebug } from "./logging.js";
 import { sleep } from "./useless.js";
 
 const messageAttachmentCache = new Map<string, string>();
@@ -27,7 +28,7 @@ export async function getBulkMessageAttachments(messages: string[], channel: str
      */
     const map = new Map<string, string | null>();
 
-    for (let i = messages.length - 1; i <= 0; i--) {
+    for (let i = messages.length - 1; i >= 0; i--) {
         const snowflake = messages[i];
         const cacheHit = messageAttachmentCache.get(snowflake);
         if (!cacheHit) continue;
@@ -47,7 +48,7 @@ export async function getBulkMessageAttachments(messages: string[], channel: str
     if (messages.length === 1) {
         const result = await fetchMessageAttachments(messages[0], channel);
         map.set(messages[0], result);
-        console.log("[DiscordBulkMessages] Fetched an individual message");
+        logDebug("Fetched an individual message", messages[0]);
         return map;
     }
 

@@ -1,6 +1,7 @@
 import crypto, { type BinaryLike } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { getEnvironmentVariables } from "./environment.js";
+import { logDebug } from "./logging.js";
 
 function createEncryptionKey() {
     const encodedKey = getEnvironmentVariables("common").CRYPTO_KEY;
@@ -47,7 +48,7 @@ export function decryptBuffer(data: Buffer) {
 
     // @ts-ignore
     const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-    console.info(`Decryption of size ${decrypted.length} took ${Date.now() - decryptionStart}ms`);
+    logDebug("Decryption of size", decrypted.length, "took", Date.now() - decryptionStart, "ms");
     return decrypted;
 }
 

@@ -57,7 +57,7 @@ export abstract class PacketReceiver {
      * @protected
      * @returns Whether something was resolved by this packet
      */
-    protected resolveReplies(packet: Packet) {
+    protected resolveReplies(packet: Packet): boolean {
         const uuid = packet.getReplyUUID();
         if (uuid === null || !this.replies.size) return false;
         const func = this.replies.get(uuid);
@@ -129,7 +129,7 @@ export abstract class PacketReceiver {
         return response instanceof replyClass ? response : null;
     }
 
-    protected initialize() {
+    protected initialize(): boolean {
         if (this.socket.readyState !== WebSocket.OPEN) {
             return false;
         }

@@ -7,6 +7,7 @@ import type { UUID } from "../common";
 import { UploadReadyPacket } from "../common/packet/u2s/UploadReadyPacket.js";
 import { generateChunkSizes } from "./file-helper.js";
 import { getEnvironmentVariables } from "../common/environment.js";
+import { getServersidePacketList } from "../common/packet/reader.js";
 
 export class Socket extends PacketReceiver {
     public constructor() {
@@ -32,7 +33,7 @@ export class Socket extends PacketReceiver {
     }
 
     protected handleSocketMessage(event: MessageEvent) {
-        const packet = parsePacket(event.data, PacketType.Server2Uploader);
+        const packet = parsePacket(event.data, PacketType.Server2Uploader, getServersidePacketList);
         if (!packet) return;
         this.resolveReplies(packet);
 

@@ -8,6 +8,7 @@ import { PingServicesPacket } from "../common/packet/c2s/PingServicesPacket.js";
 import { pingServices } from "./pinging.js";
 import { ListRequestPacket } from "../common/packet/c2s/ListRequestPacket.js";
 import { performListPacketOperation } from "./client-operations/listing.js";
+import { getServersidePacketList } from "../common/packet/reader.js";
 
 export class Client extends PacketReceiver {
     private readonly uuid: UUID;
@@ -44,7 +45,7 @@ export class Client extends PacketReceiver {
     }
 
     protected handleSocketMessage(event: MessageEvent) {
-        const packet = parsePacket(event.data, PacketType.Client2Server);
+        const packet = parsePacket(event.data, PacketType.Client2Server, getServersidePacketList);
         if (!packet) return;
         const hasResolved = this.resolveReplies(packet);
 

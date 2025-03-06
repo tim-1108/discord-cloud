@@ -9,6 +9,7 @@ import { UploadFinishPacket } from "../../common/packet/u2s/UploadFinishPacket.j
 import { UploadReadyPacket } from "../../common/packet/u2s/UploadReadyPacket.js";
 import { UploadStartInfoPacket } from "../../common/packet/s2c/UploadStartInfoPacket.js";
 import { failUpload, finishUpload } from "../uploads.js";
+import { getServersidePacketList } from "../../common/packet/reader.js";
 
 export class UploadService extends Service {
     private uploadMetadata: UploadMetadata | null;
@@ -65,7 +66,7 @@ export class UploadService extends Service {
     }
 
     protected handleSocketMessage(event: MessageEvent): void {
-        const packet = parsePacket(event.data, PacketType.Uploader2Server);
+        const packet = parsePacket(event.data, PacketType.Uploader2Server, getServersidePacketList);
         if (!packet) return;
         const hasResolved = this.resolveReplies(packet);
         if (hasResolved) return;

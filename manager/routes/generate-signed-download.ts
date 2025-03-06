@@ -1,12 +1,12 @@
 import type { Request, Response } from "express";
-import { generateErrorResponse, getQuery } from "../utils/http.js";
+import { generateErrorResponse, getRequestQuery } from "../utils/http.js";
 import { patterns } from "../../common/patterns.js";
 import { getEnvironmentVariables } from "../../common/environment.js";
 import { generateSignedFileDownload } from "../database/public.js";
 
 export default async function handleRequest(req: Request, res: Response): Promise<void> {
     const env = getEnvironmentVariables("manager");
-    const query = getQuery(req);
+    const query = getRequestQuery(req);
     if (!query) {
         return void generateErrorResponse(res, 400, "Bad request query");
     }
