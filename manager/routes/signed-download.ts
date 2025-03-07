@@ -44,7 +44,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
                 <meta property="og:title" content="${escapeQuotes(fileData.name)}" />
                 <meta property="og:type" content="website" />
                 <meta property="og:url" content="${getRequestUrl(req)?.toString()}" />
-                <meta property="og:description" content="File \"${escapeQuotes(fileData.name)}\" at ${escapeQuotes(fileData.path)} (${parseFileSize(file.size)})"
+                <meta property="og:description" content="File &quot;${escapeQuotes(fileData.name)}&quot; at ${escapeQuotes(fileData.path)} (${parseFileSize(file.size)})"
             </head>
             <body></body>
         </html>
