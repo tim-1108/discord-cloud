@@ -1,4 +1,4 @@
-import { getEnvironmentVariables } from "./environment";
+import { getEnvironmentVariables } from "./environment.js";
 
 type LogLevel = keyof typeof NATIVE_FUNCTION_MAP;
 

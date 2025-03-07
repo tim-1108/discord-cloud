@@ -1,5 +1,4 @@
 import type { Request } from "express";
-import { logInfo } from "../common/logging";
 
 const queue = new Array<Function>();
 let currentlyProcessing = false;
