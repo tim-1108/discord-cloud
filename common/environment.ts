@@ -31,7 +31,7 @@ const ENV_SUBSETS = {
     "upload-service": ["PASSWORD", "OWN_ADDRESS", "MANAGER_ADDRESS", "ENCRYPTION", "WEBHOOK_URL", "PORT"],
     "service-pinger": ["SERVICE_PINGING_ENABLED", "SERVICES"],
     discord: ["BOT_TOKEN"],
-    logging: ["DEBUG_LOGGING"]
+    logging: ["DEBUG_LOGGING", "OVERWRITE_LOGGING_FUNCTIONS"]
 } as const;
 
 /**

@@ -1,0 +1,13 @@
+@import "tailwindcss";
+
+:root {
+    @apply text-white;
+}
+
+body {
+    @apply bg-emerald-950 p-8;
+}
+
+h1 {
+    @apply text-3xl;
+}

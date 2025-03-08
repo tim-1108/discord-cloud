@@ -1,13 +1,37 @@
-const MAX_SUBFOLDER_COUNT = 10;
-const MAX_TITLE_LENGTH = 127;
+const MAX_SUBFOLDER_COUNT = 10 as const;
+const MAX_TITLE_LENGTH = 127 as const;
 
 /**
  * Allows all alphanumerical characters, spaces and a lot of special characters.
  *
  * No slashes, backslashes or double-dots allowed!
  */
-const ALLOWED_CHARS = `((?!\\.\\.)[\\d\\w-+#.*~^°!"'’_§$%&()[\\]{}=?ß,;äöüéèêëáàâäíìîïóòôöúùûüñç ])`;
-const ALLOWED_CHARS_WITH_LENGTH = `${ALLOWED_CHARS}{1,${MAX_TITLE_LENGTH}}`;
+function createCharacterset(type: "allowed" | "negated") {
+    return `[${type === "negated" ? "^" : ""}\\d\\w-+#.*~^°!"'’_§$%&()[\\]{}=?ß,;äöüéèêëáàâäíìîïóòôöúùûüñç ]`;
+}
+
+const ALLOWED_CHARS_NEGATIVE_LOOKAHEAD = `((?!\\.\\.)${createCharacterset("allowed")})`;
+const ALLOWED_CHARS_WITH_LENGTH = `${ALLOWED_CHARS_NEGATIVE_LOOKAHEAD}{1,${MAX_TITLE_LENGTH}}`;
+const ALLOWED_CHARS_PATTERN = new RegExp(ALLOWED_CHARS_NEGATIVE_LOOKAHEAD, "gi");
+const NEGATED_SET = new RegExp(createCharacterset("negated"), "gi");
+
+/**
+ * Returns a `RegExp` which contains a set of all characters usable inside
+ * folder and file names. Does not allow multiple dots (path-traversal).
+ *
+ * Has flags g and i, to be used in `String.prototype.match` or else to
+ * replace illegal characters.
+ */
+export function getAllowedCharacterPattern(): RegExp {
+    return ALLOWED_CHARS_PATTERN;
+}
+export function getNegatedCharacterPattern(): RegExp {
+    return NEGATED_SET;
+}
+
+export function getNamingMaximumLengths() {
+    return { title: MAX_TITLE_LENGTH, subfolderCount: MAX_SUBFOLDER_COUNT };
+}
 
 export const patterns = {
     /**

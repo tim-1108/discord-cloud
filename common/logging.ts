@@ -1,11 +1,12 @@
 import { getEnvironmentVariables } from "./environment.js";
+import { isServerside } from "./types.js";
 
 type LogLevel = keyof typeof NATIVE_FUNCTION_MAP;
 
 const NATIVE_FUNCTION_MAP = {
     debug: console.debug, // Just an alias for console.log, is not logged if debug is disabled
     info: console.log,
-    warn: console.warn,
+    warn: console.warn, // Technically an alias for console.error (so stderr), browsers/console hosts may also show a difference
     error: console.error
 } as const;
 
@@ -21,7 +22,7 @@ function fillOutNumber(num: Number) {
 function log(level: LogLevel, ...data: any[]): void {
     const nativeFn = NATIVE_FUNCTION_MAP[level];
     const traceError = new Error("generated error for logging trace");
-    const cwd = process.cwd();
+    const cwd = isServerside() ? process.cwd() : "";
     const stack = traceError.stack ? traceError.stack.split("\n") : [];
     /**
      * The indicies are as follows:
@@ -53,8 +54,10 @@ function log(level: LogLevel, ...data: any[]): void {
  * @param data Anything that can be logged using `console.log`
  */
 export function logDebug(...data: any[]): void {
-    const env = getEnvironmentVariables("logging", true);
-    if (env.DEBUG_LOGGING !== "1") return;
+    if (isServerside()) {
+        const env = getEnvironmentVariables("logging", true);
+        if (env.DEBUG_LOGGING !== "1") return;
+    }
     return log("debug", ...data);
 }
 
@@ -80,4 +83,13 @@ export function logWarn(...data: any[]): void {
  */
 export function logError(...data: any[]): void {
     return log("error", ...data);
+}
+
+// Only if so chosen, also overwrite default logging functions
+if (isServerside() && getEnvironmentVariables("logging", true).OVERWRITE_LOGGING_FUNCTIONS === "1") {
+    console.debug = logDebug;
+    console.log = logInfo;
+    console.info = logInfo;
+    console.warn = logWarn;
+    console.error = logError;
 }

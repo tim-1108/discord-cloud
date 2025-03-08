@@ -1,6 +1,7 @@
-import { type CloseEvent, type MessageEvent, WebSocket } from "ws";
+import { type CloseEvent as ServersideCloseEvent, type MessageEvent as ServersideMessageEvent, WebSocket as ServersideWebSocket } from "ws";
 import type { Packet } from "./Packet.js";
 import type { UUID } from "../index.js";
+import { isServerside } from "../types.js";
 
 interface ResolveFunction {
     /**
@@ -20,10 +21,47 @@ interface ResolveFunction {
     resolve: (data: unknown) => void;
 }
 
-export abstract class PacketReceiver {
-    protected socket: WebSocket;
+/**
+ * This class may either use a socket from the "ws" package or
+ * the DOM implementation of the `WebSocket` class. Some methods
+ * and events differ from server to clients and thus should
+ * be implemented with a check.
+ */
+type ServerOrClientSocket = WebSocket | ServersideWebSocket;
+type CloseEventType<T extends ServerOrClientSocket> = T extends WebSocket ? CloseEvent : ServersideCloseEvent;
+type MessageEventType<T extends ServerOrClientSocket> = T extends WebSocket ? MessageEvent : ServersideMessageEvent;
 
-    protected constructor(socket: WebSocket) {
+/**
+ * An abstract class used for communicating over a socket with packets in the format of `Packet`.
+ * This class can be applied both inside a browser using the `WebSocket` API of the DOM and inside
+ * Node using the `ws` package.
+ *
+ * Send a packet using `sendPacket`. Any packet that extends the `Packet` class can be sent
+ * and will be serialized into a JSON object when sent.
+ *
+ * Using the method `sendPacketAndReply`, the callee may optionally await a Promise that can
+ * return a reply packet of, and only of, the supplied class. If the set or default timeout
+ * is exceeded and nothing is received, that Promise will resolve with `null` instead of
+ * an instance of `replyClass`.
+ *
+ * If the implementer of this class has received a packet over the network and may wish to
+ * send a reply to it, call `replyToPacket` with the original received packet and the packet
+ * to be answered with.
+ *
+ * Whenever incoming packets are handled inside the `handleSocketMessage` method, which every
+ * subclass has to implement, make sure to call `resolveReplies`, to check if the packet that
+ * has just been received might have been meant as a reply to something else. This then gets
+ * handled and should eliminate all reasons to process this packet further (as a Promise at
+ * another location will have been resolved with that incoming packet).
+ *
+ * It is important to call `initialize` to load all listeners for the socket
+ * (optimally inside the constructor). This methods return value indicates success
+ * in opening the socket connection.
+ */
+export abstract class PacketReceiver {
+    protected socket: ServerOrClientSocket;
+
+    protected constructor(socket: ServerOrClientSocket) {
         this.socket = socket;
     }
 
@@ -111,9 +149,14 @@ export abstract class PacketReceiver {
                 return resolve(new Error("Service socket is closed"));
             }
 
-            this.socket.send(packet.serialize(), (err) => {
-                err ? resolve(err) : resolve(null);
-            });
+            if (isServerside()) {
+                (this.socket as ServersideWebSocket).send(packet.serialize(), (err) => {
+                    err ? resolve(err) : resolve(null);
+                });
+            } else {
+                this.socket.send(packet.serialize());
+                resolve(null);
+            }
         });
     }
 
@@ -134,13 +177,13 @@ export abstract class PacketReceiver {
             return false;
         }
 
-        this.socket.addEventListener("message", (event) => this.handleSocketMessage(event));
-        this.socket.addEventListener("close", (event) => this.handleSocketClose(event));
+        this.socket.addEventListener("message", (event: MessageEventType<typeof this.socket>) => this.handleSocketMessage(event));
+        this.socket.addEventListener("close", (event: CloseEventType<typeof this.socket>) => this.handleSocketClose(event));
 
         return true;
     }
 
-    protected abstract handleSocketClose(event: CloseEvent): void;
+    protected abstract handleSocketClose(event: CloseEventType<typeof this.socket>): void;
 
-    protected abstract handleSocketMessage(event: MessageEvent): void;
+    protected abstract handleSocketMessage(event: MessageEventType<typeof this.socket>): void;
 }

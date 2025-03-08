@@ -11,8 +11,8 @@ const dataStructure = {
     // However, if the client does not await a reply and only parses packets as-is,
     // this might act as a working fallback.
     path: { type: "string", required: true, pattern: patterns.stringifiedPath },
-    files: createArraySchemaEntry<PartialDatabaseFileRow>({ required: true, validator_function: validateFiles }),
-    folders: createArraySchemaEntry<PartialDatabaseFolderRow>({ required: true, validator_function: validateFolders })
+    files: createArraySchemaEntry<PartialDatabaseFileRow, any, true>({ required: true, validator_function: validateFiles }),
+    folders: createArraySchemaEntry<PartialDatabaseFolderRow, any, true>({ required: true, validator_function: validateFolders })
 } as const;
 
 function validateFiles(list: any[]): boolean {
