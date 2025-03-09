@@ -1,6 +1,7 @@
-import { ref, toRaw, type Ref } from "vue";
+import { ref, toRaw, watch, type Ref } from "vue";
 import { getNamingMaximumLengths, getNegatedCharacterPattern, patterns } from "../../../common/patterns";
-import { updateListingForCurrentDirectory } from "./listing";
+import { logError, logWarn } from "../../../common/logging";
+import { currentFolderListing, getListingForCurrentDirectory } from "./listing";
 
 const route = ref<string[]>([]);
 
@@ -20,6 +21,29 @@ export function useCurrentRoute(): Ref<string[]> {
     return route;
 }
 
+/**
+ * This is a failsafe to prevent unsafe input being saved in the current route
+ * and sent off to the server. Anything that writes to `route` should validate
+ * its input beforehand. This function tries to fix it, if not possible, revert
+ * to `/`.
+ *
+ * Technically, only direct handlers for user input need to validate that data.
+ * Anything the user clicks on - and thus handles a route change for them -
+ * should always be safe.
+ */
+watch(route, (value) => {
+    const path = convertRouteToPath(value);
+    if (patterns.stringifiedPath.test(path)) return;
+    logWarn("A malformed path has been inputted into the route!");
+    const correctedPath = checkAndRepairStringPath(path);
+    if (!correctedPath) {
+        logError("The provided string seems unrepairable, reverting to / from ", path);
+        route.value = [];
+        return;
+    }
+    route.value = convertPathToRoute(correctedPath);
+});
+
 export function navigateToAbsolutePath(path: string) {
     const checkedPath = checkAndRepairStringPath(path);
     // TODO: build warning/handling system
@@ -30,13 +54,18 @@ export function navigateToAbsolutePath(path: string) {
 export function navigateToAbsoluteRoute(newRoute: string[]) {
     if (areRoutesIdentical(route.value, newRoute)) return;
     route.value = newRoute;
-    updateListingForCurrentDirectory();
+    void triggerMeOnNavigation();
 }
 
 export function navigateUpPath(toIndex: number) {
     if (toIndex >= route.value.length - 1 || !route.value.length || toIndex < 0) return;
     route.value.splice(toIndex + 1, route.value.length - 1);
-    updateListingForCurrentDirectory();
+    void triggerMeOnNavigation();
+}
+
+async function triggerMeOnNavigation() {
+    const result = await getListingForCurrentDirectory();
+    currentFolderListing.value = result === null ? "error" : result;
 }
 
 export function appendToRoute(folders: string[]) {
@@ -50,6 +79,10 @@ function areRoutesIdentical(route1: string[], route2: string[]) {
     return route1.every((value, index) => value === route2[index]);
 }
 
+export function convertOptionalRouteToPath(route: string | string[]): string {
+    return Array.isArray(route) ? convertRouteToPath(route) : route;
+}
+
 /**
  * User input may always be fuzzy.
  *
@@ -58,6 +91,8 @@ function areRoutesIdentical(route1: string[], route2: string[]) {
  * @returns The path, if necessary cleaned - or, if it seems "unfixable", `null`
  */
 export function checkAndRepairStringPath(path: string): string | null {
+    // TODO: Notify the user if any changes had to be made to their input
+
     if (!path.length || path === "/") {
         return "/";
     }

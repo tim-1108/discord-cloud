@@ -1,8 +1,7 @@
-import { updateListingForCurrentDirectory } from "@/composables/listing.js";
-import { logInfo } from "../../../common/logging.js";
+import { currentFolderListing, getListingForCurrentDirectory } from "@/composables/listing.js";
 import { PacketReceiver } from "../../../common/packet/PacketReceiver.js";
 import { PacketType, parsePacket } from "../../../common/packet/parser.js";
-import { getBrowserClientboundPacketList, getBrowserServerboundPacketList } from "./packets.js";
+import { getBrowserClientboundPacketList } from "./packets.js";
 
 /**
  * The class that communicates with the manager using a web socket.
@@ -12,9 +11,10 @@ export class Communicator extends PacketReceiver {
         // TODO: Load socket url at build time or from env
         const socket = new WebSocket("");
         super(socket);
-        socket.addEventListener("open", () => {
+        socket.addEventListener("open", async () => {
             this.initialize();
-            updateListingForCurrentDirectory();
+            const result = await getListingForCurrentDirectory();
+            currentFolderListing.value = result === null ? "error" : result;
         });
     }
 

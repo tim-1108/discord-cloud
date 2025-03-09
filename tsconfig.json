@@ -6,7 +6,6 @@
         "module": "ESNext",
         "moduleDetection": "force",
         "jsx": "react-jsx",
-        "types": ["@types/bun"],
         "allowJs": true,
 
         // Bundler mode

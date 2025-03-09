@@ -1,29 +1,164 @@
 import { communicator } from "@/main";
-import { convertRouteToPath, useCurrentRoute } from "./path";
+import { convertPathToRoute, convertRouteToPath, useCurrentRoute } from "./path";
 import { ListRequestPacket } from "../../../common/packet/c2s/ListRequestPacket";
 import { ListPacket } from "../../../common/packet/s2c/ListPacket";
-import { ref } from "vue";
 import type { PartialDatabaseFileRow, PartialDatabaseFolderRow } from "../../../manager/database/core";
+import { patterns } from "../../../common/patterns";
+import { ref } from "vue";
 
-const listing = ref<{ files: PartialDatabaseFileRow[]; folders: PartialDatabaseFolderRow[] } | null>(null);
-export function useCurrentListing() {
-    return listing;
-}
+type Listing = { files: PartialDatabaseFileRow[]; folders: PartialDatabaseFolderRow[] };
+type ListingCacheItem = {
+    /**
+     * A flag indicating whether the content in `files` and `folders` is
+     * accuratly cached. If `false`, the data has to be re-fetched and then stored.
+     *
+     * Useful when only the data in this very folder should be invalidated, but
+     * the data in all subfolders should stay untouched.
+     */
+    cached: boolean;
+    files: PartialDatabaseFileRow[];
+    folders: PartialDatabaseFolderRow[];
+    subfolder_cache: Map<string, ListingCacheItem>;
+};
+const cache: { root: ListingCacheItem | null } = { root: null };
 
-export async function updateListingForCurrentDirectory(): Promise<void> {
-    listing.value = null;
-    // TODO: (maybe) rework this function to instead return the data and have the callee write that into something
+export const currentFolderListing = ref<Listing | "loading" | "error">("loading");
+
+export async function getListingForCurrentDirectory(): Promise<Listing | null> {
     const route = useCurrentRoute();
     const path = convertRouteToPath(route.value);
-    // TODO: implement caching (client-side)
+
+    currentFolderListing.value = "loading";
+
+    // The only places where user input should be admitted directly into a path,
+    // it ought to be validated properly and at that place. If this incorrect content
+    // managed to get into the useCurrentRoute ref, something is amiss.
+    //
+    // However, there is a watch (vue) on the route variable and this should
+    // cause it to correct or default back to another value.
+    // We'll just let it do its thing.
+    if (!patterns.stringifiedPath.test(path)) throw new Error("Received invalid path for listing");
+
+    const cacheHit = getCachedRoute(route.value);
+    if (cacheHit) return cacheHit;
+
     const reply = await communicator.sendPacketAndReply(new ListRequestPacket({ path }), ListPacket);
     if (!reply) {
-        listing.value = null;
-        // TODO: notify user if this fails
-        return;
+        return null;
     }
-    console.log(reply);
     const { files, folders } = reply.getData();
-    // The validator functions inside the ListPacket class assure us that these types are correct
-    listing.value = { files: files as PartialDatabaseFileRow[], folders: folders as PartialDatabaseFolderRow[] };
+    // The validator functions inside the ListPacket class assure us that these arrays do not contain undefined
+    const returnValue = {
+        files: files as PartialDatabaseFileRow[],
+        folders: folders as PartialDatabaseFolderRow[]
+    };
+    writeToCache(route.value, returnValue);
+    return returnValue;
+}
+
+function extractFilesAndFolders(input: ListingCacheItem) {
+    return { files: input.files, folders: input.folders };
+}
+
+function writeToCache(route: string[], listing: Listing): void {
+    /**
+     * Used to insert a empty item if a subfolder of this is cached,
+     * but this one higher in the tree is not yet.
+     */
+    const createEmptyCache = () => ({ cached: false, files: [], folders: [], subfolder_cache: new Map() });
+    if (!cache.root) {
+        if (!route.length) {
+            cache.root = { ...listing, cached: true, subfolder_cache: new Map() };
+            return;
+        }
+        cache.root = createEmptyCache();
+    }
+
+    let parent = cache.root;
+    for (let i = 0; i < route.length; i++) {
+        const name = route[i];
+        // Like this, we make sure that we can navigate down the tree and always create empty entries along the way
+        const entry = parent.subfolder_cache.get(name) ?? parent.subfolder_cache.set(name, createEmptyCache()).get(name)!;
+        if (i < route.length - 1) {
+            parent = entry;
+            continue;
+        }
+
+        entry.cached = true;
+        entry.files = listing.files;
+        entry.folders = listing.folders;
+    }
+}
+
+function getCachedRoute(route: string[]): Listing | null {
+    if (!route.length) {
+        return cache.root !== null && cache.root.cached ? extractFilesAndFolders(cache.root) : null;
+    }
+
+    if (!cache.root) return null;
+
+    const parent = getParentOfLastRouteItem(route);
+    if (!parent) return null;
+
+    const nameOfFolder = route[route.length - 1];
+    const child = parent.subfolder_cache.get(nameOfFolder);
+    if (!child || !child.cached) return null;
+    return extractFilesAndFolders(child);
+}
+
+/**
+ * Useful when wanting to delete the entry out of the
+ * `subfolder_cache` map inside the parent.
+ */
+function getParentOfLastRouteItem(route: string[]): ListingCacheItem | null {
+    if (!cache.root) return null;
+    let parent = cache.root;
+
+    // We navigate to the second to last entry
+    // Thus, the parent in this context is the folder right
+    // above that one we wish to delete/de-cache
+    for (let i = 0; i < route.length - 1; i++) {
+        const name = route[i];
+        const child = parent.subfolder_cache.get(name);
+        if (!child) return null;
+        parent = child as ListingCacheItem;
+    }
+    return parent;
+}
+
+export function invalidateListingCache(pathOrRoute: string | string[], allSubfolders?: boolean) {
+    const route = typeof pathOrRoute === "string" ? convertPathToRoute(pathOrRoute) : pathOrRoute;
+    let parent = cache.root;
+
+    if (!parent) {
+        return true;
+    }
+
+    if (!route.length) {
+        if (allSubfolders) {
+            cache.root = null;
+            return true;
+        }
+        parent.cached = false;
+        parent.files = [];
+        parent.folders = [];
+        return true;
+    }
+
+    parent = getParentOfLastRouteItem(route);
+    // Technically yes, it is gone - but well, it was never there to begin with
+    if (!parent) return false;
+
+    const nameOfFolder = route[route.length - 1];
+
+    if (allSubfolders) {
+        return parent.subfolder_cache.delete(nameOfFolder);
+    }
+
+    const item = parent.subfolder_cache.get(nameOfFolder);
+    if (!item) return false;
+    item.cached = false;
+    item.files = [];
+    item.folders = [];
+    return true;
 }

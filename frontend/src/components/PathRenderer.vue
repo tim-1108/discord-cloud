@@ -13,7 +13,6 @@ function toggleEditing() {
     if (mode) {
         updatedPath.value = toRaw(path.value);
     } else {
-        console.log(updatedPath.value);
         navigateToAbsolutePath(updatedPath.value);
     }
 }

@@ -1,15 +1,15 @@
 <script setup lang="ts">
-import { useCurrentListing } from "@/composables/listing";
+import { currentFolderListing } from "@/composables/listing";
 import { parseFileSize } from "../../../common/useless";
 import { appendToRoute, navigateToAbsoluteRoute, useCurrentRoute } from "@/composables/path";
 import ClickableCard from "./basic/ClickableCard.vue";
 
-const listing = useCurrentListing();
+const listing = currentFolderListing;
 const route = useCurrentRoute();
 </script>
 
 <template>
-    <div v-if="listing">
+    <div v-if="typeof listing !== 'string'">
         <h1>Folders ({{ listing.folders.length }})</h1>
         <div class="file-list">
             <ClickableCard v-for="folder of listing.folders" @click="appendToRoute([folder.name])">
@@ -23,7 +23,7 @@ const route = useCurrentRoute();
             <ClickableCard v-for="file of listing.files"> {{ file.name }} ({{ parseFileSize(file.size) }}) </ClickableCard>
         </div>
     </div>
-    <div v-else>Loading or nothing</div>
+    <div v-else>{{ listing }}</div>
 </template>
 
 <style scoped>
