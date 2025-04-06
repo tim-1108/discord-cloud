@@ -25,6 +25,7 @@ export abstract class Service extends PacketReceiver {
     protected constructor(config: ServiceConfig) {
         super(config.socket);
         this.config = config;
+        this.initialize();
     }
 
     public isBusy() {

@@ -71,14 +71,12 @@ export abstract class PacketReceiver {
     protected scheduleReply<T extends Packet>(id: UUID, timeout?: number): Promise<T | null> {
         return new Promise((resolve) => {
             const timer = setTimeout(() => {
-                console.log(`[scheduleReply] Woops, the time ran out for ${id}`);
                 this.replies.get(id)?.resolve(null);
                 this.replies.delete(id);
             }, timeout ?? PacketReceiver.REPLY_TIMEOUT);
 
             const resolveFunc = (data: T) => {
                 clearTimeout(timer);
-                console.log(`[scheduleReply] Resolved ${id} with`, data);
                 this.replies.get(id)?.resolve(data);
                 this.replies.delete(id);
             };
@@ -172,15 +170,9 @@ export abstract class PacketReceiver {
         return response instanceof replyClass ? response : null;
     }
 
-    protected initialize(): boolean {
-        if (this.socket.readyState !== WebSocket.OPEN) {
-            return false;
-        }
-
+    protected initialize(): void {
         this.socket.addEventListener("message", (event: MessageEventType<typeof this.socket>) => this.handleSocketMessage(event));
         this.socket.addEventListener("close", (event: CloseEventType<typeof this.socket>) => this.handleSocketClose(event));
-
-        return true;
     }
 
     protected abstract handleSocketClose(event: CloseEventType<typeof this.socket>): void;

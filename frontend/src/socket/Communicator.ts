@@ -7,12 +7,11 @@ import { getBrowserClientboundPacketList } from "./packets.js";
  * The class that communicates with the manager using a web socket.
  */
 export class Communicator extends PacketReceiver {
-    public constructor() {
-        // TODO: Load socket url at build time or from env
-        const socket = new WebSocket("");
+    public constructor(address: string) {
+        const socket = new WebSocket(address);
         super(socket);
+        this.initialize();
         socket.addEventListener("open", async () => {
-            this.initialize();
             const result = await getListingForCurrentDirectory();
             currentFolderListing.value = result === null ? "error" : result;
         });

@@ -19,12 +19,12 @@ export class Socket extends PacketReceiver {
 
         const socket = new WebSocket(address);
         super(socket);
+        this.initialize();
         socket.onopen = () => this.handleSocketOpen();
     }
 
     protected handleSocketOpen() {
         console.log("This socket is now open");
-        this.initialize();
     }
 
     protected handleSocketClose(event: CloseEvent) {

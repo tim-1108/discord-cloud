@@ -20,14 +20,12 @@ export class Client extends PacketReceiver {
     public constructor(ws: WebSocket) {
         super(ws);
         this.uuid = crypto.randomUUID();
-        const success = this.initialize();
-        if (success) {
-            Client.clients.set(this.uuid, this);
-            // To get all services online once a client connects,
-            // they are also pinged here.
-            pingServices();
-        }
-        console.info(`[Client.constructor] ${this.uuid} initialized with`, success);
+        this.initialize();
+        Client.clients.set(this.uuid, this);
+        // To get all services online once a client connects,
+        // they are also pinged here.
+        pingServices();
+        console.info(`[Client.constructor] ${this.uuid} initialized`);
     }
 
     private static clients = new Map<UUID, Client>();

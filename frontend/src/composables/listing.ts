@@ -17,18 +17,24 @@ type ListingCacheItem = {
      */
     cached: boolean;
     files: PartialDatabaseFileRow[];
+    /**
+     * Does not store any actual subfolder data, only metadata about subfolders contained herein
+     */
     folders: PartialDatabaseFolderRow[];
+    /**
+     * This is a recursive storage, always going deeper and deeper.
+     */
     subfolder_cache: Map<string, ListingCacheItem>;
 };
 const cache: { root: ListingCacheItem | null } = { root: null };
 
 export const currentFolderListing = ref<Listing | "loading" | "error">("loading");
+export function useCurrentFolderListing() {
+    return currentFolderListing.value;
+}
 
-export async function getListingForCurrentDirectory(): Promise<Listing | null> {
-    const route = useCurrentRoute();
-    const path = convertRouteToPath(route.value);
-
-    currentFolderListing.value = "loading";
+async function getListingForDirectory(route: string[]) {
+    const path = convertRouteToPath(route);
 
     // The only places where user input should be admitted directly into a path,
     // it ought to be validated properly and at that place. If this incorrect content
@@ -39,7 +45,7 @@ export async function getListingForCurrentDirectory(): Promise<Listing | null> {
     // We'll just let it do its thing.
     if (!patterns.stringifiedPath.test(path)) throw new Error("Received invalid path for listing");
 
-    const cacheHit = getCachedRoute(route.value);
+    const cacheHit = getCachedRoute(route);
     if (cacheHit) return cacheHit;
 
     const reply = await communicator.sendPacketAndReply(new ListRequestPacket({ path }), ListPacket);
@@ -49,11 +55,26 @@ export async function getListingForCurrentDirectory(): Promise<Listing | null> {
     const { files, folders } = reply.getData();
     // The validator functions inside the ListPacket class assure us that these arrays do not contain undefined
     const returnValue = {
-        files: files as PartialDatabaseFileRow[],
-        folders: folders as PartialDatabaseFolderRow[]
+        files: sortArrayByName(files as PartialDatabaseFileRow[]),
+        folders: sortArrayByName(folders as PartialDatabaseFolderRow[])
     };
-    writeToCache(route.value, returnValue);
+    writeToCache(route, returnValue);
     return returnValue;
+}
+
+function sortArrayByName<T extends { name: string }>(list: T[]): T[] {
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/**
+ * A callee of this function is expected to set the {@link currentFolderListing} state to either
+ * the return value of this function or `error` themselves.
+ * @returns The listing data for the current directory, if successful
+ */
+export async function getListingForCurrentDirectory(): Promise<Listing | null> {
+    const route = useCurrentRoute();
+    currentFolderListing.value = "loading";
+    return getListingForDirectory(route.value);
 }
 
 function extractFilesAndFolders(input: ListingCacheItem) {

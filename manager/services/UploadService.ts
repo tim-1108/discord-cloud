@@ -17,7 +17,6 @@ export class UploadService extends Service {
     public constructor(config: ServiceConfig) {
         super(config);
         this.uploadMetadata = null;
-        this.initialize();
     }
 
     /**
