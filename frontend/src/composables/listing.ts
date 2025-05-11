@@ -30,7 +30,7 @@ const cache: { root: ListingCacheItem | null } = { root: null };
 
 export const currentFolderListing = ref<Listing | "loading" | "error">("loading");
 export function useCurrentFolderListing() {
-    return currentFolderListing.value;
+    return currentFolderListing;
 }
 
 async function getListingForDirectory(route: string[]) {

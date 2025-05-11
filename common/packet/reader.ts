@@ -8,6 +8,8 @@ import { U2SPacket } from "./U2SPacket.js";
 import { parsePacket } from "./parser.js";
 import fs from "node:fs";
 import path from "node:path";
+import { S2TPacket } from "./S2TPacket.js";
+import { T2SPacket } from "./T2SPacket.js";
 
 async function loadClassesForFolder<T extends PacketType>(folder: T) {
     if (!import.meta.dirname) {
@@ -21,7 +23,9 @@ async function loadClassesForFolder<T extends PacketType>(folder: T) {
         [PacketType.Client2Server]: C2SPacket,
         [PacketType.Server2Client]: S2CPacket,
         [PacketType.Server2Uploader]: S2UPacket,
-        [PacketType.Uploader2Server]: U2SPacket
+        [PacketType.Uploader2Server]: U2SPacket,
+        [PacketType.Server2Thumbnail]: S2TPacket,
+        [PacketType.Thumbnail2Server]: T2SPacket
     } as const;
     const folderPath = path.join(import.meta.dirname, folder);
 
@@ -92,6 +96,8 @@ async function loadPackets() {
     packetTypeLists[PacketType.Server2Client] = await loadClassesForFolder(PacketType.Server2Client);
     packetTypeLists[PacketType.Server2Uploader] = await loadClassesForFolder(PacketType.Server2Uploader);
     packetTypeLists[PacketType.Uploader2Server] = await loadClassesForFolder(PacketType.Uploader2Server);
+    packetTypeLists[PacketType.Server2Thumbnail] = await loadClassesForFolder(PacketType.Server2Thumbnail);
+    packetTypeLists[PacketType.Thumbnail2Server] = await loadClassesForFolder(PacketType.Thumbnail2Server);
     logDebug("Loaded packets packets", ...Object.values(packetTypeLists));
 }
 

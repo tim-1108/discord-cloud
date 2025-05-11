@@ -28,7 +28,8 @@ type EnvSubsetValues<T extends EnvSubsetKey, Optional extends boolean = false> =
 const ENV_SUBSETS = {
     common: ["CRYPTO_KEY"],
     manager: ["SERVICE_PASSWORD", "CLIENT_PASSWORD", "SUPABASE_URL", "SUPABASE_KEY", "DISCORD_CHANNEL_ID"],
-    "upload-service": ["PASSWORD", "OWN_ADDRESS", "MANAGER_ADDRESS", "ENCRYPTION", "WEBHOOK_URL", "PORT"],
+    "upload-service": ["SERVICE_PASSWORD", "OWN_ADDRESS", "MANAGER_ADDRESS", "ENCRYPTION", "WEBHOOK_URL", "PORT"],
+    "thumbnail-service": ["SERVICE_PASSWORD", "MANAGER_ADDRESS", "OWN_ADDRESS"],
     "service-pinger": ["SERVICE_PINGING_ENABLED", "SERVICES"],
     discord: ["BOT_TOKEN"],
     logging: ["DEBUG_LOGGING", "OVERWRITE_LOGGING_FUNCTIONS"]

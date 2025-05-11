@@ -1,8 +1,13 @@
 /**
  * The size the client should send to this service and
  * accordingly the size the Webhook uploads to Discord.
+ * Currently, Discord allows 10MB.
+ *
+ * As this is the size the client sends to us, we need
+ * to remove the size of the iv from the buffer size
+ * (and some additional headspace)
  */
-const CHUNK_SIZE = 24 * 1024 * 1024;
+const CHUNK_SIZE = 10 * 1024 * 1024 - 1024;
 
 /**
  * Generates the desired sizes for all chunks the user should upload.

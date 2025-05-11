@@ -1,23 +1,20 @@
-import type { Request } from "express";
-
-const queue = new Array<Function>();
 let currentlyProcessing = false;
+const queue = new Array<Function>();
 
-export async function queueRequest(req: Request) {
+export async function enqueue(): Promise<void> {
     if (!currentlyProcessing) {
         currentlyProcessing = true;
         return;
     }
 
     let resolveFunc: Function;
-    const promise = new Promise((resolve) => (resolveFunc = resolve));
+    const promise = new Promise<void>((resolve) => (resolveFunc = resolve));
 
-    console.log("[Queue] Awaiting a new request to", req.url);
     queue.push(resolveFunc!);
     return promise;
 }
 
-export function nextRequest() {
+export function shiftQueue() {
     const next = queue.shift();
     if (!next) {
         currentlyProcessing = false;

@@ -1,5 +1,5 @@
 import type { UploadQueueAddPacket } from "../common/packet/c2s/UploadQueueAddPacket.js";
-import { findRandomUploadService, getUploadServiceCount } from "./services/list.js";
+import { findRandomUploadService, getThumbnailService, getUploadServiceCount } from "./services/list.js";
 import { Client } from "./Client.js";
 import type { UploadMetadata } from "../common/uploads.js";
 import type { UUID } from "../common";
@@ -8,21 +8,39 @@ import { UploadQueueingPacket } from "../common/packet/s2c/UploadQueueingPacket.
 import { UploadFinishInfoPacket } from "../common/packet/s2c/UploadFinishInfoPacket.js";
 import { addFileToDatabase } from "./database/creating.js";
 import type { UploadFinishPacket } from "../common/packet/u2s/UploadFinishPacket.js";
+import { ThumbnailService } from "./services/ThumbnailService.js";
+import { GenThumbnailPacket } from "../common/packet/s2t/GenThumbnailPacket.js";
+import { getFileFromDatabase } from "./database/finding.js";
+import { deleteFileFromDatabase } from "./database/public.js";
+import { logDebug, logError } from "../common/logging.js";
 
 const uploadQueue = new Array<UploadMetadata>();
+/**
+ * A set of all the files that are pending to be overwritten
+ */
+const filesToBeOverwritten = new Set<number>();
 
-export function performEnqueueUploadOperation(client: Client, packet: UploadQueueAddPacket) {
+export async function performEnqueueUploadOperation(client: Client, packet: UploadQueueAddPacket) {
     const data = packet.getData();
     if (!data) return;
 
-    // TODO: Overwriting checks (does file already exist in DB?)
-
     const { name, path, size } = data;
+
+    // Upon finishing the upload, the previous file will be removed.
+    const existingFile = await getFileFromDatabase(name, path);
+    if (existingFile !== null) {
+        // There may only be one upload at a time attempting to overwrite another!
+        if (filesToBeOverwritten.has(existingFile.id)) {
+            // TODO: notify user
+            return;
+        }
+        filesToBeOverwritten.add(existingFile.id);
+    }
 
     // The only place where we first assign the id for the upload
     // This is used everywhere later on!
     const uploadUUID = crypto.randomUUID();
-    uploadQueue.push({ upload_id: uploadUUID, client: client.getUUID(), name, path, size });
+    uploadQueue.push({ upload_id: uploadUUID, client: client.getUUID(), name, path, size, is_overwriting_id: existingFile ? existingFile.id : null });
     client.replyToPacket(packet, new UploadQueueingPacket({ upload_id: uploadUUID, queue_position: uploadQueue.length - 1, name, path, size }));
     void sendUploadsToServices();
 }
@@ -41,6 +59,9 @@ export async function sendUploadsToServices(isInitial?: boolean, isRetry?: boole
         if (!item) break;
         const wasSuccessful = await service.requestUploadStart(item);
         if (!wasSuccessful) {
+            if (item.is_overwriting_id) {
+                filesToBeOverwritten.delete(item.is_overwriting_id);
+            }
             if (isRetry) return;
             console.warn("[Submit Uploads] We failed to start an upload");
             // If this did not work this time, we will try again.
@@ -60,6 +81,7 @@ export async function sendUploadsToServices(isInitial?: boolean, isRetry?: boole
 }
 
 function notifyClientsOfQueueMovement() {
+    // TODO: more intelligent notification!
     const map = new Map<UUID, { upload_id: UUID; queue_position: number }[]>();
     for (let i = 0; i < uploadQueue.length; i++) {
         const item = uploadQueue[i];
@@ -89,6 +111,9 @@ export function removeClientItemsFromQueue(clientId: UUID) {
         if (item.client !== clientId) {
             continue;
         }
+        if (item.is_overwriting_id !== null) {
+            filesToBeOverwritten.delete(item.is_overwriting_id);
+        }
         uploadQueue.splice(i, 1);
         count++;
     }
@@ -105,7 +130,11 @@ function removeIndicesFromQueue(indices: number[]) {
     // Otherwise, we may remove early indices first, causing the others to be offset
     indices = indices.sort((a, b) => b - a);
     for (const index of indices) {
-        indices.splice(index, 1);
+        const value = uploadQueue[index];
+        if (value.is_overwriting_id !== null) {
+            filesToBeOverwritten.delete(value.is_overwriting_id);
+        }
+        uploadQueue.splice(index, 1);
     }
 }
 
@@ -113,7 +142,7 @@ export async function finishUpload(metadata: UploadMetadata, packet: UploadFinis
     const client = Client.getClientById(metadata.client);
     if (!client) return;
 
-    console.info("[Upload] Finish!");
+    logDebug("Finished upload for", metadata);
 
     const data = packet.getData();
 
@@ -129,12 +158,33 @@ export async function finishUpload(metadata: UploadMetadata, packet: UploadFinis
     }
     void client.sendPacket(new UploadFinishInfoPacket({ success: true, upload_id: metadata.upload_id, reason: undefined }));
     void sendUploadsToServices();
+
+    if (metadata.is_overwriting_id !== null) {
+        const hasOverwritten = await deleteFileFromDatabase(metadata.is_overwriting_id);
+        filesToBeOverwritten.delete(metadata.is_overwriting_id);
+        if (!hasOverwritten) {
+            logError("Failed to remove file to be overwritten for file", metadata);
+        }
+    }
+
+    // Next, we contact our thumbnail service to have a screenshot generated
+    // We will not be waiting here for a response, as that might get queued
+    // up or take a long time. Thus, the packet receiver will handle that.
+    const tService = getThumbnailService();
+    if (!tService) {
+        ThumbnailService.enqueueFile(fileHandle.id, { messages: fileHandle.messages, type: fileHandle.type, channel: fileHandle.channel });
+        return;
+    }
+    tService.sendPacket(new GenThumbnailPacket({ id: fileHandle.id, messages: fileHandle.messages, type: fileHandle.type, channel: fileHandle.channel }));
 }
 
 export function failUpload(metadata: UploadMetadata, reason?: string) {
     const client = Client.getClientById(metadata.client);
     if (!client) return;
-    console.info("[Upload] Fail!", reason);
+    if (metadata.is_overwriting_id) {
+        filesToBeOverwritten.delete(metadata.is_overwriting_id);
+    }
+    logDebug("Failed upload for", metadata);
     void client.sendPacket(new UploadFinishInfoPacket({ success: false, upload_id: metadata.upload_id, reason }));
     void sendUploadsToServices();
 }

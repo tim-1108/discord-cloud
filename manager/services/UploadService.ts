@@ -32,7 +32,8 @@ export class UploadService extends Service {
             return false;
         }
         this.markBusy();
-        const result = await this.sendPacketAndReply(new UploadStartPacket(metadata), UploadReadyPacket);
+        const { is_overwriting_id, ...rest } = metadata;
+        const result = await this.sendPacketAndReply(new UploadStartPacket(rest), UploadReadyPacket);
         const data = result?.getData();
 
         // The client id can be trusted as it is defined by the server

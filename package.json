@@ -5,35 +5,39 @@
     "scripts": {
         "manager": "bun manager/index.ts",
         "uploader": "bun upload-service/index.ts",
+        "thumbnail": "bun thumbnail-service/index.ts",
         "frontend": "cd frontend && vite",
         "format": "prettier . --write"
     },
     "devDependencies": {
-        "@tsconfig/node23": "^23.0.0",
-        "@types/bun": "^1.2.4",
-        "@types/express": "^5.0.0",
-        "@types/ws": "^8.18.0",
+        "@tsconfig/node23": "^23.0.1",
+        "@types/bun": "^1.2.12",
+        "@types/express": "^5.0.1",
+        "@types/fluent-ffmpeg": "^2.1.27",
+        "@types/ws": "^8.18.1",
         "@vue/tsconfig": "^0.7.0"
     },
     "peerDependencies": {
         "typescript": "^5.6.3"
     },
     "dependencies": {
-        "@supabase/supabase-js": "^2.49.1",
-        "@tailwindcss/vite": "^4.0.12",
+        "@supabase/supabase-js": "^2.49.4",
+        "@tailwindcss/vite": "^4.1.5",
         "@types/multer": "^1.4.12",
-        "@vitejs/plugin-vue": "^5.2.1",
-        "axios": "^1.8.2",
-        "destr": "^2.0.3",
-        "dotenv": "^16.4.7",
+        "@vitejs/plugin-vue": "^5.2.3",
+        "axios": "^1.9.0",
+        "destr": "^2.0.5",
+        "dotenv": "^16.5.0",
         "express": "^4.21.2",
         "file-type": "^19.6.0",
+        "fluent-ffmpeg": "^2.1.3",
         "form-data": "^4.0.2",
-        "multer": "^1.4.5-lts.1",
+        "multer": "^1.4.5-lts.2",
         "prettier": "^3.5.3",
-        "tailwindcss": "^4.0.12",
-        "vite-plugin-vue-devtools": "^7.7.2",
+        "sharp": "^0.34.1",
+        "tailwindcss": "^4.1.5",
+        "vite-plugin-vue-devtools": "^7.7.6",
         "vue": "^3.5.13",
-        "ws": "^8.18.1"
+        "ws": "^8.18.2"
     }
 }

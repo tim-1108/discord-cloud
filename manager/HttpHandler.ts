@@ -8,6 +8,7 @@ import { getEnvironmentVariables } from "../common/environment.js";
 import socketClosureCodes from "../common/socket-closure-codes.js";
 import signedDownloadRoute from "./routes/signed-download.js";
 import generateSignedDownloadRoute from "./routes/generate-signed-download.js";
+import downloadRoute from "./routes/download.js";
 
 export class HttpHandler {
     private readonly server: http.Server;
@@ -47,6 +48,7 @@ export class HttpHandler {
         }
         this.app.get("/signed-download", signedDownloadRoute);
         this.app.get("/generate-signed-download", generateSignedDownloadRoute);
+        this.app.get("/download", downloadRoute);
 
         this.hasInitializedRoutes = true;
     }

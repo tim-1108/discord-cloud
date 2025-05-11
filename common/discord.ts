@@ -197,3 +197,13 @@ function hasCachedHitExpired(link: string): boolean {
         return true;
     }
 }
+
+export async function downloadBinaryData(link: string) {
+    try {
+        const response = await fetch(link);
+        if (!response.ok) return null;
+        return await response.arrayBuffer();
+    } catch {
+        return null;
+    }
+}

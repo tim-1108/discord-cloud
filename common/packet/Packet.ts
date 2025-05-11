@@ -109,6 +109,14 @@ export abstract class Packet {
      * indicating that the data has been stored.
      */
     public setData(incoming: Record<string, any> | null): boolean {
+        const flag = this.isValidData(incoming);
+        if (flag) {
+            this.data = incoming;
+        }
+        return flag;
+    }
+
+    public isValidData(incoming: Record<string, any> | null) {
         const structure = this.getDataStructure();
         if (!structure) {
             console.warn("No data structure set for packet", this.constructor.name);
@@ -116,9 +124,6 @@ export abstract class Packet {
         }
         if (!isRecord(incoming)) return false;
         const validation = validateObjectBySchema(incoming, structure);
-        if (!validation.invalid) {
-            this.data = incoming;
-        }
         return !validation.invalid;
     }
 

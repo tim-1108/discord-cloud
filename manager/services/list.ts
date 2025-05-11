@@ -2,11 +2,21 @@ import { UploadService } from "./UploadService.js";
 import type { Service } from "./Service.js";
 import { sendUploadsToServices } from "../uploads.js";
 import { type WebSocket } from "ws";
+import { ThumbnailService } from "./ThumbnailService.js";
+import { GenThumbnailPacket } from "../../common/packet/s2t/GenThumbnailPacket.js";
+import { logDebug, logWarn } from "../../common/logging.js";
 
 /**
  * These uploader services are connected and ready to work!
  */
 const uploadServices = new Set<UploadService>();
+let thumbnailService: ThumbnailService | null = null;
+export function getThumbnailService() {
+    return thumbnailService;
+}
+export function unregisterThumbnailService() {
+    thumbnailService = null;
+}
 
 /**
  * Returns a random uploader that is ready to use.
@@ -41,6 +51,10 @@ export function createService(type: string, config: ServiceConfig) {
             service = new UploadService(config);
             break;
         }
+        case "thumbnail": {
+            service = new ThumbnailService(config);
+            break;
+        }
         default: {
             // Note: This means a service WITH a valid auth key has tried to register a non-existent type
             console.warn("Invalid service type has been requested.");
@@ -64,6 +78,25 @@ export function findMethodsForServiceType(service: Service) {
                 },
                 delete: () => uploadServices.delete(<UploadService>service)
             };
+        }
+        case ThumbnailService: {
+            return {
+                add: () => {
+                    if (thumbnailService !== null) {
+                        logWarn("Attempted to connect a new thumbnail service whilst there is an active connection");
+                        service.closeSocket(1000, "Another thumbnail service is already connected")
+                        return;
+                    }
+                    thumbnailService = <ThumbnailService>service;
+                    const packets = ThumbnailService.getAndClearQueue();
+                    logDebug("Sending queued thumbnails to service");
+                    for (const packet of packets) {
+                        // FIXME: These packets do not yet seem to arrive! (too early?)
+                        thumbnailService.sendPacket(new GenThumbnailPacket(packet));
+                    }
+                },
+                delete: () => thumbnailService = null
+            }
         }
         default: {
             // In any situation where this CAN even be called, this should never fail.

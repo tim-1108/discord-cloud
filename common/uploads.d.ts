@@ -9,4 +9,5 @@ export interface UploadMetadataClientProvided {
 
 export interface UploadMetadata extends UploadMetadataClientProvided {
     upload_id: UUID;
+    is_overwriting_id: number | null;
 }

@@ -5,6 +5,8 @@ import { type SchemaToType, validateObjectBySchema } from "../../common/validato
 import { resolvePathToFolderId_Cached, supabase } from "./core.js";
 import { getFileFromDatabase } from "./finding.js";
 import { folderOrRootToDatabaseType, nullOrTypeSelection } from "./helper.js";
+import { ThumbnailService } from "../services/ThumbnailService.js";
+import { removeThumbnailFromStorage } from "./storage.js";
 
 /**
  * Generates an encrypted JSON object containing name, path, and hash.
@@ -66,7 +68,9 @@ export function parseSignedFileDownload(input: string) {
 }
 
 export async function deleteFileFromDatabase(id: number) {
+    void ThumbnailService.removeQueueFileById(id);
     const result = await supabase.from("files").delete().eq("id", id);
+    void removeThumbnailFromStorage(id);
     // The data, even if successful, is null.
     // If an error object exists, something has gone wrong.
     return result.error === null;

@@ -7,6 +7,8 @@ import type { C2SPacket } from "./C2SPacket.js";
 import type { S2CPacket } from "./S2CPacket.js";
 import type { S2UPacket } from "./S2UPacket.js";
 import type { U2SPacket } from "./U2SPacket.js";
+import type { S2TPacket } from "./S2TPacket.js";
+import type { T2SPacket } from "./T2SPacket.js";
 
 type PacketProvider<T extends PacketType> = (type: T) => PacketWithID<PacketTypeMap[T]>[];
 
@@ -81,7 +83,9 @@ export enum PacketType {
     Client2Server = "c2s",
     Server2Client = "s2c",
     Server2Uploader = "s2u",
-    Uploader2Server = "u2s"
+    Uploader2Server = "u2s",
+    Server2Thumbnail = "s2t",
+    Thumbnail2Server = "t2s"
 }
 
 export type PacketTypeMap = {
@@ -89,6 +93,8 @@ export type PacketTypeMap = {
     [PacketType.Server2Client]: S2CPacket;
     [PacketType.Server2Uploader]: S2UPacket;
     [PacketType.Uploader2Server]: U2SPacket;
+    [PacketType.Server2Thumbnail]: S2TPacket;
+    [PacketType.Thumbnail2Server]: T2SPacket;
 };
 
 export type PacketWithID<T extends Packet> = { new (): T; ID: string };

@@ -67,6 +67,10 @@ export abstract class PacketReceiver {
 
     private replies = new Map<UUID, ResolveFunction>();
 
+    public closeSocket(code?: number, reason?: string): void {
+        this.socket.close(code, reason);
+    }
+
     private static REPLY_TIMEOUT = 10_000 as const;
     protected scheduleReply<T extends Packet>(id: UUID, timeout?: number): Promise<T | null> {
         return new Promise((resolve) => {

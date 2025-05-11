@@ -3,7 +3,7 @@ import { getNamingMaximumLengths, getNegatedCharacterPattern, patterns } from ".
 import { logError, logWarn } from "../../../common/logging";
 import { currentFolderListing, getListingForCurrentDirectory } from "./listing";
 
-const route = ref<string[]>([]);
+export const route = ref<string[]>([]);
 
 export function convertPathToRoute(path: string): string[] {
     if (path === "/") {
