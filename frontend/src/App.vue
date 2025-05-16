@@ -11,11 +11,15 @@ import { getPreviewingImage } from "./composables/images";
 
 const listing = useCurrentFolderListing();
 const isListingMounted = ref(true);
-watch(listing, async () => {
-    isListingMounted.value = false;
-    await nextTick();
-    isListingMounted.value = true;
-}, { deep: true });
+watch(
+    listing,
+    async () => {
+        isListingMounted.value = false;
+        await nextTick();
+        isListingMounted.value = true;
+    },
+    { deep: true }
+);
 
 const previewImage = getPreviewingImage();
 </script>

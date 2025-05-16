@@ -3,12 +3,13 @@ import { createService, findMethodsForServiceType, onServiceClose } from "./serv
 import http, { type IncomingMessage } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { cleanURL, getSearchParamsFromPath } from "./utils/url.js";
-import { Client } from "./Client.js";
+import { Client } from "./client/Client.js";
 import { getEnvironmentVariables } from "../common/environment.js";
 import socketClosureCodes from "../common/socket-closure-codes.js";
 import signedDownloadRoute from "./routes/signed-download.js";
 import generateSignedDownloadRoute from "./routes/generate-signed-download.js";
 import downloadRoute from "./routes/download.js";
+import { ClientList } from "./client/list.js";
 
 export class HttpHandler {
     private readonly server: http.Server;
@@ -68,9 +69,7 @@ export class HttpHandler {
             if (key !== CLIENT_PASSWORD) {
                 return void ws.close(socketClosureCodes.InvalidClientAuthentication);
             }
-            // The thing just needs to be called and is self-initializing
-            // Might be weird to handle, so this might be changed in the future.
-            new Client(ws);
+            const c = ClientList.register(ws);
             return;
         }
 

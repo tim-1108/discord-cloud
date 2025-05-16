@@ -4,7 +4,7 @@ import type { UploadMetadata } from "../../common/uploads.js";
 import type { CloseEvent, MessageEvent } from "ws";
 import { UploadStartPacket } from "../../common/packet/s2u/UploadStartPacket.js";
 import { PacketType, parsePacket } from "../../common/packet/parser.js";
-import { Client } from "../Client.js";
+import { Client } from "../client/Client.js";
 import { UploadFinishPacket } from "../../common/packet/u2s/UploadFinishPacket.js";
 import { UploadReadyPacket } from "../../common/packet/u2s/UploadReadyPacket.js";
 import { UploadStartInfoPacket } from "../../common/packet/s2c/UploadStartInfoPacket.js";

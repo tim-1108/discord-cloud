@@ -8,7 +8,7 @@ function streamFromFile(file: File, chunkSize: number) {
     const stream = file.stream();
     const reader = stream.getReader();
 
-    async function readNextChunk(): Promise<{ data: Uint8Array, done: boolean }> {
+    async function readNextChunk(): Promise<{ data: Uint8Array; done: boolean }> {
         if (buffer.byteLength >= chunkSize) {
             const data = buffer.subarray(0, chunkSize);
             buffer = buffer.subarray(chunkSize);
@@ -18,7 +18,8 @@ function streamFromFile(file: File, chunkSize: number) {
         while (true) {
             const { value, done } = await reader.read();
 
-            if (done) { // if done, there is no value
+            if (done) {
+                // if done, there is no value
                 const data = buffer.subarray(0, chunkSize);
                 // If we get unlucky, the last chunk of our stream sits between
                 // thee second to last upload chunk and the remainder.
@@ -49,6 +50,4 @@ function streamFromFile(file: File, chunkSize: number) {
     return readNextChunk;
 }
 
-export function submitUpload(handle: UploadFileHandle) {
-
-}
+export function submitUpload(handle: UploadFileHandle) {}

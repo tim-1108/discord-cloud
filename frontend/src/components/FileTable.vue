@@ -6,7 +6,13 @@ import type { PartialDatabaseFileRow } from "../../../manager/database/core";
 import { convertRouteToPath, route } from "@/composables/path";
 import { watch } from "vue";
 
-watch(route, (value, oldValue) => {debugger;}, { deep: true })
+watch(
+    route,
+    (value, oldValue) => {
+        debugger;
+    },
+    { deep: true }
+);
 
 const listing = useCurrentFolderListing();
 async function openImageOrDownload(file: PartialDatabaseFileRow) {

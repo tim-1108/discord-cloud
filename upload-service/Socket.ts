@@ -40,7 +40,10 @@ export class Socket extends PacketReceiver {
         if (packet instanceof UploadStartPacket) {
             const { upload_id, client, ...data } = packet.getData();
             const chunks = generateChunkSizes(data.size);
-            const accepted = setPendingUpload({ ...data, upload_id: upload_id as UUID, client: client as UUID }, chunks);
+            const accepted = setPendingUpload(
+                { ...data, upload_id: upload_id as UUID, client: client as UUID, is_overwriting_id: null /* not present here */ },
+                chunks
+            );
             this.replyToPacket(packet, new UploadReadyPacket({ accepted, chunks }));
         }
     }

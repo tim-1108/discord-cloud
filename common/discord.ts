@@ -119,8 +119,9 @@ export async function getBulkMessageAttachments(messages: string[], channel: str
     return map;
 }
 
-interface Message {
+export interface Message {
     id: string;
+    channel_id: string;
     attachments: {
         url: string;
     }[];

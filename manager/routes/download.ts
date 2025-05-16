@@ -33,8 +33,8 @@ export default async function handleRequest(req: Request, res: Response): Promis
     }
 
     if (isCrawlerRequest(req)) {
-            res.setHeader("Content-Type", "text/html");
-            res.send(`
+        res.setHeader("Content-Type", "text/html");
+        res.send(`
             <html>
                 <head>
                     <meta property="og:title" content="${escapeQuotes(fileData.name)}" />
@@ -45,8 +45,8 @@ export default async function handleRequest(req: Request, res: Response): Promis
                 <body></body>
             </html>
         `);
-            return;
-        }
+        return;
+    }
 
     return streamDownloadToResponse(req, res, fileData);
 }

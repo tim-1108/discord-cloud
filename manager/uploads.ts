@@ -1,6 +1,6 @@
 import type { UploadQueueAddPacket } from "../common/packet/c2s/UploadQueueAddPacket.js";
 import { findRandomUploadService, getThumbnailService, getUploadServiceCount } from "./services/list.js";
-import { Client } from "./Client.js";
+import { Client } from "./client/Client.js";
 import type { UploadMetadata } from "../common/uploads.js";
 import type { UUID } from "../common";
 import { UploadQueueUpdatePacket } from "../common/packet/s2c/UploadQueueUpdatePacket.js";
@@ -12,7 +12,8 @@ import { ThumbnailService } from "./services/ThumbnailService.js";
 import { GenThumbnailPacket } from "../common/packet/s2t/GenThumbnailPacket.js";
 import { getFileFromDatabase } from "./database/finding.js";
 import { deleteFileFromDatabase } from "./database/public.js";
-import { logDebug, logError } from "../common/logging.js";
+import { logDebug, logError, logWarn } from "../common/logging.js";
+import { ClientList } from "./client/list.js";
 
 const uploadQueue = new Array<UploadMetadata>();
 /**
@@ -45,7 +46,9 @@ export async function performEnqueueUploadOperation(client: Client, packet: Uplo
     void sendUploadsToServices();
 }
 
-export async function sendUploadsToServices(isInitial?: boolean, isRetry?: boolean): Promise<void> {
+export async function sendUploadsToServices(isFromQueueAdd?: boolean, isRetry?: boolean): Promise<void> {
+    // How many uploads have been submitted in this cycle
+    let c = 0;
     const count = getUploadServiceCount();
     if (count.total === 0 || count.total === count.busy) return;
     console.info("[Submit Uploads]", uploadQueue.length, "upload(s) queued,", count.busy, "of", count.total, "uploaders busy");
@@ -65,7 +68,7 @@ export async function sendUploadsToServices(isInitial?: boolean, isRetry?: boole
             if (isRetry) return;
             console.warn("[Submit Uploads] We failed to start an upload");
             // If this did not work this time, we will try again.
-            return void sendUploadsToServices(isInitial, true);
+            return void sendUploadsToServices(isFromQueueAdd, true);
         }
 
         console.info("[Submit Uploads] Sent upload to service");
@@ -76,31 +79,24 @@ export async function sendUploadsToServices(isInitial?: boolean, isRetry?: boole
     // Initial signifies that this push comes from
     // when an upload has been first queued.
     // In this process, nothing should change, so nobody needs to be notified.
-    if (isInitial) return;
-    notifyClientsOfQueueMovement();
+    if (isFromQueueAdd || c === 0) return;
+    pushQueueUpdateToClients(0, c);
 }
 
-function notifyClientsOfQueueMovement() {
-    // TODO: more intelligent notification!
-    const map = new Map<UUID, { upload_id: UUID; queue_position: number }[]>();
-    for (let i = 0; i < uploadQueue.length; i++) {
-        const item = uploadQueue[i];
-        const { client, upload_id } = item;
-        const data = { upload_id, queue_position: i };
-        if (!map.has(client)) {
-            map.set(client, [data]);
-            continue;
-        }
-        map.get(client)!.push(data);
+function pushQueueUpdateToClients(index: number, count: number) {
+    // We only send the packet to all those who actually need to know
+    const clients = new Set<UUID>();
+    for (const item of uploadQueue) {
+        clients.add(item.client);
     }
-    for (const [clientId, items] of map) {
-        const client = Client.getClientById(clientId);
+    for (const id of clients) {
+        const client = ClientList.get(id);
         if (!client) {
-            console.warn(`[Upload queue] A disconnected client (${clientId}) still had ${items.length} in queue`);
-            removeIndicesFromQueue(items.map((item) => item.queue_position));
+            // Only possible to reach whenever a client disconnects and their items are
+            // removed from end to front. Thus, these will still be in the array.
             continue;
         }
-        void client.sendPacket(new UploadQueueUpdatePacket({ uploads: items }));
+        client.sendPacket(new UploadQueueUpdatePacket({ decrease_at: index, decrease_by: count }));
     }
 }
 
@@ -115,6 +111,7 @@ export function removeClientItemsFromQueue(clientId: UUID) {
             filesToBeOverwritten.delete(item.is_overwriting_id);
         }
         uploadQueue.splice(i, 1);
+        pushQueueUpdateToClients(i, 1);
         count++;
     }
     return count;
@@ -139,7 +136,7 @@ function removeIndicesFromQueue(indices: number[]) {
 }
 
 export async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket) {
-    const client = Client.getClientById(metadata.client);
+    const client = ClientList.get(metadata.client);
     if (!client) return;
 
     logDebug("Finished upload for", metadata);
@@ -175,11 +172,13 @@ export async function finishUpload(metadata: UploadMetadata, packet: UploadFinis
         ThumbnailService.enqueueFile(fileHandle.id, { messages: fileHandle.messages, type: fileHandle.type, channel: fileHandle.channel });
         return;
     }
-    tService.sendPacket(new GenThumbnailPacket({ id: fileHandle.id, messages: fileHandle.messages, type: fileHandle.type, channel: fileHandle.channel }));
+    tService.sendPacket(
+        new GenThumbnailPacket({ id: fileHandle.id, messages: fileHandle.messages, type: fileHandle.type, channel: fileHandle.channel })
+    );
 }
 
 export function failUpload(metadata: UploadMetadata, reason?: string) {
-    const client = Client.getClientById(metadata.client);
+    const client = ClientList.get(metadata.client);
     if (!client) return;
     if (metadata.is_overwriting_id) {
         filesToBeOverwritten.delete(metadata.is_overwriting_id);

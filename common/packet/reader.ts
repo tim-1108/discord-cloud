@@ -2,14 +2,10 @@ import { logDebug } from "../logging.js";
 import { C2SPacket } from "./C2SPacket.js";
 import type { Packet } from "./Packet.js";
 import { PacketType, type PacketTypeMap, type PacketWithID } from "./parser.js";
-import { S2CPacket } from "./S2CPacket.js";
-import { S2UPacket } from "./S2UPacket.js";
-import { U2SPacket } from "./U2SPacket.js";
 import { parsePacket } from "./parser.js";
 import fs from "node:fs";
 import path from "node:path";
-import { S2TPacket } from "./S2TPacket.js";
-import { T2SPacket } from "./T2SPacket.js";
+import { PacketDefinitions } from "./definitions.js";
 
 async function loadClassesForFolder<T extends PacketType>(folder: T) {
     if (!import.meta.dirname) {
@@ -19,14 +15,7 @@ async function loadClassesForFolder<T extends PacketType>(folder: T) {
     /**
      * Needs to be defined in here to prevent initialization issues
      */
-    const packetTypes = {
-        [PacketType.Client2Server]: C2SPacket,
-        [PacketType.Server2Client]: S2CPacket,
-        [PacketType.Server2Uploader]: S2UPacket,
-        [PacketType.Uploader2Server]: U2SPacket,
-        [PacketType.Server2Thumbnail]: S2TPacket,
-        [PacketType.Thumbnail2Server]: T2SPacket
-    } as const;
+    const packetTypes = PacketDefinitions.enum2class;
     const folderPath = path.join(import.meta.dirname, folder);
 
     const list = new Array<PacketWithID<PacketTypeMap[T]>>();
@@ -92,13 +81,10 @@ export function getServersidePacketList<T extends PacketType>(type: T): PacketWi
 }
 
 async function loadPackets() {
-    packetTypeLists[PacketType.Client2Server] = await loadClassesForFolder(PacketType.Client2Server);
-    packetTypeLists[PacketType.Server2Client] = await loadClassesForFolder(PacketType.Server2Client);
-    packetTypeLists[PacketType.Server2Uploader] = await loadClassesForFolder(PacketType.Server2Uploader);
-    packetTypeLists[PacketType.Uploader2Server] = await loadClassesForFolder(PacketType.Uploader2Server);
-    packetTypeLists[PacketType.Server2Thumbnail] = await loadClassesForFolder(PacketType.Server2Thumbnail);
-    packetTypeLists[PacketType.Thumbnail2Server] = await loadClassesForFolder(PacketType.Thumbnail2Server);
-    logDebug("Loaded packets packets", ...Object.values(packetTypeLists));
+    for (const key of PacketDefinitions.enumArray) {
+        packetTypeLists[key] = await loadClassesForFolder(key);
+    }
+    logDebug("Loaded packets", ...Object.values(packetTypeLists));
 }
 
 setTimeout(loadPackets, 1);

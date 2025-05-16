@@ -6,6 +6,8 @@ import { ThumbnailService } from "./ThumbnailService.js";
 import { GenThumbnailPacket } from "../../common/packet/s2t/GenThumbnailPacket.js";
 import { logDebug, logWarn } from "../../common/logging.js";
 
+const services = new Map<string, Set<Service>>();
+
 /**
  * These uploader services are connected and ready to work!
  */
@@ -84,7 +86,7 @@ export function findMethodsForServiceType(service: Service) {
                 add: () => {
                     if (thumbnailService !== null) {
                         logWarn("Attempted to connect a new thumbnail service whilst there is an active connection");
-                        service.closeSocket(1000, "Another thumbnail service is already connected")
+                        service.closeSocket(1000, "Another thumbnail service is already connected");
                         return;
                     }
                     thumbnailService = <ThumbnailService>service;
@@ -95,8 +97,8 @@ export function findMethodsForServiceType(service: Service) {
                         thumbnailService.sendPacket(new GenThumbnailPacket(packet));
                     }
                 },
-                delete: () => thumbnailService = null
-            }
+                delete: () => (thumbnailService = null)
+            };
         }
         default: {
             // In any situation where this CAN even be called, this should never fail.

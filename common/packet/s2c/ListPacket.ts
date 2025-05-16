@@ -12,7 +12,8 @@ const dataStructure = {
     // this might act as a working fallback.
     path: { type: "string", required: true, pattern: patterns.stringifiedPath },
     files: createArraySchemaEntry<PartialDatabaseFileRow, any, true>({ required: true, validator_function: validateFiles }),
-    folders: createArraySchemaEntry<PartialDatabaseFolderRow, any, true>({ required: true, validator_function: validateFolders })
+    folders: createArraySchemaEntry<PartialDatabaseFolderRow, any, true>({ required: true, validator_function: validateFolders }),
+    success: { type: "boolean", required: true }
 } as const;
 
 function validateFiles(list: any[]): boolean {

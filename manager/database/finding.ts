@@ -63,7 +63,7 @@ export async function getFileFromDatabase(name: string, path: string) {
 }
 
 export function listFilesAtDirectory(folderId: FolderOrRoot) {
-    const selector = supabase.from("files").select("name,created_at,updated_at,size,type");
+    const selector = supabase.from("files").select("name,created_at,updated_at,size,type,has_thumbnail");
     return parsePostgrestResponse<PartialDatabaseFileRow[]>(
         folderId !== ROOT_FOLDER_ID ? selector.eq("folder", folderId) : selector.is("folder", null)
     );

@@ -1,6 +1,6 @@
 import type { ListRequestPacket } from "../../common/packet/c2s/ListRequestPacket.js";
 import { type PartialDatabaseFileRow, type PartialDatabaseFolderRow, resolvePathToFolderId_Cached } from "../database/core.js";
-import type { Client } from "../Client.js";
+import type { Client } from "../client/Client.js";
 import { ListPacket } from "../../common/packet/s2c/ListPacket.js";
 import { listFilesAtDirectory, listSubfolders } from "../database/finding.js";
 
@@ -18,21 +18,27 @@ import { listFilesAtDirectory, listSubfolders } from "../database/finding.js";
 export async function performListPacketOperation(client: Client, packet: ListRequestPacket): Promise<void> {
     const { path } = packet.getData();
     const folderId = await resolvePathToFolderId_Cached(path, false);
-    if (!folderId) return sendReplyPacket(client, packet, [], []);
+    if (!folderId) return sendReplyPacket(client, packet, [], [], false);
 
     const folders = await listSubfolders(folderId);
     const files = await listFilesAtDirectory(folderId);
 
     if (!files || !folders) {
-        return sendReplyPacket(client, packet, [], []);
+        return sendReplyPacket(client, packet, [], [], false);
     }
 
-    sendReplyPacket(client, packet, folders, files);
+    sendReplyPacket(client, packet, folders, files, true);
 }
 
-function sendReplyPacket(client: Client, originator: ListRequestPacket, folders: PartialDatabaseFolderRow[], files: PartialDatabaseFileRow[]) {
+function sendReplyPacket(
+    client: Client,
+    originator: ListRequestPacket,
+    folders: PartialDatabaseFolderRow[],
+    files: PartialDatabaseFileRow[],
+    success: boolean = true
+) {
     const { path } = originator.getData();
-    const reply = new ListPacket({ path, folders, files });
+    const reply = new ListPacket({ path, folders, files, success });
     // If the packet that requested the listing had no UUID of its own,
     // this reply might just go into the void (depending on whether the client awaits a reply or has an event listener)
     const originatorUUID = originator.getUUID();

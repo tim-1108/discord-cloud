@@ -15,7 +15,6 @@ interface ThumbnailGenerationData {
 }
 
 export class ThumbnailService extends Service {
-
     /**
      * This queue is different from what the thumbnail service itself keeps.
      * It is responsible for storing all those images for whom thumbnails should
@@ -66,5 +65,4 @@ export class ThumbnailService extends Service {
             uploadThumbnailToStorage(data.id, buf);
         }
     }
-
 }

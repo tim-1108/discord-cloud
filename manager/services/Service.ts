@@ -14,6 +14,7 @@ export abstract class Service extends PacketReceiver {
      * @readonly
      */
     protected readonly config: ServiceConfig;
+    public abstract readonly name: string;
     /**
      * Whether the service is currently processing
      * user data. If so, it cannot be chosen to receive
@@ -45,4 +46,6 @@ export abstract class Service extends PacketReceiver {
     protected markNotBusy() {
         this.busy = false;
     }
+
+    public abstract t(): void;
 }

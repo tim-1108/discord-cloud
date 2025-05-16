@@ -1,12 +1,18 @@
-import { type ArraySchemaEntry, type SchemaToType } from "../../validator.js";
+import { type SchemaToType } from "../../validator.js";
 import { S2CPacket } from "../S2CPacket.js";
-import type { UUID } from "../../index.js";
 
 const id = "upload-queue-update";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
-    uploads: { type: "array", required: true } as ArraySchemaEntry<{ upload_id: UUID; queue_position: number }, undefined, true>
+    /**
+     * From which index on the position is to be decreased
+     */
+    decrease_at: { type: "number", min: 0, required: true },
+    /**
+     * How many indices everything should move forward
+     */
+    decrease_by: { type: "number", min: 1, required: true }
 } as const;
 
 export class UploadQueueUpdatePacket extends S2CPacket {

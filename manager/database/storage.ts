@@ -1,17 +1,19 @@
-import { logDebug, logError, logWarn } from "../../common/logging";
-import { parseFileSize } from "../../common/useless";
-import { supabase } from "./core";
+import { logDebug, logError, logWarn } from "../../common/logging.js";
+import { parseFileSize } from "../../common/useless.js";
+import { supabase } from "./core.js";
 import type { Bucket } from "@supabase/storage-js";
 
 export async function uploadThumbnailToStorage(id: number, data: Buffer) {
     const BUCKET_NAME = "thumbnails";
-    const MAX_UPLOAD_SIZE = 2 * 1024; // the target image should not be larger than 2kb
+    const bucket = await getOrCreateBucket(BUCKET_NAME);
+    if (bucket === null) return false;
+
+    const MAX_UPLOAD_SIZE = bucket.file_size_limit ?? Number.MAX_SAFE_INTEGER;
     if (data.length > MAX_UPLOAD_SIZE) {
+        // There just will not be any thumbnail - easy as that.
         logWarn("Thumbnail for file", id, "is larger than the allowed size");
         return false;
     }
-    const bucket = await getOrCreateBucket(BUCKET_NAME);
-    if (bucket === null) return false;
 
     const response = await supabase.storage.from(BUCKET_NAME).upload(idToFilePath(id), data, { contentType: "image/jpeg" });
     if (response.error !== null) {

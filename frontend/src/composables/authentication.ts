@@ -27,6 +27,13 @@ export function resolvePromise(data: Authentication) {
     return true;
 }
 
+/**
+ * Use only if you do not wish to prompt for authentication.
+ */
+export function getAuthenticationSync(): Authentication | null {
+    return readObjectFromStorage(LocalStorageKey.Authentication, authenticationSchema);
+}
+
 export async function getAuthentication(): Promise<Authentication> {
     const storedData = readObjectFromStorage(LocalStorageKey.Authentication, authenticationSchema);
     const sidebarState = useSidebarState();

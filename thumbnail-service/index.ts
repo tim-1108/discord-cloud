@@ -52,7 +52,7 @@ export async function processThumbnailRequest(packet: GenThumbnailPacket) {
 
     try {
         const screenshot = await func(buffer, type);
-        socket.sendPacket(new ThumbnailDataPacket({ id, success: true, data: screenshot.toString("base64url") }))
+        socket.sendPacket(new ThumbnailDataPacket({ id, success: true, data: screenshot.toString("base64url") }));
     } catch (error) {
         console.error(error);
         socket.sendPacket(new ThumbnailDataPacket({ id, success: false, data: undefined }));
@@ -73,13 +73,14 @@ function getGeneratingFunctionForFileType(type: string): ThumbnailGeneratorFunct
     throw new TypeError("not cool!");
 }
 
-
 async function resizeImageBuffer(buf: Buffer, _: string): Promise<Buffer> {
-    return sharp(buf)
-        // The height is automagically adjusted alongside!
-        .resize({ width: config.width })
-        .jpeg({ quality: config.quality })
-        .toBuffer();
+    return (
+        sharp(buf)
+            // The height is automagically adjusted alongside!
+            .resize({ width: config.width })
+            .jpeg({ quality: config.quality })
+            .toBuffer()
+    );
 }
 
 function createVideoScreenshot(buf: Buffer, type: string): Promise<Buffer> {
@@ -88,17 +89,19 @@ function createVideoScreenshot(buf: Buffer, type: string): Promise<Buffer> {
         const stream = bufferToStream(buf);
         const command = ffmpeg().input(stream); // does the input format have to be inputted normally?
 
-        command.outputOptions([
-            "-ss 00:00:00", // seeking to the first frame
-            "-vframes 1", // only one frame
-            `-vf "scale=${config.width}:-2"`,
-            "-q:v 2" // jpg quality
-        ]).format("mjpeg")
-        .on("error", (err) => reject(err))
-        .on("end", () => resolve(Buffer.concat(chunks)))
-        .pipe()
-        .on("data", (chunk) => chunks.push(chunk))
-        .on("error", (err) => reject(err));
+        command
+            .outputOptions([
+                "-ss 00:00:00", // seeking to the first frame
+                "-vframes 1", // only one frame
+                `-vf "scale=${config.width}:-2"`,
+                "-q:v 2" // jpg quality
+            ])
+            .format("mjpeg")
+            .on("error", (err) => reject(err))
+            .on("end", () => resolve(Buffer.concat(chunks)))
+            .pipe()
+            .on("data", (chunk) => chunks.push(chunk))
+            .on("error", (err) => reject(err));
     });
 }
 
@@ -108,7 +111,6 @@ function bufferToStream(buf: Buffer) {
     stream.push(null);
     return stream;
 }
-
 
 const MAX_ATTEMPT_COUNT = 3;
 const MAX_WAIT_TIME_SECONDS = 10;
