@@ -1,10 +1,10 @@
-import { C2SPacket } from "./C2SPacket";
-import { PacketType } from "./parser";
-import { S2CPacket } from "./S2CPacket";
-import { S2TPacket } from "./S2TPacket";
-import { S2UPacket } from "./S2UPacket";
-import { T2SPacket } from "./T2SPacket";
-import { U2SPacket } from "./U2SPacket";
+import { C2SPacket } from "./C2SPacket.js";
+import { PacketType } from "./parser.js";
+import { S2CPacket } from "./S2CPacket.js";
+import { S2TPacket } from "./S2TPacket.js";
+import { S2UPacket } from "./S2UPacket.js";
+import { T2SPacket } from "./T2SPacket.js";
+import { U2SPacket } from "./U2SPacket.js";
 
 const Enum2Class = {
     [PacketType.Client2Server]: C2SPacket,
