@@ -1,10 +1,11 @@
 import { WebSocket, type MessageEvent, type CloseEvent } from "ws";
 import { PacketReceiver } from "../common/packet/PacketReceiver.js";
-import { PacketType, parsePacket } from "../common/packet/parser.js";
+import { parsePacket } from "../common/packet/parser.js";
 import { getEnvironmentVariables } from "../common/environment.js";
 import { getServersidePacketList } from "../common/packet/reader.js";
 import { GenThumbnailPacket } from "../common/packet/s2t/GenThumbnailPacket.js";
 import { processThumbnailRequest } from "./index.js";
+import { PacketType } from "../common/packet/definitions.js";
 
 export class Socket extends PacketReceiver {
     public constructor() {

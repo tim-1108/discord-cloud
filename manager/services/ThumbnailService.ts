@@ -1,5 +1,6 @@
 import { logDebug, logWarn } from "../../common/logging.js";
-import { PacketType, parsePacket } from "../../common/packet/parser.js";
+import { PacketType } from "../../common/packet/definitions.js";
+import { parsePacket } from "../../common/packet/parser.js";
 import { getServersidePacketList } from "../../common/packet/reader.js";
 import { GenThumbnailPacket } from "../../common/packet/s2t/GenThumbnailPacket.js";
 import { ThumbnailDataPacket } from "../../common/packet/t2s/ThumbnailDataPacket.js";
@@ -20,6 +21,9 @@ const config = {
 
 export class ThumbnailService extends Service {
     public config = config;
+    public static override getConfig() {
+        return config;
+    }
     public addHandler(): void {
         const packets = ThumbnailService.getAndClearQueue();
         logDebug("Sending queued thumbnails to service");
@@ -62,7 +66,6 @@ export class ThumbnailService extends Service {
         super(socket);
     }
 
-    protected handleSocketClose(event: CloseEvent): void {}
     protected handleSocketMessage(event: MessageEvent): void {
         const packet = parsePacket(event.data, PacketType.Thumbnail2Server, getServersidePacketList);
         if (packet === null) {

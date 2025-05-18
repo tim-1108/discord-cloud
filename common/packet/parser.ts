@@ -3,12 +3,7 @@ import { safeDestr } from "destr";
 import type { UnknownPacketStructure } from "../packets.js";
 import { isRecord } from "../types.js";
 import { patterns } from "../patterns.js";
-import type { C2SPacket } from "./C2SPacket.js";
-import type { S2CPacket } from "./S2CPacket.js";
-import type { S2UPacket } from "./S2UPacket.js";
-import type { U2SPacket } from "./U2SPacket.js";
-import type { S2TPacket } from "./S2TPacket.js";
-import type { T2SPacket } from "./T2SPacket.js";
+import { PacketType, type PacketTypeMap, type PacketWithID } from "./definitions.js";
 
 type PacketProvider<T extends PacketType> = (type: T) => PacketWithID<PacketTypeMap[T]>[];
 
@@ -78,23 +73,3 @@ export function parsePacket<T extends PacketType>(
 
     return packet;
 }
-
-export enum PacketType {
-    Client2Server = "c2s",
-    Server2Client = "s2c",
-    Server2Uploader = "s2u",
-    Uploader2Server = "u2s",
-    Server2Thumbnail = "s2t",
-    Thumbnail2Server = "t2s"
-}
-
-export type PacketTypeMap = {
-    [PacketType.Client2Server]: C2SPacket;
-    [PacketType.Server2Client]: S2CPacket;
-    [PacketType.Server2Uploader]: S2UPacket;
-    [PacketType.Uploader2Server]: U2SPacket;
-    [PacketType.Server2Thumbnail]: S2TPacket;
-    [PacketType.Thumbnail2Server]: T2SPacket;
-};
-
-export type PacketWithID<T extends Packet> = { new (): T; ID: string };

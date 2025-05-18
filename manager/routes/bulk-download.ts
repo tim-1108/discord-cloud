@@ -1,12 +1,12 @@
 import type { Request, Response } from "express";
-import { getEnvironmentVariables } from "../../common/environment";
-import { getRequestQuery, generateErrorResponse } from "../utils/http";
-import { patterns } from "../../common/patterns";
+import { getEnvironmentVariables } from "../../common/environment.js";
+import { getRequestQuery, generateErrorResponse } from "../utils/http.js";
+import { patterns } from "../../common/patterns.js";
 import { PassThrough } from "node:stream";
 import archiver from "archiver";
-import { logError, logWarn } from "../../common/logging";
-import { getAllFilesInSubfolders } from "../database/public";
-import { streamFileContents } from "../utils/stream-download";
+import { logError, logWarn } from "../../common/logging.js";
+import { getAllFilesInSubfolders } from "../database/public.js";
+import { streamFileContents } from "../utils/stream-download.js";
 
 export default async function handleRequest(req: Request, res: Response): Promise<void> {
     const env = getEnvironmentVariables("manager");

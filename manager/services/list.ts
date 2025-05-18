@@ -11,7 +11,7 @@ const serviceRegistry = [ThumbnailService, UploadService] as const;
 
 const serviceClassMap = new Map<string, typeof Service>();
 for (const C of serviceRegistry) {
-    const { name } = C.prototype.config;
+    const { name } = C.getConfig();
     if (serviceClassMap.has(name)) {
         throw new Error("There are multiple services with the identifier " + name);
     }

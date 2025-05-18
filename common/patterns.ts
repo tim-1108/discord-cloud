@@ -68,7 +68,7 @@ export const patterns = {
      *
      * From and to consist of one character each.
      */
-    packetId: /^[a-z]2[a-z]:[a-z\-0-9]+$/,
+    packetId: /^(([a-z]2[a-z])|generic):[a-z\-0-9]+$/,
     /**
      * Base64 data compatible to be included inside URL query
      */

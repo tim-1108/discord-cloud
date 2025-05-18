@@ -1,10 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
-import type { Database } from "./types.js";
+import type { Database } from "../../common/supabase.js";
 import { patterns } from "../../common/patterns.js";
 import { createFolderWithParent } from "./creating.js";
 import { findFolderByNameAndParent } from "./finding.js";
 import { getEnvironmentVariables } from "../../common/environment.js";
 
+// TODO: Migrate away from these types
 export type DatabaseFileRow = Database["public"]["Tables"]["files"]["Row"];
 export type DatabaseFolderRow = Database["public"]["Tables"]["folders"]["Row"];
 

@@ -128,7 +128,7 @@ export async function getAllFilesInSubfolders(path: string): Promise<SubfolderFi
     }
 
     const arrayRef = new Array<SubfolderFilesListItem>();
-    await recursive_func(id, arrayRef, "/");
+    await recursive_func(id, arrayRef, "/" /* everything is relative to the origin of this function call*/);
     return arrayRef;
 }
 

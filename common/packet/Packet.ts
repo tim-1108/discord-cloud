@@ -1,4 +1,4 @@
-import type { PacketType } from "./parser.js";
+import type { PacketType } from "./definitions.js";
 import { type SchemaEntryConsumer, validateObjectBySchema } from "../validator.js";
 import { isRecord } from "../types.js";
 import type { UUID } from "../index.js";

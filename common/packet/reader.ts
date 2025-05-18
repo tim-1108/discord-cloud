@@ -1,7 +1,6 @@
 import { logDebug } from "../logging.js";
-import { C2SPacket } from "./C2SPacket.js";
 import type { Packet } from "./Packet.js";
-import { PacketType, type PacketTypeMap, type PacketWithID } from "./parser.js";
+import { PacketType, type PacketTypeMap, type PacketWithID } from "./definitions.js";
 import { parsePacket } from "./parser.js";
 import fs from "node:fs";
 import path from "node:path";

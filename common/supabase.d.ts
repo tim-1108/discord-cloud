@@ -3,6 +3,75 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
     public: {
         Tables: {
+            "file-permissions": {
+                Row: {
+                    id: number;
+                    owner: number;
+                    public: boolean;
+                };
+                Insert: {
+                    id?: number;
+                    owner: number;
+                    public?: boolean;
+                };
+                Update: {
+                    id?: number;
+                    owner?: number;
+                    public?: boolean;
+                };
+                Relationships: [
+                    {
+                        foreignKeyName: "file-permissions_id_fkey";
+                        columns: ["id"];
+                        isOneToOne: true;
+                        referencedRelation: "files";
+                        referencedColumns: ["id"];
+                    },
+                    {
+                        foreignKeyName: "file-permissions_owner_fkey";
+                        columns: ["owner"];
+                        isOneToOne: false;
+                        referencedRelation: "users";
+                        referencedColumns: ["id"];
+                    }
+                ];
+            };
+            "file-share": {
+                Row: {
+                    can_write: boolean;
+                    file: number;
+                    shared_at: string;
+                    user: number;
+                };
+                Insert: {
+                    can_write?: boolean;
+                    file: number;
+                    shared_at?: string;
+                    user: number;
+                };
+                Update: {
+                    can_write?: boolean;
+                    file?: number;
+                    shared_at?: string;
+                    user?: number;
+                };
+                Relationships: [
+                    {
+                        foreignKeyName: "file-share_file_fkey";
+                        columns: ["file"];
+                        isOneToOne: false;
+                        referencedRelation: "files";
+                        referencedColumns: ["id"];
+                    },
+                    {
+                        foreignKeyName: "file-share_user_fkey";
+                        columns: ["user"];
+                        isOneToOne: false;
+                        referencedRelation: "users";
+                        referencedColumns: ["id"];
+                    }
+                ];
+            };
             files: {
                 Row: {
                     channel: string;
@@ -63,12 +132,12 @@ export type Database = {
                     parent_folder: number | null;
                 };
                 Insert: {
-                    id?: never;
+                    id?: number;
                     name: string;
                     parent_folder?: number | null;
                 };
                 Update: {
-                    id?: never;
+                    id?: number;
                     name?: string;
                     parent_folder?: number | null;
                 };
@@ -81,6 +150,27 @@ export type Database = {
                         referencedColumns: ["id"];
                     }
                 ];
+            };
+            users: {
+                Row: {
+                    id: number;
+                    password: string;
+                    salt: string;
+                    username: string;
+                };
+                Insert: {
+                    id?: number;
+                    password: string;
+                    salt: string;
+                    username: string;
+                };
+                Update: {
+                    id?: number;
+                    password?: string;
+                    salt?: string;
+                    username?: string;
+                };
+                Relationships: [];
             };
         };
         Views: {
@@ -190,10 +280,8 @@ export type CompositeTypes<
       ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
       : never;
 
-export const Constants = {
-    public: {
-        Enums: {
-            thumbnail_scale: ["tiny", "default", "large"]
-        }
-    }
-} as const;
+export type FileHandle = Database["public"]["Tables"]["files"];
+export type FolderHandle = Database["public"]["Tables"]["folders"];
+export type FilePermissionsHandle = Database["public"]["Tables"]["file-permissions"];
+export type FileShareHandle = Database["public"]["Tables"]["file-share"];
+export type UserHandle = Database["public"]["Tables"]["users"];

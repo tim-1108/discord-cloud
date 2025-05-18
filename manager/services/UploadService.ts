@@ -2,7 +2,7 @@ import { Service } from "./Service.js";
 import type { UploadMetadata } from "../../common/uploads.js";
 import type { CloseEvent, MessageEvent, WebSocket } from "ws";
 import { UploadStartPacket } from "../../common/packet/s2u/UploadStartPacket.js";
-import { PacketType, parsePacket } from "../../common/packet/parser.js";
+import { parsePacket } from "../../common/packet/parser.js";
 import { UploadFinishPacket } from "../../common/packet/u2s/UploadFinishPacket.js";
 import { UploadReadyPacket } from "../../common/packet/u2s/UploadReadyPacket.js";
 import { UploadStartInfoPacket } from "../../common/packet/s2c/UploadStartInfoPacket.js";
@@ -10,6 +10,7 @@ import { failUpload, finishUpload, sendUploadsToServices } from "../uploads.js";
 import { getServersidePacketList } from "../../common/packet/reader.js";
 import { ClientList } from "../client/list.js";
 import { logWarn } from "../../common/logging.js";
+import { PacketType } from "../../common/packet/definitions.js";
 
 const config = {
     name: "upload"
@@ -19,8 +20,15 @@ export class UploadService extends Service {
     public addHandler(): void {
         sendUploadsToServices();
     }
-    public removeHandler(): void {}
+    public removeHandler(): void {
+        if (this.uploadMetadata) {
+            failUpload(this.uploadMetadata, "The uploader has unexpectedly disconnected");
+        }
+    }
     public config = config;
+    public static getConfig() {
+        return config;
+    }
 
     private uploadMetadata: UploadMetadata | null;
     private address: string;
@@ -69,12 +77,6 @@ export class UploadService extends Service {
         );
 
         return hasInformedClient === null;
-    }
-
-    protected handleSocketClose(event: CloseEvent): void {
-        if (!this.uploadMetadata) return;
-        failUpload(this.uploadMetadata, "The uploader has unexpectedly disconnected");
-        this.uploadMetadata = null;
     }
 
     protected handleSocketMessage(event: MessageEvent): void {

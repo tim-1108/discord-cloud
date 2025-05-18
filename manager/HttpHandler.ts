@@ -8,6 +8,7 @@ import signedDownloadRoute from "./routes/signed-download.js";
 import generateSignedDownloadRoute from "./routes/generate-signed-download.js";
 import downloadRoute from "./routes/download.js";
 import bulkDownloadRoute from "./routes/bulk-download.js";
+import healthRoute from "./routes/health.js";
 import { ClientList } from "./client/list.js";
 import { ServiceRegistry } from "./services/list.js";
 import { logInfo } from "../common/logging.js";
@@ -48,6 +49,7 @@ export class HttpHandler {
             console.warn("[HttpHandler] Attempted to call setupRoutes twice");
             return;
         }
+        this.app.get("/health", healthRoute);
         this.app.get("/signed-download", signedDownloadRoute);
         this.app.get("/generate-signed-download", generateSignedDownloadRoute);
         this.app.get("/download", downloadRoute);

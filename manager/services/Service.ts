@@ -12,8 +12,19 @@ interface ServiceConfiguration {
  */
 export abstract class Service extends PacketReceiver {
     public abstract readonly config: ServiceConfiguration;
+    public static getConfig(): ServiceConfiguration {
+        return { name: "" };
+    }
     public abstract addHandler(): void;
     public abstract removeHandler(): void;
+
+    /**
+     * No Service subclass has to implement this function, as their
+     * removeHandler method will get called. Yes, this is confusing
+     * design and should be changed.
+     */
+    protected handleSocketClose() {}
+
     /**
      * Whether the service is currently processing
      * user data. If so, it cannot be chosen to receive

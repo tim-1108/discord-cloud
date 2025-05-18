@@ -1,14 +1,15 @@
 import type { SchemaToType } from "../../validator.js";
-import { S2CPacket } from "../S2CPacket.js";
+import { GenericPacket } from "../GenericPacket.js";
 
-const id = "generic-s2c-answer";
+const id = "boolean";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
-    success: { type: "boolean", required: false }
+    success: { type: "boolean", required: false },
+    message: { type: "string", required: false }
 } as const;
 
-export class GenericS2CAnswerPacket extends S2CPacket {
+export class GenericBooleanPacket extends GenericPacket {
     declare protected data: DataType;
     public static readonly ID = id;
 

@@ -26,7 +26,18 @@ type EnvSubsetValues<T extends EnvSubsetKey, Optional extends boolean = false> =
  * All subsets and their corresponding variables should be defined in this record.
  */
 const ENV_SUBSETS = {
+    /**
+     * Used by many services to symetrically decrypt Discord attachments using AES
+     */
     common: ["CRYPTO_KEY"],
+    /**
+     * A keypair used for generating JWTs.
+     * The keys are encoded in base64 to effectively store them in environment variables.
+     * Encode the entire key file (even though the actual key is already encoded in it),
+     * as the buffer will be passed to Node's createPrivateKey, which defaults to the PEM
+     * format (node/lib/internal/crypto/keys.js#prepareAsymmetricKey)
+     */
+    crypto: ["PRIVATE_KEY", "PUBLIC_KEY"],
     manager: ["SERVICE_PASSWORD", "CLIENT_PASSWORD", "SUPABASE_URL", "SUPABASE_KEY", "DISCORD_CHANNEL_ID"],
     "upload-service": ["SERVICE_PASSWORD", "OWN_ADDRESS", "MANAGER_ADDRESS", "ENCRYPTION", "WEBHOOK_URL", "PORT"],
     "thumbnail-service": ["SERVICE_PASSWORD", "MANAGER_ADDRESS", "OWN_ADDRESS"],

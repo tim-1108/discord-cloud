@@ -1,6 +1,6 @@
 import { type CloseEvent, type MessageEvent, WebSocket } from "ws";
 import type { UUID } from "../../common/index.js";
-import { PacketType, parsePacket } from "../../common/packet/parser.js";
+import { parsePacket } from "../../common/packet/parser.js";
 import { UploadQueueAddPacket } from "../../common/packet/c2s/UploadQueueAddPacket.js";
 import { PacketReceiver } from "../../common/packet/PacketReceiver.js";
 import { performEnqueueUploadOperation, removeClientItemsFromQueue } from "../uploads.js";
@@ -9,6 +9,7 @@ import { pingServices } from "../pinging.js";
 import { ListRequestPacket } from "../../common/packet/c2s/ListRequestPacket.js";
 import { performListPacketOperation } from "../client-operations/listing.js";
 import { getServersidePacketList } from "../../common/packet/reader.js";
+import { PacketType } from "../../common/packet/definitions.js";
 
 export class Client extends PacketReceiver {
     private readonly uuid: UUID;

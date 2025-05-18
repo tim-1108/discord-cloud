@@ -43,23 +43,11 @@ export async function addFileToDatabase(
     type: string,
     isEncrypted: boolean,
     messages: string[],
-    channel: string,
-    isOverwriting?: number
+    channel: string
 ) {
     // If the folder does not exist, we will always create it.
     const folder = await createOrGetFolderByPath(path);
     if (folder === null) return null;
-
-    if (typeof isOverwriting === "number") {
-        return parsePostgrestResponse<DatabaseFileRow>(
-            supabase
-                .from("files")
-                .update({ hash, size, messages, is_encrypted: isEncrypted, type, channel })
-                .eq("id", isOverwriting)
-                .select()
-                .single()
-        );
-    }
 
     return parsePostgrestResponse<DatabaseFileRow>(
         supabase

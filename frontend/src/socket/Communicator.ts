@@ -1,8 +1,9 @@
 import { globals } from "@/composables/globals.js";
 import { PacketReceiver } from "../../../common/packet/PacketReceiver.js";
-import { PacketType, parsePacket } from "../../../common/packet/parser.js";
+import { parsePacket } from "../../../common/packet/parser.js";
 import { getBrowserClientboundPacketList } from "./packets.js";
 import { useCurrentRoute } from "@/composables/path.js";
+import { PacketType } from "../../../common/packet/definitions.js";
 
 /**
  * The class that communicates with the manager using a web socket.

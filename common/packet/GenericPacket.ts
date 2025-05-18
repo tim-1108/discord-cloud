@@ -1,8 +1,8 @@
 import { Packet } from "./Packet.js";
 import { PacketType } from "./definitions.js";
 
-export abstract class C2SPacket extends Packet {
+export abstract class GenericPacket extends Packet {
     protected constructor(id: string, data?: Record<string, any>) {
-        super(Packet.createPrefixedId(PacketType.Client2Server, id), data);
+        super(Packet.createPrefixedId(PacketType.Generic, id), data);
     }
 }
