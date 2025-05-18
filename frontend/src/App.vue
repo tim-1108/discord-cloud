@@ -1,25 +1,15 @@
 <script setup lang="ts">
-import { watch, ref, nextTick } from "vue";
+import { watch, ref, nextTick, onMounted } from "vue";
 import FileTable from "./components/FileTable.vue";
 import PathRenderer from "./components/PathRenderer.vue";
 import Sidebar from "./components/Sidebar.vue";
 import StatusBox from "./components/StatusBox.vue";
 import SubfolderTable from "./components/SubfolderTable.vue";
-import { useCurrentFolderListing } from "./composables/listing";
 import ImagePreview from "./components/ImagePreview.vue";
 import { getPreviewingImage } from "./composables/images";
+import { globals } from "./composables/globals";
 
-const listing = useCurrentFolderListing();
-const isListingMounted = ref(true);
-watch(
-    listing,
-    async () => {
-        isListingMounted.value = false;
-        await nextTick();
-        isListingMounted.value = true;
-    },
-    { deep: true }
-);
+const listing = globals.listing.active;
 
 const previewImage = getPreviewingImage();
 </script>
@@ -28,10 +18,11 @@ const previewImage = getPreviewingImage();
     <div id="wrapper" class="min-h-0 max-h-screen">
         <PathRenderer></PathRenderer>
         <StatusBox></StatusBox>
-        <div v-if="isListingMounted">
-            <SubfolderTable></SubfolderTable>
-            <FileTable></FileTable>
+        <div v-if="listing !== null">
+            <SubfolderTable :listing="listing"></SubfolderTable>
+            <FileTable :listing="listing"></FileTable>
         </div>
+        <p v-else>Loading!</p>
         <Sidebar></Sidebar>
         <ImagePreview v-if="previewImage !== null"></ImagePreview>
     </div>

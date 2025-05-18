@@ -1,5 +1,4 @@
 import type { UploadQueueAddPacket } from "../common/packet/c2s/UploadQueueAddPacket.js";
-import { findRandomUploadService, getThumbnailService, getUploadServiceCount } from "./services/list.js";
 import { Client } from "./client/Client.js";
 import type { UploadMetadata } from "../common/uploads.js";
 import type { UUID } from "../common";
@@ -14,6 +13,7 @@ import { getFileFromDatabase } from "./database/finding.js";
 import { deleteFileFromDatabase } from "./database/public.js";
 import { logDebug, logError, logWarn } from "../common/logging.js";
 import { ClientList } from "./client/list.js";
+import { ServiceRegistry } from "./services/list.js";
 
 const uploadQueue = new Array<UploadMetadata>();
 /**
@@ -49,12 +49,12 @@ export async function performEnqueueUploadOperation(client: Client, packet: Uplo
 export async function sendUploadsToServices(isFromQueueAdd?: boolean, isRetry?: boolean): Promise<void> {
     // How many uploads have been submitted in this cycle
     let c = 0;
-    const count = getUploadServiceCount();
-    if (count.total === 0 || count.total === count.busy) return;
-    console.info("[Submit Uploads]", uploadQueue.length, "upload(s) queued,", count.busy, "of", count.total, "uploaders busy");
+    const count = ServiceRegistry.count("upload");
+    if (count.total === 0 || count.idle === 0) return;
+    console.info("[Submit Uploads]", uploadQueue.length, "upload(s) queued,", count.idle, "of", count.total, "uploaders idle");
     while (uploadQueue.length > 0) {
-        if (count.total === count.busy) break;
-        const service = findRandomUploadService();
+        if (count.idle === 0) break;
+        const service = ServiceRegistry.random.idle("upload");
         // This should not happen.
         if (!service) break;
 
@@ -74,7 +74,7 @@ export async function sendUploadsToServices(isFromQueueAdd?: boolean, isRetry?: 
         console.info("[Submit Uploads] Sent upload to service");
 
         // Even without re-fetching the count, we know the service will be busy.
-        count.busy++;
+        count.idle--;
     }
     // Initial signifies that this push comes from
     // when an upload has been first queued.
@@ -167,7 +167,7 @@ export async function finishUpload(metadata: UploadMetadata, packet: UploadFinis
     // Next, we contact our thumbnail service to have a screenshot generated
     // We will not be waiting here for a response, as that might get queued
     // up or take a long time. Thus, the packet receiver will handle that.
-    const tService = getThumbnailService();
+    const tService = ServiceRegistry.random.all("thumbnail");
     if (!tService) {
         ThumbnailService.enqueueFile(fileHandle.id, { messages: fileHandle.messages, type: fileHandle.type, channel: fileHandle.channel });
         return;

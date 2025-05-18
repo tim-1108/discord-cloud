@@ -1,7 +1,7 @@
 import { patterns } from "../../patterns.js";
 import { createArraySchemaEntry, type SchemaToType } from "../../validator.js";
 import { S2CPacket } from "../S2CPacket.js";
-import type { PartialDatabaseFileRow, PartialDatabaseFolderRow } from "../../../manager/database/core.js";
+import type { DatabaseFileRow, DatabaseFolderRow } from "../../../manager/database/core.js";
 
 const id = "list";
 
@@ -11,8 +11,8 @@ const dataStructure = {
     // However, if the client does not await a reply and only parses packets as-is,
     // this might act as a working fallback.
     path: { type: "string", required: true, pattern: patterns.stringifiedPath },
-    files: createArraySchemaEntry<PartialDatabaseFileRow, any, true>({ required: true, validator_function: validateFiles }),
-    folders: createArraySchemaEntry<PartialDatabaseFolderRow, any, true>({ required: true, validator_function: validateFolders }),
+    files: createArraySchemaEntry<DatabaseFileRow, any, true>({ required: true, validator_function: validateFiles }),
+    folders: createArraySchemaEntry<DatabaseFolderRow, any, true>({ required: true, validator_function: validateFolders }),
     success: { type: "boolean", required: true }
 } as const;
 

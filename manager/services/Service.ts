@@ -1,20 +1,19 @@
-import type { ServiceConfig } from "./list.js";
+import type { WebSocket } from "ws";
 import { PacketReceiver } from "../../common/packet/PacketReceiver.js";
+
+interface ServiceConfiguration {
+    maxAmount?: number;
+    name: string;
+}
 
 /**
  * Services are registered by {@link HttpHandler} and are automatically
  * dismissed by it.
  */
 export abstract class Service extends PacketReceiver {
-    /**
-     * Represents the URL of the service.
-     *
-     * Should not contain any protocols (just (sub-)domains)
-     * @private
-     * @readonly
-     */
-    protected readonly config: ServiceConfig;
-    public abstract readonly name: string;
+    public abstract readonly config: ServiceConfiguration;
+    public abstract addHandler(): void;
+    public abstract removeHandler(): void;
     /**
      * Whether the service is currently processing
      * user data. If so, it cannot be chosen to receive
@@ -23,9 +22,8 @@ export abstract class Service extends PacketReceiver {
      */
     private busy: boolean = false;
 
-    protected constructor(config: ServiceConfig) {
-        super(config.socket);
-        this.config = config;
+    protected constructor(socket: WebSocket) {
+        super(socket);
         this.initialize();
     }
 
@@ -46,6 +44,4 @@ export abstract class Service extends PacketReceiver {
     protected markNotBusy() {
         this.busy = false;
     }
-
-    public abstract t(): void;
 }

@@ -1,15 +1,16 @@
 import express, { type Express } from "express";
-import { createService, findMethodsForServiceType, onServiceClose } from "./services/list.js";
 import http, { type IncomingMessage } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { cleanURL, getSearchParamsFromPath } from "./utils/url.js";
-import { Client } from "./client/Client.js";
 import { getEnvironmentVariables } from "../common/environment.js";
 import socketClosureCodes from "../common/socket-closure-codes.js";
 import signedDownloadRoute from "./routes/signed-download.js";
 import generateSignedDownloadRoute from "./routes/generate-signed-download.js";
 import downloadRoute from "./routes/download.js";
+import bulkDownloadRoute from "./routes/bulk-download.js";
 import { ClientList } from "./client/list.js";
+import { ServiceRegistry } from "./services/list.js";
+import { logInfo } from "../common/logging.js";
 
 export class HttpHandler {
     private readonly server: http.Server;
@@ -50,6 +51,7 @@ export class HttpHandler {
         this.app.get("/signed-download", signedDownloadRoute);
         this.app.get("/generate-signed-download", generateSignedDownloadRoute);
         this.app.get("/download", downloadRoute);
+        this.app.get("/bulk-download", bulkDownloadRoute);
 
         this.hasInitializedRoutes = true;
     }
@@ -83,15 +85,11 @@ export class HttpHandler {
         }
         // Without proper credentials, the requester should never reach this point
         // Even if an invalid service type is passed, no service is created here.
-        const service = createService(type, { address: url, socket: ws });
+        const service = ServiceRegistry.registerAndGet(type, ws);
         if (!service) {
             return void ws.close(socketClosureCodes.FailedServiceCreation);
         }
 
-        console.info("[HttpHandler] New service created of type", type);
-        const methods = findMethodsForServiceType(service);
-        methods.add();
-
-        ws.onclose = () => void onServiceClose(service, methods.delete);
+        logInfo("[HttpHandler] New service created of type", type);
     }
 }

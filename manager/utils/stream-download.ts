@@ -1,27 +1,18 @@
-import type { Request, Response } from "express";
 import { decryptBuffer } from "../../common/crypto.js";
 import { downloadBinaryData, getBulkMessageAttachments } from "../../common/discord.js";
-import { logDebug } from "../../common/logging.js";
+import { logDebug, logError } from "../../common/logging.js";
 import { sortMapValuesAsArrayByKeyArray } from "../../common/useless.js";
 import type { DatabaseFileRow } from "../database/core.js";
 import { enqueue, shiftQueue } from "../../common/processing-queue.js";
-import { generateErrorResponse } from "./http.js";
+import type { Writable } from "node:stream";
 
-export async function streamDownloadToResponse(req: Request, res: Response, file: DatabaseFileRow) {
-    if (!file.channel) {
-        // TODO: migrate all files to have a channel field set at all times!
-        return void generateErrorResponse(res, 503, "Sorry, this is a legacy file that cannot be downloaded this way");
-    }
+export async function streamFileContents(target: Writable, file: DatabaseFileRow): Promise<string | null> {
     await enqueue();
-
-    res.setHeader("Content-Disposition", `attachment; filename="${file.name}"`);
-    res.setHeader("Content-Length", file.size);
-    res.write("");
 
     const links = await getBulkMessageAttachments(file.messages, file.channel);
     if (!links || links.values().some((value) => value === null)) {
         shiftQueue();
-        return void generateErrorResponse(res, 500, "Failed to load all message links, please try again");
+        return "Failed to load all message links, please try again";
     }
 
     // If these wouldn't be sorted, they'd come in as they were uploaded to Discord
@@ -30,7 +21,7 @@ export async function streamDownloadToResponse(req: Request, res: Response, file
     const sortedLinks = sortMapValuesAsArrayByKeyArray(links, file.messages);
     if (!sortedLinks) {
         shiftQueue();
-        return void generateErrorResponse(res, 500, "If you see this error, The Impossible has arrived");
+        return "If you see this error, The Impossible has arrived";
     }
 
     logDebug("File with name", file.name, "has attachments", sortedLinks);
@@ -44,18 +35,19 @@ export async function streamDownloadToResponse(req: Request, res: Response, file
         );
         if (!arrayBuffer) {
             shiftQueue();
-            res.end();
+            target.end();
             // Sadly, this is a silent fail.
             // It appears we cannot tell the client that this failed
             // - Status codes and headers might have already been sent
             // - If we were to send an error message, it might just append it to the download
             // - If the Content-Length should then something else than the header, it might fail client-side (CHECK THIS)
-            console.error("[SignedDownload] Failed to download chunk", link, "for file", file);
-            return;
+            logError("Failed to download chunk", link, "for file", file);
+            return "Failed to download a chunk";
         }
         const decryptedBuffer = file.is_encrypted ? decryptBuffer(Buffer.from(arrayBuffer)) : Buffer.from(arrayBuffer);
-        res.write(decryptedBuffer);
+        target.write(decryptedBuffer);
     }
-    res.end();
+    target.end();
     shiftQueue();
+    return null;
 }

@@ -1,13 +1,4 @@
-import {
-    type FolderOrRoot,
-    type DatabaseFolderRow,
-    supabase,
-    ROOT_FOLDER_ID,
-    type DatabaseFileRow,
-    resolvePathToFolderId_Cached,
-    type PartialDatabaseFileRow,
-    type PartialDatabaseFolderRow
-} from "./core.js";
+import { type FolderOrRoot, type DatabaseFolderRow, supabase, ROOT_FOLDER_ID, type DatabaseFileRow, resolvePathToFolderId_Cached } from "./core.js";
 import { parsePostgrestResponse } from "./helper.js";
 
 export function findFolderByNameAndParent(name: string, parent: FolderOrRoot): Promise<DatabaseFolderRow | null> {
@@ -63,15 +54,13 @@ export async function getFileFromDatabase(name: string, path: string) {
 }
 
 export function listFilesAtDirectory(folderId: FolderOrRoot) {
-    const selector = supabase.from("files").select("name,created_at,updated_at,size,type,has_thumbnail");
-    return parsePostgrestResponse<PartialDatabaseFileRow[]>(
-        folderId !== ROOT_FOLDER_ID ? selector.eq("folder", folderId) : selector.is("folder", null)
-    );
+    const selector = supabase.from("files").select("*");
+    return parsePostgrestResponse<DatabaseFileRow[]>(folderId !== ROOT_FOLDER_ID ? selector.eq("folder", folderId) : selector.is("folder", null));
 }
 
 export function listSubfolders(folderId: FolderOrRoot) {
-    const selector = supabase.from("folders").select("name,id");
-    return parsePostgrestResponse<PartialDatabaseFolderRow[]>(
+    const selector = supabase.from("folders").select("*");
+    return parsePostgrestResponse<DatabaseFolderRow[]>(
         folderId !== ROOT_FOLDER_ID ? selector.eq("parent_folder", folderId) : selector.is("parent_folder", null)
     );
 }

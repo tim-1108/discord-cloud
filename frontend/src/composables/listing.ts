@@ -1,12 +1,12 @@
 import { communicator } from "@/main";
-import { convertPathToRoute, convertRouteToPath, useCurrentRoute } from "./path";
+import { convertPathToRoute, convertRouteToPath } from "./path";
 import { ListRequestPacket } from "../../../common/packet/c2s/ListRequestPacket";
 import { ListPacket } from "../../../common/packet/s2c/ListPacket";
-import type { PartialDatabaseFileRow, PartialDatabaseFolderRow } from "../../../manager/database/core";
+import type { DatabaseFileRow, DatabaseFolderRow } from "../../../manager/database/core";
 import { patterns } from "../../../common/patterns";
 import { ref } from "vue";
 
-type Listing = { files: PartialDatabaseFileRow[]; folders: PartialDatabaseFolderRow[] };
+export type Listing = { files: DatabaseFileRow[]; folders: DatabaseFolderRow[] };
 type ListingCacheItem = {
     /**
      * A flag indicating whether the content in `files` and `folders` is
@@ -16,11 +16,11 @@ type ListingCacheItem = {
      * the data in all subfolders should stay untouched.
      */
     cached: boolean;
-    files: PartialDatabaseFileRow[];
+    files: DatabaseFileRow[];
     /**
      * Does not store any actual subfolder data, only metadata about subfolders contained herein
      */
-    folders: PartialDatabaseFolderRow[];
+    folders: DatabaseFolderRow[];
     /**
      * This is a recursive storage, always going deeper and deeper.
      */
@@ -28,12 +28,13 @@ type ListingCacheItem = {
 };
 const cache: { root: ListingCacheItem | null } = { root: null };
 
-export const currentFolderListing = ref<Listing | "loading" | "error">("loading");
-export function useCurrentFolderListing() {
-    return currentFolderListing;
+export const activeListingEntry = ref<Listing | null>(null);
+export function updateActiveListingEntry(val: Listing | null) {
+    activeListingEntry.value = null;
+    activeListingEntry.value = val;
 }
 
-async function getListingForDirectory(route: string[]) {
+export async function getListingForDirectory(route: string[]): Promise<Listing | null> {
     const path = convertRouteToPath(route);
 
     // The only places where user input should be admitted directly into a path,
@@ -52,11 +53,14 @@ async function getListingForDirectory(route: string[]) {
     if (!reply) {
         return null;
     }
-    const { files, folders } = reply.getData();
+    const { files, folders, success } = reply.getData();
+    if (!success) {
+        return null;
+    }
     // The validator functions inside the ListPacket class assure us that these arrays do not contain undefined
     const returnValue = {
-        files: sortArrayByName(files as PartialDatabaseFileRow[]),
-        folders: sortArrayByName(folders as PartialDatabaseFolderRow[])
+        files: sortArrayByName(files as DatabaseFileRow[]),
+        folders: sortArrayByName(folders as DatabaseFolderRow[])
     };
     writeToCache(route, returnValue);
     return returnValue;
@@ -64,17 +68,6 @@ async function getListingForDirectory(route: string[]) {
 
 function sortArrayByName<T extends { name: string }>(list: T[]): T[] {
     return list.sort((a, b) => a.name.localeCompare(b.name));
-}
-
-/**
- * A callee of this function is expected to set the {@link currentFolderListing} state to either
- * the return value of this function or `error` themselves.
- * @returns The listing data for the current directory, if successful
- */
-export async function getListingForCurrentDirectory(): Promise<Listing | null> {
-    const route = useCurrentRoute();
-    currentFolderListing.value = "loading";
-    return getListingForDirectory(route.value);
 }
 
 function extractFilesAndFolders(input: ListingCacheItem) {

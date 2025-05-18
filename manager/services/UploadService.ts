@@ -1,22 +1,34 @@
 import { Service } from "./Service.js";
-import type { ServiceConfig } from "./list.js";
 import type { UploadMetadata } from "../../common/uploads.js";
-import type { CloseEvent, MessageEvent } from "ws";
+import type { CloseEvent, MessageEvent, WebSocket } from "ws";
 import { UploadStartPacket } from "../../common/packet/s2u/UploadStartPacket.js";
 import { PacketType, parsePacket } from "../../common/packet/parser.js";
-import { Client } from "../client/Client.js";
 import { UploadFinishPacket } from "../../common/packet/u2s/UploadFinishPacket.js";
 import { UploadReadyPacket } from "../../common/packet/u2s/UploadReadyPacket.js";
 import { UploadStartInfoPacket } from "../../common/packet/s2c/UploadStartInfoPacket.js";
-import { failUpload, finishUpload } from "../uploads.js";
+import { failUpload, finishUpload, sendUploadsToServices } from "../uploads.js";
 import { getServersidePacketList } from "../../common/packet/reader.js";
+import { ClientList } from "../client/list.js";
+import { logWarn } from "../../common/logging.js";
+
+const config = {
+    name: "upload"
+} as const;
 
 export class UploadService extends Service {
-    private uploadMetadata: UploadMetadata | null;
+    public addHandler(): void {
+        sendUploadsToServices();
+    }
+    public removeHandler(): void {}
+    public config = config;
 
-    public constructor(config: ServiceConfig) {
-        super(config);
+    private uploadMetadata: UploadMetadata | null;
+    private address: string;
+
+    public constructor(socket: WebSocket) {
+        super(socket);
         this.uploadMetadata = null;
+        this.address = ""; // FIXME: help
     }
 
     /**
@@ -28,7 +40,7 @@ export class UploadService extends Service {
     public async requestUploadStart(metadata: UploadMetadata): Promise<boolean> {
         // This should not be possible when called from sendUploadsToServices
         if (this.isBusy()) {
-            console.warn("[UploadService] Requested upload start while service is busy");
+            logWarn("Requested upload start while service is busy");
             return false;
         }
         this.markBusy();
@@ -37,7 +49,7 @@ export class UploadService extends Service {
         const data = result?.getData();
 
         // The client id can be trusted as it is defined by the server
-        const client = Client.getClientById(metadata.client);
+        const client = ClientList.get(metadata.client);
 
         // In the time awaiting a response from the uploader, the client might have disconnected
         if (!client) {
@@ -53,7 +65,7 @@ export class UploadService extends Service {
 
         this.uploadMetadata = metadata;
         const hasInformedClient = await client.sendPacket(
-            new UploadStartInfoPacket({ upload_id: metadata.upload_id, chunks: data.chunks, address: this.config.address })
+            new UploadStartInfoPacket({ upload_id: metadata.upload_id, chunks: data.chunks, address: this.address })
         );
 
         return hasInformedClient === null;

@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { useCurrentFolderListing } from "@/composables/listing";
+import type { Listing } from "@/composables/listing";
 import { appendToRoute } from "@/composables/path";
-import { computed } from "vue";
 
-const listing = useCurrentFolderListing();
+const props = defineProps<{ listing: Listing }>();
 </script>
 
 <template>

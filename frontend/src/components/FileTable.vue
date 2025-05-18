@@ -1,21 +1,13 @@
 <script setup lang="ts">
-import { useCurrentFolderListing } from "@/composables/listing";
 import { parseFileSize } from "../../../common/useless";
 import { generateDownloadLink, getPreviewingImage, isFileImage } from "@/composables/images";
-import type { PartialDatabaseFileRow } from "../../../manager/database/core";
-import { convertRouteToPath, route } from "@/composables/path";
-import { watch } from "vue";
+import type { DatabaseFileRow } from "../../../manager/database/core";
+import { convertRouteToPath, useCurrentRoute } from "@/composables/path";
+import type { Listing } from "@/composables/listing";
 
-watch(
-    route,
-    (value, oldValue) => {
-        debugger;
-    },
-    { deep: true }
-);
-
-const listing = useCurrentFolderListing();
-async function openImageOrDownload(file: PartialDatabaseFileRow) {
+const props = defineProps<{ listing: Listing }>();
+const route = useCurrentRoute();
+async function openImageOrDownload(file: DatabaseFileRow) {
     console.log(route.value, convertRouteToPath(route.value));
     const link = await generateDownloadLink(file.name, convertRouteToPath(route.value));
     if (isFileImage(file)) {

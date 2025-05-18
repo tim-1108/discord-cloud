@@ -4,7 +4,8 @@ import { patterns } from "../../common/patterns.js";
 import { getEnvironmentVariables } from "../../common/environment.js";
 import { getFileFromDatabase } from "../database/finding.js";
 import { escapeQuotes, parseFileSize } from "../../common/useless.js";
-import { streamDownloadToResponse } from "../utils/stream-download.js";
+import { streamFileContents } from "../utils/stream-download.js";
+import { logError } from "../../common/logging.js";
 
 export default async function handleRequest(req: Request, res: Response): Promise<void> {
     const env = getEnvironmentVariables("manager");
@@ -27,8 +28,8 @@ export default async function handleRequest(req: Request, res: Response): Promis
         return void generateErrorResponse(res, 400, "Please provide path and name fields in query");
     }
 
-    const fileData = await getFileFromDatabase(name, path);
-    if (fileData == null) {
+    const handle = await getFileFromDatabase(name, path);
+    if (handle == null) {
         return void generateErrorResponse(res, 404, "File not found");
     }
 
@@ -37,10 +38,10 @@ export default async function handleRequest(req: Request, res: Response): Promis
         res.send(`
             <html>
                 <head>
-                    <meta property="og:title" content="${escapeQuotes(fileData.name)}" />
+                    <meta property="og:title" content="${escapeQuotes(handle.name)}" />
                     <meta property="og:type" content="website" />
                     <meta property="og:url" content="${getRequestUrl(req)?.toString()}" />
-                    <meta property="og:description" content="File &quot;${escapeQuotes(fileData.name)}&quot; at ${escapeQuotes(path)} (${parseFileSize(fileData.size)})"
+                    <meta property="og:description" content="File &quot;${escapeQuotes(handle.name)}&quot; at ${escapeQuotes(path)} (${parseFileSize(handle.size)})"
                 </head>
                 <body></body>
             </html>
@@ -48,5 +49,15 @@ export default async function handleRequest(req: Request, res: Response): Promis
         return;
     }
 
-    return streamDownloadToResponse(req, res, fileData);
+    res.setHeader("Content-Disposition", `attachment; filename="${handle.name}"`);
+    res.setHeader("Content-Length", handle.size);
+    // TODO: Do I even do anything? I'd doubt it!
+    //       Originally intended to prevent the response from timing out
+    //       but piping 0 bytes through the network... is... impossible?
+    res.write("");
+
+    const result = await streamFileContents(res, handle);
+    if (result !== null) {
+        logError("Download route error:", result);
+    }
 }

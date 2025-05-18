@@ -4,9 +4,8 @@ import { getServersidePacketList } from "../../common/packet/reader.js";
 import { GenThumbnailPacket } from "../../common/packet/s2t/GenThumbnailPacket.js";
 import { ThumbnailDataPacket } from "../../common/packet/t2s/ThumbnailDataPacket.js";
 import { uploadThumbnailToStorage } from "../database/storage.js";
-import { unregisterThumbnailService, type ServiceConfig } from "./list.js";
 import { Service } from "./Service.js";
-import type { CloseEvent, MessageEvent } from "ws";
+import type { CloseEvent, MessageEvent, WebSocket } from "ws";
 
 interface ThumbnailGenerationData {
     messages: string[];
@@ -14,7 +13,22 @@ interface ThumbnailGenerationData {
     type: string;
 }
 
+const config = {
+    maxAmount: 1,
+    name: "thumbnail"
+} as const;
+
 export class ThumbnailService extends Service {
+    public config = config;
+    public addHandler(): void {
+        const packets = ThumbnailService.getAndClearQueue();
+        logDebug("Sending queued thumbnails to service");
+        for (const packet of packets) {
+            // FIXME: These packets do not yet seem to arrive! (too early?)
+            this.sendPacket(new GenThumbnailPacket(packet));
+        }
+    }
+    public removeHandler(): void {}
     /**
      * This queue is different from what the thumbnail service itself keeps.
      * It is responsible for storing all those images for whom thumbnails should
@@ -44,13 +58,11 @@ export class ThumbnailService extends Service {
         return packets;
     }
 
-    public constructor(config: ServiceConfig) {
-        super(config);
+    public constructor(socket: WebSocket) {
+        super(socket);
     }
 
-    protected handleSocketClose(event: CloseEvent): void {
-        unregisterThumbnailService();
-    }
+    protected handleSocketClose(event: CloseEvent): void {}
     protected handleSocketMessage(event: MessageEvent): void {
         const packet = parsePacket(event.data, PacketType.Thumbnail2Server, getServersidePacketList);
         if (packet === null) {

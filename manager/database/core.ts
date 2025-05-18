@@ -8,14 +8,6 @@ import { getEnvironmentVariables } from "../../common/environment.js";
 export type DatabaseFileRow = Database["public"]["Tables"]["files"]["Row"];
 export type DatabaseFolderRow = Database["public"]["Tables"]["folders"]["Row"];
 
-/**
- * This type omits all the properties not intended to be returned to the user.
- * Returning these properties does not create a security risk,
- * but just contains useless data.
- */
-export type PartialDatabaseFileRow = Omit<DatabaseFileRow, "id" | "folder" | "hash" | "messages" | "is_encrypted" | "channel">;
-export type PartialDatabaseFolderRow = Omit<DatabaseFolderRow, "parent_folder">;
-
 const env = getEnvironmentVariables("manager");
 export const supabase = createClient<Database>(env.SUPABASE_URL, env.SUPABASE_KEY);
 

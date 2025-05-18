@@ -1,9 +1,9 @@
 import { ref, toRaw, watch, type Ref } from "vue";
 import { getNamingMaximumLengths, getNegatedCharacterPattern, patterns } from "../../../common/patterns";
 import { logError, logWarn } from "../../../common/logging";
-import { currentFolderListing, getListingForCurrentDirectory } from "./listing";
+import { globals } from "./globals";
 
-export const route = ref<string[]>([]);
+const route = ref<string[]>([]);
 
 export function convertPathToRoute(path: string): string[] {
     if (path === "/") {
@@ -64,8 +64,8 @@ export function navigateUpPath(toIndex: number) {
 }
 
 async function triggerMeOnNavigation() {
-    const result = await getListingForCurrentDirectory();
-    currentFolderListing.value = result === null ? "error" : result;
+    const result = await globals.listing.fetch(route.value);
+    globals.listing.writeActive(result);
 }
 
 export function appendToRoute(folders: string[]) {

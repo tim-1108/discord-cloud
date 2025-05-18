@@ -2,8 +2,8 @@ import { safeDestr } from "destr";
 import { encryptBuffer, decryptBuffer } from "../../common/crypto.js";
 import { patterns } from "../../common/patterns.js";
 import { type SchemaToType, validateObjectBySchema } from "../../common/validator.js";
-import { resolvePathToFolderId_Cached, supabase } from "./core.js";
-import { getFileFromDatabase } from "./finding.js";
+import { resolvePathToFolderId_Cached, supabase, type FolderOrRoot, type DatabaseFileRow } from "./core.js";
+import { getFileFromDatabase, listFilesAtDirectory, listSubfolders } from "./finding.js";
 import { folderOrRootToDatabaseType, nullOrTypeSelection } from "./helper.js";
 import { ThumbnailService } from "../services/ThumbnailService.js";
 import { removeThumbnailFromStorage } from "./storage.js";
@@ -19,7 +19,6 @@ import { removeThumbnailFromStorage } from "./storage.js";
  */
 export async function generateSignedFileDownload(name: string, path: string) {
     const file = await getFileFromDatabase(name, path);
-    console.log(name, path, file);
     if (file === null) return null;
 
     const data = {
@@ -98,4 +97,45 @@ export async function moveFiles(files: string[], sourcePath: string, destination
     const { data } = await nullOrTypeSelection(condition, "folder", folderOrRootToDatabaseType(sourceId)).select("name,folder");
 
     return data;
+}
+
+interface SubfolderFilesListItem {
+    path: string;
+    file: DatabaseFileRow;
+}
+
+export async function getAllFilesInSubfolders(path: string): Promise<SubfolderFilesListItem[] | null> {
+    const id = await resolvePathToFolderId_Cached(path);
+    if (id === null) {
+        return null;
+    }
+
+    async function recursive_func(id: FolderOrRoot, array: Array<SubfolderFilesListItem>, path: string): Promise<void> {
+        const subfolders = await listSubfolders(id);
+        const files = await listFilesAtDirectory(id);
+
+        if (subfolders !== null) {
+            for (const s of subfolders) {
+                await recursive_func(s.id, array, appendToPath(path, s.name));
+            }
+        }
+
+        if (files !== null) {
+            for (const file of files) {
+                array.push({ path, file });
+            }
+        }
+    }
+
+    const arrayRef = new Array<SubfolderFilesListItem>();
+    await recursive_func(id, arrayRef, "/");
+    return arrayRef;
+}
+
+function appendToPath(path: string, next: string) {
+    // Paths on the server are always valid, as user input from packets is always validated then and there!
+    if (path === "/") {
+        return `/${next}`;
+    }
+    return `${path}/${next}`;
 }

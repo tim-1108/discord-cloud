@@ -1,5 +1,5 @@
 import { ref } from "vue";
-import type { PartialDatabaseFileRow } from "../../../manager/database/core";
+import type { DatabaseFileRow } from "../../../manager/database/core.js";
 import { getAuthenticationSync } from "./authentication";
 
 export async function generateDownloadLink(name: string, path: string) {
@@ -23,6 +23,6 @@ export function getPreviewingImage() {
     return previewingImage;
 }
 
-export function isFileImage(file: PartialDatabaseFileRow): boolean {
+export function isFileImage(file: DatabaseFileRow): boolean {
     return file.type.startsWith("image/");
 }

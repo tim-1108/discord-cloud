@@ -1,5 +1,5 @@
 import type { ListRequestPacket } from "../../common/packet/c2s/ListRequestPacket.js";
-import { type PartialDatabaseFileRow, type PartialDatabaseFolderRow, resolvePathToFolderId_Cached } from "../database/core.js";
+import { type DatabaseFileRow, type DatabaseFolderRow, resolvePathToFolderId_Cached } from "../database/core.js";
 import type { Client } from "../client/Client.js";
 import { ListPacket } from "../../common/packet/s2c/ListPacket.js";
 import { listFilesAtDirectory, listSubfolders } from "../database/finding.js";
@@ -33,8 +33,8 @@ export async function performListPacketOperation(client: Client, packet: ListReq
 function sendReplyPacket(
     client: Client,
     originator: ListRequestPacket,
-    folders: PartialDatabaseFolderRow[],
-    files: PartialDatabaseFileRow[],
+    folders: DatabaseFolderRow[],
+    files: DatabaseFileRow[],
     success: boolean = true
 ) {
     const { path } = originator.getData();
