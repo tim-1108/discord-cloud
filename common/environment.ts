@@ -1,4 +1,4 @@
-import { areAllEntriesDefined, createRecordFromKeyValueArrays } from "./useless.js";
+import { createRecordFromKeyValueArrays } from "./useless.js";
 
 /**
  * Uses {@link process.env} to read variables of a given subset and returns them as a record to the callee.
@@ -14,7 +14,17 @@ export function getEnvironmentVariables<T extends EnvSubsetKey, Optional extends
 ): EnvSubsetValues<T, Optional> {
     const keys = ENV_SUBSETS[subset];
     const values = keys.map((key) => process.env[key]);
-    if (!areAllEntriesDefined(values) && !disableErrorThrow) throw new ReferenceError("Missing environment variables in subset " + subset);
+    const missing = values.reduce((acc, val, i) => {
+        if (val !== undefined) {
+            return acc;
+        }
+        const key = keys[i];
+        acc.push(key);
+        return acc;
+    }, new Array<string>());
+    if (missing.length && !disableErrorThrow) {
+        throw new ReferenceError("Missing environment variables in subset " + subset + ": " + missing.join(", "));
+    }
     return createRecordFromKeyValueArrays<typeof keys>(keys, values) as EnvSubsetValues<T>;
 }
 
@@ -38,7 +48,8 @@ const ENV_SUBSETS = {
      * format (node/lib/internal/crypto/keys.js#prepareAsymmetricKey)
      */
     crypto: ["PRIVATE_KEY", "PUBLIC_KEY"],
-    manager: ["SERVICE_PASSWORD", "CLIENT_PASSWORD", "SUPABASE_URL", "SUPABASE_KEY", "DISCORD_CHANNEL_ID"],
+    // TODO: Deprecate client passwords with JWT in routes
+    manager: ["SERVICE_PASSWORD", "CLIENT_PASSWORD", "SUPABASE_URL", "SUPABASE_KEY"],
     "upload-service": ["SERVICE_PASSWORD", "OWN_ADDRESS", "MANAGER_ADDRESS", "ENCRYPTION", "WEBHOOK_URL", "PORT"],
     "thumbnail-service": ["SERVICE_PASSWORD", "MANAGER_ADDRESS", "OWN_ADDRESS"],
     "service-pinger": ["SERVICE_PINGING_ENABLED", "SERVICES"],

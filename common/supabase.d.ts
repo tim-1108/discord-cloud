@@ -3,39 +3,6 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
 export type Database = {
     public: {
         Tables: {
-            "file-permissions": {
-                Row: {
-                    id: number;
-                    owner: number;
-                    public: boolean;
-                };
-                Insert: {
-                    id?: number;
-                    owner: number;
-                    public?: boolean;
-                };
-                Update: {
-                    id?: number;
-                    owner?: number;
-                    public?: boolean;
-                };
-                Relationships: [
-                    {
-                        foreignKeyName: "file-permissions_id_fkey";
-                        columns: ["id"];
-                        isOneToOne: true;
-                        referencedRelation: "files";
-                        referencedColumns: ["id"];
-                    },
-                    {
-                        foreignKeyName: "file-permissions_owner_fkey";
-                        columns: ["owner"];
-                        isOneToOne: false;
-                        referencedRelation: "users";
-                        referencedColumns: ["id"];
-                    }
-                ];
-            };
             "file-share": {
                 Row: {
                     can_write: boolean;
@@ -81,8 +48,10 @@ export type Database = {
                     hash: string | null;
                     id: number;
                     is_encrypted: boolean;
+                    is_public: boolean;
                     messages: string[];
                     name: string;
+                    owner: number | null;
                     size: number;
                     type: string;
                     updated_at: string | null;
@@ -95,8 +64,10 @@ export type Database = {
                     hash?: string | null;
                     id?: number;
                     is_encrypted?: boolean;
+                    is_public?: boolean;
                     messages?: string[];
                     name: string;
+                    owner?: number | null;
                     size: number;
                     type?: string;
                     updated_at?: string | null;
@@ -109,8 +80,10 @@ export type Database = {
                     hash?: string | null;
                     id?: number;
                     is_encrypted?: boolean;
+                    is_public?: boolean;
                     messages?: string[];
                     name?: string;
+                    owner?: number | null;
                     size?: number;
                     type?: string;
                     updated_at?: string | null;
@@ -121,6 +94,13 @@ export type Database = {
                         columns: ["folder"];
                         isOneToOne: false;
                         referencedRelation: "folders";
+                        referencedColumns: ["id"];
+                    },
+                    {
+                        foreignKeyName: "files_owner_fkey";
+                        columns: ["owner"];
+                        isOneToOne: false;
+                        referencedRelation: "users";
                         referencedColumns: ["id"];
                     }
                 ];
@@ -280,8 +260,7 @@ export type CompositeTypes<
       ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
       : never;
 
-export type FileHandle = Database["public"]["Tables"]["files"];
-export type FolderHandle = Database["public"]["Tables"]["folders"];
-export type FilePermissionsHandle = Database["public"]["Tables"]["file-permissions"];
-export type FileShareHandle = Database["public"]["Tables"]["file-share"];
-export type UserHandle = Database["public"]["Tables"]["users"];
+export type FileHandle = Database["public"]["Tables"]["files"]["Row"];
+export type FolderHandle = Database["public"]["Tables"]["folders"]["Row"];
+export type FileShareHandle = Database["public"]["Tables"]["file-share"]["Row"];
+export type UserHandle = Database["public"]["Tables"]["users"]["Row"];

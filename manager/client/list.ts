@@ -4,8 +4,8 @@ import type { UUID } from "../../common/index.js";
 
 const map = new Map<UUID, Client>();
 
-function register(socket: WebSocket): Client {
-    const c = new Client(socket);
+function register(socket: WebSocket, userId: number): Client {
+    const c = new Client(socket, userId);
     map.set(c.getUUID(), c);
     return c;
 }

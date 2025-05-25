@@ -2,11 +2,12 @@ import { safeDestr } from "destr";
 import { encryptBuffer, decryptBuffer } from "../../common/crypto.js";
 import { patterns } from "../../common/patterns.js";
 import { type SchemaToType, validateObjectBySchema } from "../../common/validator.js";
-import { resolvePathToFolderId_Cached, supabase, type FolderOrRoot, type DatabaseFileRow } from "./core.js";
-import { getFileFromDatabase, listFilesAtDirectory, listSubfolders } from "./finding.js";
-import { folderOrRootToDatabaseType, nullOrTypeSelection } from "./helper.js";
+import { resolvePathToFolderId_Cached, ROOT_FOLDER_ID, supabase, type FolderOrRoot } from "./core.js";
+import { folderOrRootToDatabaseType, nullOrTypeSelection, parsePostgrestResponse } from "./helper.js";
 import { ThumbnailService } from "../services/ThumbnailService.js";
 import { removeThumbnailFromStorage } from "./storage.js";
+import { Database } from "./index.js";
+import type { FileHandle, FolderHandle } from "../../common/supabase.js";
 
 /**
  * Generates an encrypted JSON object containing name, path, and hash.
@@ -18,7 +19,7 @@ import { removeThumbnailFromStorage } from "./storage.js";
  * @returns An AES encrypted, b64-url encoded JSON object
  */
 export async function generateSignedFileDownload(name: string, path: string) {
-    const file = await getFileFromDatabase(name, path);
+    const file = await Database.file.getWithPath(name, path);
     if (file === null) return null;
 
     const data = {
@@ -83,8 +84,8 @@ export async function deleteFileFromDatabase(id: number) {
  * @returns The files names and folder once they have been moved, or null on failure
  */
 export async function moveFiles(files: string[], sourcePath: string, destinationPath: string) {
-    const sourceId = await resolvePathToFolderId_Cached(sourcePath);
-    const destinationId = await resolvePathToFolderId_Cached(destinationPath);
+    const sourceId = await Database.folder.getByPath(sourcePath);
+    const destinationId = await Database.folder.getByPath(destinationPath);
     if (!sourceId || !destinationId || sourceId === destinationId) return null;
 
     // This does not fail if some or all files have not been moved.
@@ -101,7 +102,7 @@ export async function moveFiles(files: string[], sourcePath: string, destination
 
 interface SubfolderFilesListItem {
     path: string;
-    file: DatabaseFileRow;
+    file: FileHandle;
 }
 
 export async function getAllFilesInSubfolders(path: string): Promise<SubfolderFilesListItem[] | null> {
@@ -130,6 +131,18 @@ export async function getAllFilesInSubfolders(path: string): Promise<SubfolderFi
     const arrayRef = new Array<SubfolderFilesListItem>();
     await recursive_func(id, arrayRef, "/" /* everything is relative to the origin of this function call*/);
     return arrayRef;
+}
+
+export function listFilesAtDirectory(folderId: FolderOrRoot) {
+    const selector = supabase.from("files").select("*");
+    return parsePostgrestResponse<FileHandle[]>(folderId !== ROOT_FOLDER_ID ? selector.eq("folder", folderId) : selector.is("folder", null));
+}
+
+export function listSubfolders(folderId: FolderOrRoot) {
+    const selector = supabase.from("folders").select("*");
+    return parsePostgrestResponse<FolderHandle[]>(
+        folderId !== ROOT_FOLDER_ID ? selector.eq("parent_folder", folderId) : selector.is("parent_folder", null)
+    );
 }
 
 function appendToPath(path: string, next: string) {

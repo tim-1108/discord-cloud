@@ -77,5 +77,6 @@ export const patterns = {
      * Represents an SHA-256 hash
      */
     hash: /^[0-9a-f]{64}$/,
-    snowflake: /^[0-9]{15,22}$/
+    snowflake: /^[0-9]{15,22}$/,
+    hex: /^[0-9a-f]+$/
 };

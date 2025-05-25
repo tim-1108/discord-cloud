@@ -17,7 +17,6 @@ export class Socket extends PacketReceiver {
 
         const socket = new WebSocket(address);
         super(socket);
-        this.initialize();
         socket.onopen = () => this.handleSocketOpen();
     }
 

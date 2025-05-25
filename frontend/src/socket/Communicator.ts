@@ -12,7 +12,6 @@ export class Communicator extends PacketReceiver {
     public constructor(address: string) {
         const socket = new WebSocket(address);
         super(socket);
-        this.initialize();
         this.socket.addEventListener("open", async () => {
             const result = await globals.listing.fetch(useCurrentRoute().value);
             globals.listing.writeActive(result);

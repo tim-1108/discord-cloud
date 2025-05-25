@@ -1,8 +1,10 @@
 import { UploadService } from "./UploadService.js";
-import type { Service } from "./Service.js";
+import type { Service, ServiceConfiguration, ServiceParams } from "./Service.js";
 import { WebSocket } from "ws";
 import { ThumbnailService } from "./ThumbnailService.js";
 import { logWarn } from "../../common/logging.js";
+import { getSearchParamsForAddress } from "../utils/url.js";
+import { validateObjectBySchema } from "../../common/validator.js";
 
 /**
  * Services have to be registered here
@@ -19,23 +21,23 @@ for (const C of serviceRegistry) {
 }
 const activeServices = new Map<string, Set<Service>>();
 type ServiceClass = (typeof serviceRegistry)[number];
-type ServiceName = ServiceClass["prototype"]["config"]["name"];
+export type ServiceName = ServiceClass["prototype"]["config"]["name"];
 type ServiceClassMap = {
     [C in ServiceClass as C["prototype"]["config"]["name"]]: C;
 };
+type GenericServiceParams = Record<string, string | null>;
 
-function registerAndGetService<T extends ServiceClass>(name: string, socket: WebSocket) {
+function registerAndGetService(name: ServiceName, socket: WebSocket, params: GenericServiceParams | undefined) {
     // In this function's signature, we do not require the input name to be anything actually valid,
     // as the caller could not possibly match that type requirement.
-    const ServiceClass = serviceClassMap.get(name) as T;
-    if (!ServiceClass) {
-        logWarn("Attempted to register unknown service type", name);
-        // As the value entered here might come directly from user input (input from an authenticated service),
-        // we do not throw an error in such a case as the input has not been validated against anything.
-        return null;
+    type T = ServiceClassMap[typeof name];
+    const $class = serviceClassMap.get(name) as T;
+    // This is validated before being passed here
+    if (!$class) {
+        throw new ReferenceError("Failed to get service class for a previously validated type: " + name);
     }
 
-    const inst = new ServiceClass(socket);
+    const inst = new $class(socket, params as ServiceParams<T["prototype"]>);
 
     let set = activeServices.get(name);
     if (!set) {
@@ -68,18 +70,23 @@ function unregisterService(inst: Service) {
 
 type Predicate<N extends ServiceName> = (value: InstanceType<ServiceClassMap[N]>, index: number) => boolean;
 
-function getRandomService<N extends ServiceName>(name: N, predicate: Predicate<N>): InstanceType<ServiceClassMap[N]> | null {
+function getRandomService<N extends ServiceName>(name: N, predicate?: Predicate<N>): InstanceType<ServiceClassMap[N]> | null {
     type S = InstanceType<ServiceClassMap[N]>;
     const set = activeServices.get(name) as Set<S> | undefined;
     if (!set) {
         return null;
     }
 
-    const list = set.values().filter(predicate).toArray();
+    const list = predicate ? set.values().filter(predicate).toArray() : Array.from(set);
     if (!list.length) {
         return null;
     }
 
+    if (list.length > 0xff) {
+        // Although technically it would not fail, only services between indices 0 - 255 would ever be picked
+        throw new RangeError("A service category may not have more than 255 services registered");
+    }
+    // A safe implementation - although that really does not matter - by generating just one uint8 value.
     const index = list.length > 1 ? crypto.getRandomValues(new Uint8Array(1))[0] % (list.length - 1) : 0;
     if (Number.isNaN(index)) {
         return null;
@@ -103,13 +110,18 @@ function getServiceCount(name: ServiceName) {
     return { total: set.size, idle: filtered.length };
 }
 
+function getServiceClassForName(name: string /* user input can be any string, not just of ServiceName */) {
+    return serviceClassMap.get(name) ?? null;
+}
+
 export const ServiceRegistry = {
     registerAndGet: registerAndGetService,
     unregister: unregisterService,
     random: {
         predicated: getRandomService,
-        all: (name: ServiceName) => getRandomService(name, () => true),
+        all: (name: ServiceName) => getRandomService(name),
         idle: getRandomIdleService
     },
-    count: getServiceCount
+    count: getServiceCount,
+    classForName: getServiceClassForName
 } as const;

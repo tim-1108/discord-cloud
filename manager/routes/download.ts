@@ -2,10 +2,10 @@ import type { Request, Response } from "express";
 import { generateErrorResponse, getRequestQuery, getRequestUrl, isCrawlerRequest } from "../utils/http.js";
 import { patterns } from "../../common/patterns.js";
 import { getEnvironmentVariables } from "../../common/environment.js";
-import { getFileFromDatabase } from "../database/finding.js";
 import { escapeQuotes, parseFileSize } from "../../common/useless.js";
 import { streamFileContents } from "../utils/stream-download.js";
 import { logError } from "../../common/logging.js";
+import { Database } from "../database/index.js";
 
 export default async function handleRequest(req: Request, res: Response): Promise<void> {
     const env = getEnvironmentVariables("manager");
@@ -28,7 +28,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
         return void generateErrorResponse(res, 400, "Please provide path and name fields in query");
     }
 
-    const handle = await getFileFromDatabase(name, path);
+    const handle = await Database.file.getWithPath(name, path);
     if (handle == null) {
         return void generateErrorResponse(res, 404, "File not found");
     }
@@ -51,9 +51,8 @@ export default async function handleRequest(req: Request, res: Response): Promis
 
     res.setHeader("Content-Disposition", `attachment; filename="${handle.name}"`);
     res.setHeader("Content-Length", handle.size);
-    // TODO: Do I even do anything? I'd doubt it!
-    //       Originally intended to prevent the response from timing out
-    //       but piping 0 bytes through the network... is... impossible?
+    // I am responsible for causing the headers to be sent to the client before
+    // any response body is sent. Without the headers sent, the request might time out.
     res.write("");
 
     const result = await streamFileContents(res, handle);

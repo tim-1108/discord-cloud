@@ -1,4 +1,4 @@
-import { logDebug } from "../logging.js";
+import { logDebug, logInfo, logWarn } from "../logging.js";
 import type { Packet } from "./Packet.js";
 import { PacketType, type PacketTypeMap, type PacketWithID } from "./definitions.js";
 import { parsePacket } from "./parser.js";
@@ -36,7 +36,7 @@ async function loadClassesForFolder<T extends PacketType>(folder: T) {
 
         const classVar = await importFileWithClass<typeof expectedType>(filePath, className);
         if (!classVar || Object.getPrototypeOf(classVar) !== expectedType) {
-            console.warn(`${folder}/${className} not found or does not extend ${expectedType.name}`);
+            logWarn(`${folder}/${className} not found or does not extend ${expectedType.name}`);
             continue;
         }
 
@@ -48,10 +48,13 @@ async function loadClassesForFolder<T extends PacketType>(folder: T) {
 }
 
 async function importFileWithClass<Class = Object>(path: string, className: string): Promise<Class | null> {
+    const hasFileProtocol = /$file:/.test(path);
+    path = hasFileProtocol ? path : "file://" + path;
     try {
         const ref = await import(path);
         return ref[className] ?? null;
-    } catch {
+    } catch (error) {
+        console.log(error);
         return null;
     }
 }

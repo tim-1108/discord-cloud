@@ -1,10 +1,14 @@
 import type { WebSocket } from "ws";
 import { PacketReceiver } from "../../common/packet/PacketReceiver.js";
+import type { SchemaEntryConsumer, SchemaToType } from "../../common/validator.js";
 
-interface ServiceConfiguration {
+export interface ServiceConfiguration {
     maxAmount?: number;
     name: string;
+    params?: SchemaEntryConsumer;
 }
+
+export type ServiceParams<S extends Service> = S["config"]["params"] extends SchemaEntryConsumer ? SchemaToType<S["config"]["params"]> : undefined;
 
 /**
  * Services are registered by {@link HttpHandler} and are automatically
@@ -17,6 +21,8 @@ export abstract class Service extends PacketReceiver {
     }
     public abstract addHandler(): void;
     public abstract removeHandler(): void;
+
+    protected params: ServiceParams<any> | null;
 
     /**
      * No Service subclass has to implement this function, as their
@@ -33,9 +39,9 @@ export abstract class Service extends PacketReceiver {
      */
     private busy: boolean = false;
 
-    protected constructor(socket: WebSocket) {
+    protected constructor(socket: WebSocket, params: ServiceParams<any> | undefined /* declared explicitly to force subclass pass parameter */) {
         super(socket);
-        this.initialize();
+        this.params = params ?? null;
     }
 
     public isBusy() {

@@ -3,9 +3,9 @@ import { generateErrorResponse, getRequestQuery, getRequestUrl, isCrawlerRequest
 import { patterns } from "../../common/patterns.js";
 import { parseSignedFileDownload } from "../database/public.js";
 import { escapeQuotes, parseFileSize } from "../../common/useless.js";
-import { getFileFromDatabase } from "../database/finding.js";
 import { logDebug, logError } from "../../common/logging.js";
 import { streamFileContents } from "../utils/stream-download.js";
+import { Database } from "../database/index.js";
 
 export default async function handleRequest(req: Request, res: Response): Promise<void> {
     const query = getRequestQuery(req);
@@ -25,7 +25,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
     logDebug("Requested signed file download with", fileData);
 
     const { name, path, hash } = fileData;
-    const handle = await getFileFromDatabase(name, path);
+    const handle = await Database.file.getWithPath(name, path);
     if (!handle) {
         return void generateErrorResponse(res, 404, "Not Found");
     }
@@ -52,9 +52,8 @@ export default async function handleRequest(req: Request, res: Response): Promis
 
     res.setHeader("Content-Disposition", `attachment; filename="${handle.name}"`);
     res.setHeader("Content-Length", handle.size);
-    // TODO: Do I even do anything? I'd doubt it!
-    //       Originally intended to prevent the response from timing out
-    //       but piping 0 bytes through the network... is... impossible?
+    // I am responsible for causing the headers to be sent to the client before
+    // any response body is sent. Without the headers sent, the request might time out.
     res.write("");
 
     const result = await streamFileContents(res, handle);

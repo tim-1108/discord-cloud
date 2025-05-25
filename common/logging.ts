@@ -24,6 +24,9 @@ function log(level: LogLevel, ...data: any[]): void {
     const traceError = new Error("generated error for logging trace");
     const cwd = isServerside() ? process.cwd() : "";
     const stack = traceError.stack ? traceError.stack.split("\n") : [];
+    // When tracing the error, Bun does not have the logInfo, logDebug, ... function
+    // within it's stacktrace. Node (and Deno) have this function too.
+    const isBun = "Bun" in globalThis;
     /**
      * The indicies are as follows:
      * 0: "Error:"
@@ -38,8 +41,8 @@ function log(level: LogLevel, ...data: any[]): void {
      * For Windows paths, all backslashes will be replaced by normal slashes.
      */
     const callee =
-        stack.length >= 3
-            ? stack[2]
+        stack.length >= (isBun ? 3 : 4)
+            ? stack[isBun ? 2 : 3]
                   .replace(/^    at /, "")
                   .replace(cwd, "")
                   .replace(/\\/g, "/")

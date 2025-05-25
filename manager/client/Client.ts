@@ -13,15 +13,20 @@ import { PacketType } from "../../common/packet/definitions.js";
 
 export class Client extends PacketReceiver {
     private readonly uuid: UUID;
+    private readonly userId: number;
+
+    public getUserId() {
+        return this.userId;
+    }
 
     public getUUID() {
         return this.uuid;
     }
 
-    public constructor(ws: WebSocket) {
+    public constructor(ws: WebSocket, userId: number) {
         super(ws);
         this.uuid = crypto.randomUUID();
-        this.initialize();
+        this.userId = userId;
         // To get all services online once a client connects,
         // they are also pinged here.
         pingServices();

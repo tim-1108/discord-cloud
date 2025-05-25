@@ -17,6 +17,28 @@ export function getSearchParamsFromPath(path: string, ...params: string[]) {
     }
 }
 
+type GetSearchParamsForAddressReturn<T extends string[]> = Record<T[number], string | null>;
+
+export function getSearchParamsForAddress<T extends string[]>(address: string, ...params: T): GetSearchParamsForAddressReturn<T> {
+    const obj: Record<string, string | null> = {};
+    for (const key of params) {
+        obj[key] = null;
+    }
+
+    const hasProtocol = /^[a-z0-9\-]+:/i.test(address);
+    const isPath = /^\//.test(address);
+    // We will make some assumptions - this still might not yet be valid
+    const $address = hasProtocol ? address : isPath ? `http://localhost${address}` : `http://${address}`;
+
+    try {
+        const url = new URL($address);
+        for (const key of params) {
+            obj[key] = url.searchParams.get(key);
+        }
+    } catch {}
+    return obj as GetSearchParamsForAddressReturn<T>;
+}
+
 /**
  * Convert a given URL to only use HTTPS and no additional properties besides the domain and port.
  * @param link

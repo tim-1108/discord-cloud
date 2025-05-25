@@ -1,12 +1,12 @@
-import { logDebug, logWarn } from "../../common/logging.js";
+import { logDebug, logError, logWarn } from "../../common/logging.js";
 import { PacketType } from "../../common/packet/definitions.js";
 import { parsePacket } from "../../common/packet/parser.js";
 import { getServersidePacketList } from "../../common/packet/reader.js";
 import { GenThumbnailPacket } from "../../common/packet/s2t/GenThumbnailPacket.js";
 import { ThumbnailDataPacket } from "../../common/packet/t2s/ThumbnailDataPacket.js";
-import { uploadThumbnailToStorage } from "../database/storage.js";
-import { Service } from "./Service.js";
-import type { CloseEvent, MessageEvent, WebSocket } from "ws";
+import { Database } from "../database/index.js";
+import { Service, type ServiceParams } from "./Service.js";
+import type { MessageEvent, WebSocket } from "ws";
 
 interface ThumbnailGenerationData {
     messages: string[];
@@ -62,8 +62,8 @@ export class ThumbnailService extends Service {
         return packets;
     }
 
-    public constructor(socket: WebSocket) {
-        super(socket);
+    public constructor(socket: WebSocket, params?: Record<string, string | null>) {
+        super(socket, params);
     }
 
     protected handleSocketMessage(event: MessageEvent): void {
@@ -77,7 +77,18 @@ export class ThumbnailService extends Service {
             const data = packet.getData();
             if (!data.success || !data.data) return;
             const buf = Buffer.from(data.data, "base64url");
-            uploadThumbnailToStorage(data.id, buf);
+            saveThumbnail(data.id, buf);
         }
+    }
+}
+
+async function saveThumbnail(id: number, buf: Buffer) {
+    const status = await Database.thumbnail.upload(id, buf);
+    if (!status) {
+        return;
+    }
+    const handle = Database.file.update(id, { has_thumbnail: true });
+    if (handle === null) {
+        logError("Stored a thumbnail for a file that does not exist:", id);
     }
 }

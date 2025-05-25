@@ -5,15 +5,15 @@ import type { UUID } from "../common";
 import { UploadQueueUpdatePacket } from "../common/packet/s2c/UploadQueueUpdatePacket.js";
 import { UploadQueueingPacket } from "../common/packet/s2c/UploadQueueingPacket.js";
 import { UploadFinishInfoPacket } from "../common/packet/s2c/UploadFinishInfoPacket.js";
-import { addFileToDatabase } from "./database/creating.js";
 import type { UploadFinishPacket } from "../common/packet/u2s/UploadFinishPacket.js";
 import { ThumbnailService } from "./services/ThumbnailService.js";
 import { GenThumbnailPacket } from "../common/packet/s2t/GenThumbnailPacket.js";
-import { getFileFromDatabase } from "./database/finding.js";
 import { deleteFileFromDatabase } from "./database/public.js";
 import { logDebug, logError, logWarn } from "../common/logging.js";
 import { ClientList } from "./client/list.js";
 import { ServiceRegistry } from "./services/list.js";
+import { Database } from "./database/index.js";
+import { ROOT_FOLDER_ID } from "./database/core.js";
 
 const uploadQueue = new Array<UploadMetadata>();
 /**
@@ -28,7 +28,7 @@ export async function performEnqueueUploadOperation(client: Client, packet: Uplo
     const { name, path, size } = data;
 
     // Upon finishing the upload, the previous file will be removed.
-    const existingFile = await getFileFromDatabase(name, path);
+    const existingFile = await Database.file.getWithPath(name, path);
     if (existingFile !== null) {
         // There may only be one upload at a time attempting to overwrite another!
         if (filesToBeOverwritten.has(existingFile.id)) {
@@ -143,12 +143,33 @@ export async function finishUpload(metadata: UploadMetadata, packet: UploadFinis
 
     const data = packet.getData();
 
+    // TODO: Make channel required
     if (typeof data.hash !== "string" || typeof data.type !== "string" || typeof data.channel !== "string") {
         failUpload(metadata, "Invalid metadata exchange between manager and service");
         return;
     }
 
-    const fileHandle = await addFileToDatabase(metadata, data.hash, data.type, data.is_encrypted ?? false, data.messages ?? [], data.channel);
+    const { name, path, size } = metadata;
+    const folderId = await Database.folder.getOrCreateByPath(path);
+    if (folderId === null) {
+        failUpload(metadata, "Failed to create folder in database");
+        return;
+    }
+
+    const fileHandle = await Database.file.add({
+        name,
+        size,
+        folder: folderId === ROOT_FOLDER_ID ? null : folderId,
+        is_encrypted: data.is_encrypted ?? false,
+        hash: data.hash,
+        type: data.type ?? "",
+        channel: data.channel ?? "",
+        messages: data.messages ?? [],
+        has_thumbnail: false,
+        // TODO: Make functional
+        is_public: false,
+        owner: client.getUserId()
+    });
     if (!fileHandle) {
         failUpload(metadata, "Failed to save metadata to database");
         return;

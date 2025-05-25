@@ -1,16 +1,11 @@
 import { createClient } from "@supabase/supabase-js";
-import type { Database } from "../../common/supabase.js";
+import type { Database as SupabaseDB } from "../../common/supabase.js";
 import { patterns } from "../../common/patterns.js";
-import { createFolderWithParent } from "./creating.js";
-import { findFolderByNameAndParent } from "./finding.js";
 import { getEnvironmentVariables } from "../../common/environment.js";
-
-// TODO: Migrate away from these types
-export type DatabaseFileRow = Database["public"]["Tables"]["files"]["Row"];
-export type DatabaseFolderRow = Database["public"]["Tables"]["folders"]["Row"];
+import { Database } from "./index.js";
 
 const env = getEnvironmentVariables("manager");
-export const supabase = createClient<Database>(env.SUPABASE_URL, env.SUPABASE_KEY);
+export const supabase = createClient<SupabaseDB>(env.SUPABASE_URL, env.SUPABASE_KEY);
 
 export const ROOT_FOLDER_ID = "root" as const;
 
@@ -90,7 +85,7 @@ export async function resolvePathToFolderId_Cached(path: string, shouldCreateFol
             if (!shouldCreateFolders) {
                 return null;
             }
-            const result = await createFolderWithParent(name, parent.id);
+            const result = await Database.folder.add(name, parent.id);
             if (!result) return null;
             parent.nonExistentSubfolders.delete(name);
             parent = setNewParent(name, result.id);
@@ -103,14 +98,14 @@ export async function resolvePathToFolderId_Cached(path: string, shouldCreateFol
             parent = mappedValue;
             continue;
         }
-        const result = await findFolderByNameAndParent(name, parent.id);
+        const result = await Database.folder.getByNameAndParent(name, parent.id);
         // Scenario 3: The folder does not yet even exist
         if (!result) {
             if (!shouldCreateFolders) {
                 parent.nonExistentSubfolders.add(name);
                 return null;
             }
-            const result = await createFolderWithParent(name, parent.id);
+            const result = await Database.folder.add(name, parent.id);
             if (!result) {
                 return null;
             }

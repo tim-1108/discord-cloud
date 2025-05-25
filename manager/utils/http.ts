@@ -1,5 +1,11 @@
 import type { Request, Response } from "express";
-import httpStatusCodes from "../http-status-codes.js";
+
+const httpStatusCodes = {
+    400: "Bad Request",
+    401: "Unauthorized",
+    500: "Internal Server Error",
+    503: "Service Not Available"
+} as Record<number, string>;
 
 export function generateErrorResponse(res: Response, status: number = 400, errorDetails?: any, additionalData: Record<string, any> = {}) {
     return generateResponse(res, status, additionalData, errorDetails);

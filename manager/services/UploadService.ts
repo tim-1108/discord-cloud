@@ -1,4 +1,4 @@
-import { Service } from "./Service.js";
+import { Service, type ServiceParams } from "./Service.js";
 import type { UploadMetadata } from "../../common/uploads.js";
 import type { CloseEvent, MessageEvent, WebSocket } from "ws";
 import { UploadStartPacket } from "../../common/packet/s2u/UploadStartPacket.js";
@@ -11,10 +11,27 @@ import { getServersidePacketList } from "../../common/packet/reader.js";
 import { ClientList } from "../client/list.js";
 import { logWarn } from "../../common/logging.js";
 import { PacketType } from "../../common/packet/definitions.js";
+import { getSearchParamsFromPath } from "../utils/url.js";
+import { ServiceRegistry } from "./list.js";
 
 const config = {
-    name: "upload"
+    name: "upload",
+    params: {
+        address: { type: "string", required: true, validator_function: validateTargetAddress }
+    }
 } as const;
+
+function validateTargetAddress(value: any) {
+    if (typeof value !== "string") return false;
+    try {
+        // The manager itself will never contact this url, this is only provided to clients.
+        // Thus, anything can really be entered here. Any services created we assume we can trust.
+        const url = new URL(value);
+        return ["http:", "https:"].includes(url.protocol);
+    } catch {
+        return false;
+    }
+}
 
 export class UploadService extends Service {
     public addHandler(): void {
@@ -33,10 +50,17 @@ export class UploadService extends Service {
     private uploadMetadata: UploadMetadata | null;
     private address: string;
 
-    public constructor(socket: WebSocket) {
-        super(socket);
+    public constructor(socket: WebSocket, params?: ServiceParams<UploadService>) {
+        super(socket, params);
         this.uploadMetadata = null;
-        this.address = ""; // FIXME: help
+        /**
+         * The internal _url within WebSocket is retrieved
+         * from a URL object's href, thus has to be valid.
+         */
+        if (!params || !params.address) {
+            throw new ReferenceError("Validation for UploadService params somehow failed...");
+        }
+        this.address = params.address;
     }
 
     /**

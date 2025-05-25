@@ -1,6 +1,7 @@
 import { validateEnvironmentVariables } from "../common/environment.js";
-import { HttpHandler } from "./HttpHandler.js";
+import { Authentication } from "./authentication.js";
+import { Network } from "./Network.js";
 
-validateEnvironmentVariables("common", "manager", "discord");
+validateEnvironmentVariables("common", "manager", "discord", "crypto");
 
-const requestHandler = new HttpHandler(4000);
+const requestHandler = new Network(4000);

@@ -63,6 +63,8 @@ export abstract class PacketReceiver {
 
     protected constructor(socket: ServerOrClientSocket) {
         this.socket = socket;
+        this.socket.addEventListener("message", (event: MessageEventType<typeof this.socket>) => this.handleSocketMessage(event));
+        this.socket.addEventListener("close", (event: CloseEventType<typeof this.socket>) => this.handleSocketClose(event));
     }
 
     private replies = new Map<UUID, ResolveFunction>();
@@ -172,11 +174,6 @@ export abstract class PacketReceiver {
 
         // Only allow packets of the EXACT type the function caller requested
         return response instanceof replyClass ? response : null;
-    }
-
-    protected initialize(): void {
-        this.socket.addEventListener("message", (event: MessageEventType<typeof this.socket>) => this.handleSocketMessage(event));
-        this.socket.addEventListener("close", (event: CloseEventType<typeof this.socket>) => this.handleSocketClose(event));
     }
 
     protected abstract handleSocketClose(event: CloseEventType<typeof this.socket>): void;

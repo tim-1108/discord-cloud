@@ -1,8 +1,9 @@
 import type { ListRequestPacket } from "../../common/packet/c2s/ListRequestPacket.js";
-import { type DatabaseFileRow, type DatabaseFolderRow, resolvePathToFolderId_Cached } from "../database/core.js";
+import { resolvePathToFolderId_Cached } from "../database/core.js";
 import type { Client } from "../client/Client.js";
 import { ListPacket } from "../../common/packet/s2c/ListPacket.js";
-import { listFilesAtDirectory, listSubfolders } from "../database/finding.js";
+import type { FileHandle, FolderHandle } from "../../common/supabase.js";
+import { listFilesAtDirectory, listSubfolders } from "../database/public.js";
 
 /**
  * Performs a query on the database for all folders and files listed
@@ -30,13 +31,7 @@ export async function performListPacketOperation(client: Client, packet: ListReq
     sendReplyPacket(client, packet, folders, files, true);
 }
 
-function sendReplyPacket(
-    client: Client,
-    originator: ListRequestPacket,
-    folders: DatabaseFolderRow[],
-    files: DatabaseFileRow[],
-    success: boolean = true
-) {
+function sendReplyPacket(client: Client, originator: ListRequestPacket, folders: FolderHandle[], files: FileHandle[], success: boolean = true) {
     const { path } = originator.getData();
     const reply = new ListPacket({ path, folders, files, success });
     // If the packet that requested the listing had no UUID of its own,
