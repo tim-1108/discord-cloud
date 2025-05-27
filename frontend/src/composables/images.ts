@@ -1,6 +1,6 @@
 import { ref } from "vue";
-import type { DatabaseFileRow } from "../../../manager/database/core.js";
 import { getAuthenticationSync } from "./authentication";
+import type { FileHandle } from "../../../common/supabase";
 
 export async function generateDownloadLink(name: string, path: string) {
     const auth = getAuthenticationSync();
@@ -23,6 +23,6 @@ export function getPreviewingImage() {
     return previewingImage;
 }
 
-export function isFileImage(file: DatabaseFileRow): boolean {
+export function isFileImage(file: FileHandle): boolean {
     return file.type.startsWith("image/");
 }

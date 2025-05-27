@@ -1,10 +1,11 @@
 import { logDebug, logInfo, logWarn } from "../logging.js";
 import type { Packet } from "./Packet.js";
-import { PacketType, type PacketTypeMap, type PacketWithID } from "./definitions.js";
+import { type PacketTypeMap, type PacketWithID } from "./definitions.js";
 import { parsePacket } from "./parser.js";
 import fs from "node:fs";
 import path from "node:path";
 import { PacketDefinitions } from "./definitions.js";
+import PacketType from "./PacketType.js";
 
 async function loadClassesForFolder<T extends PacketType>(folder: T) {
     if (!import.meta.dirname) {

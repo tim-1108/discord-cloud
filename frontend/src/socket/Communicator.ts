@@ -3,7 +3,7 @@ import { PacketReceiver } from "../../../common/packet/PacketReceiver.js";
 import { parsePacket } from "../../../common/packet/parser.js";
 import { getBrowserClientboundPacketList } from "./packets.js";
 import { useCurrentRoute } from "@/composables/path.js";
-import { PacketType } from "../../../common/packet/definitions.js";
+import PacketType from "../../../common/packet/PacketType.js";
 
 /**
  * The class that communicates with the manager using a web socket.

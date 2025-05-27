@@ -10,9 +10,7 @@ import { failUpload, finishUpload, sendUploadsToServices } from "../uploads.js";
 import { getServersidePacketList } from "../../common/packet/reader.js";
 import { ClientList } from "../client/list.js";
 import { logWarn } from "../../common/logging.js";
-import { PacketType } from "../../common/packet/definitions.js";
-import { getSearchParamsFromPath } from "../utils/url.js";
-import { ServiceRegistry } from "./list.js";
+import PacketType from "../../common/packet/PacketType.js";
 
 const config = {
     name: "upload",

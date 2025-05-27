@@ -2,11 +2,11 @@ import { communicator } from "@/main";
 import { convertPathToRoute, convertRouteToPath } from "./path";
 import { ListRequestPacket } from "../../../common/packet/c2s/ListRequestPacket";
 import { ListPacket } from "../../../common/packet/s2c/ListPacket";
-import type { DatabaseFileRow, DatabaseFolderRow } from "../../../manager/database/core";
 import { patterns } from "../../../common/patterns";
 import { ref } from "vue";
+import type { FileHandle, FolderHandle } from "../../../common/supabase";
 
-export type Listing = { files: DatabaseFileRow[]; folders: DatabaseFolderRow[] };
+export type Listing = { files: FileHandle[]; folders: FolderHandle[] };
 type ListingCacheItem = {
     /**
      * A flag indicating whether the content in `files` and `folders` is
@@ -16,11 +16,11 @@ type ListingCacheItem = {
      * the data in all subfolders should stay untouched.
      */
     cached: boolean;
-    files: DatabaseFileRow[];
+    files: FileHandle[];
     /**
      * Does not store any actual subfolder data, only metadata about subfolders contained herein
      */
-    folders: DatabaseFolderRow[];
+    folders: FolderHandle[];
     /**
      * This is a recursive storage, always going deeper and deeper.
      */
@@ -30,6 +30,9 @@ const cache: { root: ListingCacheItem | null } = { root: null };
 
 export const activeListingEntry = ref<Listing | null>(null);
 export function updateActiveListingEntry(val: Listing | null) {
+    // Should cause Vue refs that are not { deep: true } to refresh too
+    // (If only array contents change, the array itself might not count as updated)
+    // TODO: Is it necessary to update to null?
     activeListingEntry.value = null;
     activeListingEntry.value = val;
 }
@@ -59,8 +62,8 @@ export async function getListingForDirectory(route: string[]): Promise<Listing |
     }
     // The validator functions inside the ListPacket class assure us that these arrays do not contain undefined
     const returnValue = {
-        files: sortArrayByName(files as DatabaseFileRow[]),
-        folders: sortArrayByName(folders as DatabaseFolderRow[])
+        files: sortArrayByName(files as FileHandle[]),
+        folders: sortArrayByName(folders as FolderHandle[])
     };
     writeToCache(route, returnValue);
     return returnValue;

@@ -8,7 +8,7 @@ import { UploadReadyPacket } from "../common/packet/u2s/UploadReadyPacket.js";
 import { generateChunkSizes } from "./file-helper.js";
 import { getEnvironmentVariables } from "../common/environment.js";
 import { getServersidePacketList } from "../common/packet/reader.js";
-import { PacketType } from "../common/packet/definitions.js";
+import PacketType from "../common/packet/PacketType.js";
 
 export class Socket extends PacketReceiver {
     public constructor() {

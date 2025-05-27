@@ -1,21 +1,12 @@
 import { C2SPacket } from "./C2SPacket.js";
 import { GenericPacket } from "./GenericPacket.js";
 import type { Packet } from "./Packet.js";
+import PacketType from "./PacketType.js";
 import { S2CPacket } from "./S2CPacket.js";
 import { S2TPacket } from "./S2TPacket.js";
 import { S2UPacket } from "./S2UPacket.js";
 import { T2SPacket } from "./T2SPacket.js";
 import { U2SPacket } from "./U2SPacket.js";
-
-export enum PacketType {
-    Client2Server = "c2s",
-    Server2Client = "s2c",
-    Server2Uploader = "s2u",
-    Uploader2Server = "u2s",
-    Server2Thumbnail = "s2t",
-    Thumbnail2Server = "t2s",
-    Generic = "generic"
-}
 
 const Enum2Class = {
     [PacketType.Client2Server]: C2SPacket,

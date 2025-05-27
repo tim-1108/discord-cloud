@@ -9,7 +9,7 @@ import { pingServices } from "../pinging.js";
 import { ListRequestPacket } from "../../common/packet/c2s/ListRequestPacket.js";
 import { performListPacketOperation } from "../client-operations/listing.js";
 import { getServersidePacketList } from "../../common/packet/reader.js";
-import { PacketType } from "../../common/packet/definitions.js";
+import PacketType from "../../common/packet/PacketType.js";
 
 export class Client extends PacketReceiver {
     private readonly uuid: UUID;

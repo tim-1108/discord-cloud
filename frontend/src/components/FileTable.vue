@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { parseFileSize } from "../../../common/useless";
 import { generateDownloadLink, getPreviewingImage, isFileImage } from "@/composables/images";
-import type { DatabaseFileRow } from "../../../manager/database/core";
 import { convertRouteToPath, useCurrentRoute } from "@/composables/path";
 import type { Listing } from "@/composables/listing";
+import type { FileHandle } from "../../../common/supabase";
 
 const props = defineProps<{ listing: Listing }>();
 const route = useCurrentRoute();
-async function openImageOrDownload(file: DatabaseFileRow) {
+async function openImageOrDownload(file: FileHandle) {
     console.log(route.value, convertRouteToPath(route.value));
     const link = await generateDownloadLink(file.name, convertRouteToPath(route.value));
     if (isFileImage(file)) {

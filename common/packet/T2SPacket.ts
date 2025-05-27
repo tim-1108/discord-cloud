@@ -1,5 +1,5 @@
 import { Packet } from "./Packet.js";
-import { PacketType } from "./definitions.js";
+import PacketType from "./PacketType.js";
 
 export abstract class T2SPacket extends Packet {
     protected constructor(id: string, data?: Record<string, any>) {

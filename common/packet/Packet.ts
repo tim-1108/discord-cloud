@@ -1,7 +1,7 @@
-import type { PacketType } from "./definitions.js";
 import { type SchemaEntryConsumer, validateObjectBySchema } from "../validator.js";
 import { isRecord } from "../types.js";
 import type { UUID } from "../index.js";
+import PacketType from "./PacketType.js";
 
 export abstract class Packet {
     protected data: Record<string, any> | null;

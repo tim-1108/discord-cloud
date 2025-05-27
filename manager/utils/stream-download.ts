@@ -2,11 +2,11 @@ import { decryptBuffer } from "../../common/crypto.js";
 import { downloadBinaryData, getBulkMessageAttachments } from "../../common/discord.js";
 import { logDebug, logError } from "../../common/logging.js";
 import { sortMapValuesAsArrayByKeyArray } from "../../common/useless.js";
-import type { DatabaseFileRow } from "../database/core.js";
 import { enqueue, shiftQueue } from "../../common/processing-queue.js";
 import type { Writable } from "node:stream";
+import type { FileHandle } from "../../common/supabase.js";
 
-export async function streamFileContents(target: Writable, file: DatabaseFileRow): Promise<string | null> {
+export async function streamFileContents(target: Writable, file: FileHandle): Promise<string | null> {
     await enqueue();
 
     const links = await getBulkMessageAttachments(file.messages, file.channel);

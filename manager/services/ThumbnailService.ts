@@ -1,5 +1,5 @@
 import { logDebug, logError, logWarn } from "../../common/logging.js";
-import { PacketType } from "../../common/packet/definitions.js";
+import PacketType from "../../common/packet/PacketType.js";
 import { parsePacket } from "../../common/packet/parser.js";
 import { getServersidePacketList } from "../../common/packet/reader.js";
 import { GenThumbnailPacket } from "../../common/packet/s2t/GenThumbnailPacket.js";

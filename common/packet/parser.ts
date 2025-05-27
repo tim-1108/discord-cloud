@@ -3,7 +3,8 @@ import { safeDestr } from "destr";
 import type { UnknownPacketStructure } from "../packets.js";
 import { isRecord } from "../types.js";
 import { patterns } from "../patterns.js";
-import { PacketType, type PacketTypeMap, type PacketWithID } from "./definitions.js";
+import { type PacketTypeMap, type PacketWithID } from "./definitions.js";
+import PacketType from "./PacketType.js";
 
 type PacketProvider<T extends PacketType> = (type: T) => PacketWithID<PacketTypeMap[T]>[];
 

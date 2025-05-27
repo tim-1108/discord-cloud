@@ -1,4 +1,4 @@
-import type { PacketType, PacketTypeMap, PacketWithID } from "../../../common/packet/definitions.js";
+import type { PacketTypeMap, PacketWithID } from "../../../common/packet/definitions.js";
 import { ListRequestPacket } from "../../../common/packet/c2s/ListRequestPacket.js";
 import { PingServicesPacket } from "../../../common/packet/c2s/PingServicesPacket.js";
 import { UploadQueueAddPacket } from "../../../common/packet/c2s/UploadQueueAddPacket.js";
@@ -8,6 +8,7 @@ import { UploadQueueingPacket } from "../../../common/packet/s2c/UploadQueueingP
 import { UploadQueueUpdatePacket } from "../../../common/packet/s2c/UploadQueueUpdatePacket.js";
 import { UploadStartInfoPacket } from "../../../common/packet/s2c/UploadStartInfoPacket.js";
 import { GenericBooleanPacket } from "../../../common/packet/generic/GenericBooleanPacket.js";
+import PacketType from "../../../common/packet/PacketType.js";
 
 // As we cannot just scan directories, this requires manual registering
 

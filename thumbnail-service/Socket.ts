@@ -5,7 +5,7 @@ import { getEnvironmentVariables } from "../common/environment.js";
 import { getServersidePacketList } from "../common/packet/reader.js";
 import { GenThumbnailPacket } from "../common/packet/s2t/GenThumbnailPacket.js";
 import { processThumbnailRequest } from "./index.js";
-import { PacketType } from "../common/packet/definitions.js";
+import PacketType from "../common/packet/PacketType.js";
 
 export class Socket extends PacketReceiver {
     public constructor() {
