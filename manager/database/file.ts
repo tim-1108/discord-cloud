@@ -12,6 +12,7 @@ type FileCacheValue = Map<string, FileHandle>;
  * Mapping a folder id to a Map containing the files.
  */
 const fileCache = new Map<FolderOrRoot, FileCacheValue>();
+const fileIdCache = new Map<number, FileHandle>();
 
 type IdOrPath = FolderOrRoot | `/${string}`;
 
@@ -33,8 +34,23 @@ export async function getFileHandleWithPath_Cached(name: string, path: string) {
     return Database.file.get(folderId, name);
 }
 
+export async function getFileHandleById_Cached(id: number) {
+    const hit = fileIdCache.get(id);
+    if (hit) {
+        return hit;
+    }
+    const value = await getFileHandleId_Database(id);
+    if (value) {
+        putIntoCache(value);
+    }
+    return value;
+}
+
 /**
  * Attempts to find a file by its name with the ID of its folder.
+ *
+ * For the folder, either the id of the path (including the specifier "root")
+ * or the absolute path may be provided (it will be resolved to an id)
  *
  * To get the id for a path, use {@link resolvePathToFolderId_Cached}.
  * @param name The file name
@@ -92,13 +108,12 @@ export async function updateFileHandle(id: number, handle: Partial<FileHandle>) 
 export async function deleteFileHandle(id: number) {
     const value = await supabase.from("files").delete().eq("id", id).single();
     // To be safe, we'll always un-cache the file
-    // An inefficient way, but the fastest way to resolve from just the id.
-    folder: for (const files of fileCache.values()) {
-        for (const handle of files.values()) {
-            if (handle.id !== id) continue;
-            files.delete(handle.name);
-            break folder;
-        }
+    const hit = fileIdCache.get(id);
+    if (hit) {
+        // If it is registered within the id cache,
+        // it will always be registered within
+        // the path cache as well.
+        popFromCache(hit);
     }
 
     if (value.error) {
@@ -113,7 +128,7 @@ function popFromCache(handle: FileHandle) {
     if (!submap) {
         return false;
     }
-    return submap.delete(handle.name);
+    return submap.delete(handle.name) && fileIdCache.delete(handle.id);
 }
 
 function putIntoCache(handle: FileHandle) {
@@ -124,6 +139,20 @@ function putIntoCache(handle: FileHandle) {
         fileCache.set(folderId, submap);
     }
     submap.set(handle.name, handle);
+    fileIdCache.set(handle.id, handle);
+}
+
+export async function listFilesInFolder_Database(folderId: FolderOrRoot) {
+    const selector = supabase.from("files").select("*");
+    // We could not possbily (well - technically, we could) know if we have all files in the directory cached
+    const data = await parsePostgrestResponse<FileHandle[]>(
+        folderId !== ROOT_FOLDER_ID ? selector.eq("folder", folderId) : selector.is("folder", null)
+    );
+    if (data === null) {
+        return null;
+    }
+    data.forEach(putIntoCache);
+    return data;
 }
 
 /**
@@ -132,4 +161,8 @@ function putIntoCache(handle: FileHandle) {
 function getFileHandle_Database(folder: FolderOrRoot, name: string) {
     const lookup = supabase.from("files").select("*").eq("name", name);
     return parsePostgrestResponse<FileHandle>(folder === ROOT_FOLDER_ID ? lookup.is("folder", null).single() : lookup.eq("folder", folder).single());
+}
+
+function getFileHandleId_Database(id: number) {
+    return parsePostgrestResponse<FileHandle>(supabase.from("files").select("*").eq("id", id).single());
 }

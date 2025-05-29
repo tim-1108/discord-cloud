@@ -1,12 +1,13 @@
 import type { Request, Response } from "express";
 import { getEnvironmentVariables } from "../../common/environment.js";
-import { getRequestQuery, generateErrorResponse } from "../utils/http.js";
+import { getRequestQuery, generateErrorResponse, getRequestAuthorization } from "../utils/http.js";
 import { patterns } from "../../common/patterns.js";
 import { PassThrough } from "node:stream";
 import archiver from "archiver";
 import { logError, logWarn } from "../../common/logging.js";
 import { getAllFilesInSubfolders } from "../database/public.js";
 import { streamFileContents } from "../utils/stream-download.js";
+import { Authentication } from "../authentication.js";
 
 export default async function handleRequest(req: Request, res: Response): Promise<void> {
     const env = getEnvironmentVariables("manager");
@@ -16,14 +17,15 @@ export default async function handleRequest(req: Request, res: Response): Promis
     }
 
     const path = query.get("path");
-    const authorization = query.get("auth");
-
-    if (authorization !== env.CLIENT_PASSWORD) {
-        return void generateErrorResponse(res, 401, "Unauthorized");
-    }
 
     if (!path || !patterns.stringifiedPath.test(path)) {
         return void generateErrorResponse(res, 400, "Bad path");
+    }
+
+    const auth = getRequestAuthorization(req);
+    const user = await Authentication.verifyUserToken(auth);
+    if (user === null) {
+        return void generateErrorResponse(res, 401, "Unauthorized");
     }
 
     const files = await getAllFilesInSubfolders(path);
@@ -34,6 +36,14 @@ export default async function handleRequest(req: Request, res: Response): Promis
     const archive = archiver("zip", {
         zlib: { level: 3 } // do we really need to apply any compression here?
     });
+
+    for (let i = files.length - 1; i <= 0; i--) {
+        const handle = files[i].file;
+        const ownership = await Authentication.permissions.ownership(user, handle);
+        if (ownership === null || ownership.status === "restricted") {
+            files.splice(i, 1);
+        }
+    }
 
     res.setHeader("Content-Type", "application/zip");
     res.setHeader("Content-Disposition", 'attachment; filename="bundle.zip"');

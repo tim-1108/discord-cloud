@@ -14,18 +14,14 @@ import type { FileHandle, FolderHandle } from "../../common/supabase.js";
  *
  * The hash component makes sure that, if the file should be changed,
  * it cannot be downloaded again using the same key.
- * @param name The file name
- * @param path The path to the file
+ * @param handle A file handle from the database
  * @returns An AES encrypted, b64-url encoded JSON object
  */
-export async function generateSignedFileDownload(name: string, path: string) {
-    const file = await Database.file.getWithPath(name, path);
-    if (file === null) return null;
-
+export async function generateSignedFileDownload(handle: FileHandle, path: string) {
     const data = {
-        name,
+        name: handle.name,
         path,
-        hash: file.hash
+        hash: handle.hash
     };
 
     const buffer = encryptBuffer(Buffer.from(JSON.stringify(data)));
@@ -113,7 +109,7 @@ export async function getAllFilesInSubfolders(path: string): Promise<SubfolderFi
 
     async function recursive_func(id: FolderOrRoot, array: Array<SubfolderFilesListItem>, path: string): Promise<void> {
         const subfolders = await listSubfolders(id);
-        const files = await listFilesAtDirectory(id);
+        const files = await Database.file.listInFolder(id);
 
         if (subfolders !== null) {
             for (const s of subfolders) {
@@ -131,11 +127,6 @@ export async function getAllFilesInSubfolders(path: string): Promise<SubfolderFi
     const arrayRef = new Array<SubfolderFilesListItem>();
     await recursive_func(id, arrayRef, "/" /* everything is relative to the origin of this function call*/);
     return arrayRef;
-}
-
-export function listFilesAtDirectory(folderId: FolderOrRoot) {
-    const selector = supabase.from("files").select("*");
-    return parsePostgrestResponse<FileHandle[]>(folderId !== ROOT_FOLDER_ID ? selector.eq("folder", folderId) : selector.is("folder", null));
 }
 
 export function listSubfolders(folderId: FolderOrRoot) {

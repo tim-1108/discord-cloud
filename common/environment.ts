@@ -48,8 +48,7 @@ const ENV_SUBSETS = {
      * format (node/lib/internal/crypto/keys.js#prepareAsymmetricKey)
      */
     crypto: ["PRIVATE_KEY", "PUBLIC_KEY"],
-    // TODO: Deprecate client passwords with JWT in routes
-    manager: ["SERVICE_PASSWORD", "CLIENT_PASSWORD", "SUPABASE_URL", "SUPABASE_KEY"],
+    manager: ["SERVICE_PASSWORD", "SUPABASE_URL", "SUPABASE_KEY"],
     "upload-service": ["SERVICE_PASSWORD", "OWN_ADDRESS", "MANAGER_ADDRESS", "ENCRYPTION", "WEBHOOK_URL", "PORT"],
     "thumbnail-service": ["SERVICE_PASSWORD", "MANAGER_ADDRESS", "OWN_ADDRESS"],
     "service-pinger": ["SERVICE_PINGING_ENABLED", "SERVICES"],

@@ -78,5 +78,7 @@ export const patterns = {
      */
     hash: /^[0-9a-f]{64}$/,
     snowflake: /^[0-9]{15,22}$/,
-    hex: /^[0-9a-f]+$/
+    hex: /^[0-9a-f]+$/,
+    applicationJson: /^[ \t]*application\/json(?:\s*;\s*charset=[A-Za-z0-9._-]+)?\s*$/i,
+    username: /^[a-z0-9]{1,16}$/i
 };

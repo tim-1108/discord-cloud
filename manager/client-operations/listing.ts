@@ -2,8 +2,10 @@ import type { ListRequestPacket } from "../../common/packet/c2s/ListRequestPacke
 import { resolvePathToFolderId_Cached } from "../database/core.js";
 import type { Client } from "../client/Client.js";
 import { ListPacket } from "../../common/packet/s2c/ListPacket.js";
-import type { FileHandle, FolderHandle } from "../../common/supabase.js";
-import { listFilesAtDirectory, listSubfolders } from "../database/public.js";
+import { listSubfolders } from "../database/public.js";
+import { Database } from "../database/index.js";
+import type { ClientFileHandle, ClientFolderHandle } from "../../common/client.js";
+import { Authentication } from "../authentication.js";
 
 /**
  * Performs a query on the database for all folders and files listed
@@ -22,16 +24,40 @@ export async function performListPacketOperation(client: Client, packet: ListReq
     if (!folderId) return sendReplyPacket(client, packet, [], [], false);
 
     const folders = await listSubfolders(folderId);
-    const files = await listFilesAtDirectory(folderId);
+    const files = await Database.file.listInFolder(folderId);
 
     if (!files || !folders) {
         return sendReplyPacket(client, packet, [], [], false);
     }
 
-    sendReplyPacket(client, packet, folders, files, true);
+    const $files = new Array<ClientFileHandle>();
+    for (const f of files) {
+        const o = await Authentication.permissions.ownership(client.getUserId(), f);
+        if (o === null) {
+            continue;
+        }
+        $files.push({
+            id: f.id,
+            name: f.name,
+            type: f.type,
+            has_thumbnail: f.has_thumbnail,
+            created_at: f.created_at,
+            updated_at: f.updated_at,
+            size: f.size,
+            ownership: o
+        });
+    }
+
+    sendReplyPacket(client, packet, folders, $files, true);
 }
 
-function sendReplyPacket(client: Client, originator: ListRequestPacket, folders: FolderHandle[], files: FileHandle[], success: boolean = true) {
+function sendReplyPacket(
+    client: Client,
+    originator: ListRequestPacket,
+    folders: ClientFolderHandle[],
+    files: ClientFileHandle[],
+    success: boolean = true
+) {
     const { path } = originator.getData();
     const reply = new ListPacket({ path, folders, files, success });
     // If the packet that requested the listing had no UUID of its own,

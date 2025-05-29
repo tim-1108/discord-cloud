@@ -9,22 +9,27 @@ const MAX_POSITIVE_INTEGER = Number.MAX_SAFE_INTEGER;
  */
 const MAX_NEGATIVE_INTEGER = Number.MIN_SAFE_INTEGER;
 
-interface ValidationResponse {
+type ValidationResponse<S extends SchemaEntryConsumer> = {
     invalid: boolean;
-    offenses: OffenseDetails[];
-}
-interface OffenseDetails {
+    offenses: OffenseDetails<S>[];
+    value: SchemaToType<S>;
+};
+type OffenseDetails<S extends SchemaEntryConsumer> = {
     key: string;
     offense: SchemaOffense;
     schema: SerializedSchemaEntry;
     /**
      * Used on type = "record" for layering sub-validations
+     *
+     * TODO: This might be actually brokwn as it takes in the type
+     *       of the parent but not of this actual sub-record
      */
-    items?: ValidationResponse;
-}
+    items?: ValidationResponse<S>;
+};
 
-export function validateObjectBySchema(object: any, consumer: SchemaEntryConsumer): ValidationResponse {
-    if (!isRecord(object)) return { invalid: true, offenses: [] };
+export function validateObjectBySchema<S extends SchemaEntryConsumer>(object: any, consumer: S): ValidationResponse<S> {
+    type Value = SchemaToType<S>;
+    if (!isRecord(object)) return { invalid: true, offenses: [], value: object };
     const schemas = new Set(Object.keys(consumer));
 
     // Keys which are not defined in the schema may NOT
@@ -32,15 +37,15 @@ export function validateObjectBySchema(object: any, consumer: SchemaEntryConsume
     const keys = Object.keys(object);
     for (const key of keys) {
         if (schemas.has(key)) continue;
-        return { invalid: true, offenses: [] };
+        return { invalid: true, offenses: [], value: object as Value };
     }
 
-    const offenses: OffenseDetails[] = [];
+    const offenses: OffenseDetails<S>[] = [];
     for (const key of schemas) {
         const schema = consumer[key];
         const value = object[key];
 
-        function invalidateKey(offense: SchemaOffense, items?: ValidationResponse) {
+        function invalidateKey(offense: SchemaOffense, items?: ValidationResponse<S>) {
             offenses.push({ key, offense, schema: serializeSchemaEntry(schema), items });
         }
 
@@ -69,10 +74,10 @@ export function validateObjectBySchema(object: any, consumer: SchemaEntryConsume
         else throw new SyntaxError("Invalid type for validation");
     }
 
-    return { invalid: offenses.length > 0, offenses };
+    return { invalid: offenses.length > 0, offenses, value: object as Value };
 }
 
-type InvalidateFunction = (offense: SchemaOffense, items?: ValidationResponse) => void;
+type InvalidateFunction = (offense: SchemaOffense, items?: ValidationResponse<any>) => void;
 
 function validateStringSchema(schema: StringSchemaEntry, value: any, func: InvalidateFunction) {
     if (typeof value !== "string") return func("incorrect_type");

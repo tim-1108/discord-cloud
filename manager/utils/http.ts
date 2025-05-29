@@ -14,7 +14,7 @@ export function generateErrorResponse(res: Response, status: number = 400, error
 export function generateResponse(res: Response, status: number = 200, data: Record<string, any> = {}, errorDetails?: any) {
     const shouldHaveError = status !== 200;
     const details = shouldHaveError ? (errorDetails ?? httpStatusCodes[status] ?? undefined) : undefined;
-    return res.status(status).json({ shouldHaveError, error_details: details, ...data });
+    return res.status(status).json({ error: shouldHaveError, error_details: details, ...data });
 }
 
 export function getRequestUrl(req: Request) {
@@ -28,6 +28,15 @@ export function getRequestUrl(req: Request) {
 export function getRequestQuery(req: Request): URLSearchParams | null {
     const url = getRequestUrl(req);
     return url?.searchParams ?? null;
+}
+
+export function getRequestAuthorization(req: Request): string | null {
+    const url = getRequestUrl(req);
+    if (url === null) {
+        return req.headers.authorization ?? null;
+    }
+
+    return req.headers.authorization ?? url.searchParams.get("auth");
 }
 
 const CRAWLER_AGENTS = [

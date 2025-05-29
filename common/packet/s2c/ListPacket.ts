@@ -1,5 +1,5 @@
+import type { ClientFileHandle, ClientFolderHandle } from "../../client.js";
 import { patterns } from "../../patterns.js";
-import type { FileHandle, FolderHandle } from "../../supabase.js";
 import { createArraySchemaEntry, type SchemaToType } from "../../validator.js";
 import { S2CPacket } from "../S2CPacket.js";
 
@@ -11,8 +11,8 @@ const dataStructure = {
     // However, if the client does not await a reply and only parses packets as-is,
     // this might act as a working fallback.
     path: { type: "string", required: true, pattern: patterns.stringifiedPath },
-    files: createArraySchemaEntry<FileHandle, any, true>({ required: true, validator_function: validateFiles }),
-    folders: createArraySchemaEntry<FolderHandle, any, true>({ required: true, validator_function: validateFolders }),
+    files: createArraySchemaEntry<ClientFileHandle, any, true>({ required: true, validator_function: validateFiles }),
+    folders: createArraySchemaEntry<ClientFolderHandle, any, true>({ required: true, validator_function: validateFolders }),
     success: { type: "boolean", required: true }
 } as const;
 

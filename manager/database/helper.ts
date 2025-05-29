@@ -3,9 +3,14 @@ import { type FolderOrRoot, ROOT_FOLDER_ID } from "./core.js";
 
 export async function parsePostgrestResponse<K, B extends PostgrestBuilder<K> = PostgrestBuilder<K>>(request: B) {
     const { data, error } = await request;
+
+    // Postgrest errors are documented at https://postgrest.org/en/latest/references/errors.html
+    // TODO: Implement improved error logging and error returning system to caller
+    //       Think of GetLastError in win32? However, that might have issues with async stuff
+
     // This just helps debugging, might prove annoying
     // @ts-expect-error
-    if (error) console.debug("[Postgres error]", error, request.url.href);
+    if (error) console.debug("[Postgrest error]", error, request.url.href);
     return error ? null : data;
 }
 

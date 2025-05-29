@@ -8,6 +8,8 @@ import generateSignedDownloadRoute from "./routes/generate-signed-download.js";
 import downloadRoute from "./routes/download.js";
 import bulkDownloadRoute from "./routes/bulk-download.js";
 import healthRoute from "./routes/health.js";
+import loginRoute from "./routes/login.js";
+import registerRoute from "./routes/register.js";
 import { ClientList } from "./client/list.js";
 import { ServiceRegistry, type ServiceName } from "./services/list.js";
 import { logError } from "../common/logging.js";
@@ -74,6 +76,8 @@ export class Network {
         this.app.get("/generate-signed-download", generateSignedDownloadRoute);
         this.app.get("/download", downloadRoute);
         this.app.get("/bulk-download", bulkDownloadRoute);
+        this.app.get("/login", loginRoute);
+        this.app.get("/register", registerRoute);
 
         this.hasInitializedRoutes = true;
     }
