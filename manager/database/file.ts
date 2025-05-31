@@ -179,7 +179,7 @@ function getFileHandleId_Database(id: number) {
 // TODO: Also emit to specific users whenever they receive a file share for themselves
 function broadcastToClients(action: FileModifyAction, handle: FileHandle, targetUser?: number) {
     const handler = async (user: number) => {
-        if (user !== targetUser) {
+        if (typeof targetUser === "number" && user !== targetUser) {
             return null;
         }
         const f = handle.folder !== null ? await Database.folder.getById(handle.folder) : "/";

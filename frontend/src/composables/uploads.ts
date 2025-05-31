@@ -102,8 +102,8 @@ async function startUpload(packet: UploadStartInfoPacket) {
     for (let i = 0; i < chunks.length; i++) {
         const size = chunks[i];
         const buffer = await streamFn();
-        if (buffer.done) {
-            logError(`Done reading from stream at index ${i} despite being registered for more chunks`);
+        if (i === chunks.length - 1 && !buffer.done) {
+            logError(`Not done reading from file stream despite chunks being finished`);
             break;
         }
         if (buffer.data.byteLength !== size) {
