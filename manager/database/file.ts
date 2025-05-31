@@ -1,12 +1,10 @@
-import type { ClientFileHandle, FileModifyAction } from "../../common/client.js";
-import type { UUID } from "../../common/index.js";
+import type { FileModifyAction } from "../../common/client.js";
 import { logError } from "../../common/logging.js";
 import { FileModifyPacket } from "../../common/packet/s2c/FileModifyPacket.js";
 import type { FileHandle } from "../../common/supabase.js";
-import { convertRouteToPath } from "../../frontend/src/composables/path.js";
 import { Authentication } from "../authentication.js";
 import { ClientList } from "../client/list.js";
-import { ROOT_FOLDER_ID, supabase, type FolderOrRoot } from "./core.js";
+import { ROOT_FOLDER_ID, routeToPath, supabase, type FolderOrRoot } from "./core.js";
 import { parsePostgrestResponse } from "./helper.js";
 import { Database } from "./index.js";
 
@@ -190,7 +188,7 @@ function broadcastToClients(action: FileModifyAction, handle: FileHandle, target
         if (!o || !f || !r) {
             return null;
         }
-        const p = convertRouteToPath(r);
+        const p = routeToPath(r);
         const $handle = {
             id: handle.id,
             name: handle.name,

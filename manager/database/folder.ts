@@ -1,5 +1,4 @@
 import type { FolderHandle } from "../../common/supabase.js";
-import { convertRouteToPath } from "../../frontend/src/composables/path.js";
 import { resolvePathToFolderId_Cached, ROOT_FOLDER_ID, supabase, type FolderOrRoot } from "./core.js";
 import { parsePostgrestResponse } from "./helper.js";
 import { Database } from "./index.js";
