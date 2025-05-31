@@ -9,7 +9,7 @@ import type { UploadFinishPacket } from "../common/packet/u2s/UploadFinishPacket
 import { ThumbnailService } from "./services/ThumbnailService.js";
 import { GenThumbnailPacket } from "../common/packet/s2t/GenThumbnailPacket.js";
 import { deleteFileFromDatabase } from "./database/public.js";
-import { logDebug, logError, logWarn } from "../common/logging.js";
+import { logDebug, logError } from "../common/logging.js";
 import { ClientList } from "./client/list.js";
 import { ServiceRegistry } from "./services/list.js";
 import { Database } from "./database/index.js";
@@ -177,6 +177,7 @@ export async function finishUpload(metadata: UploadMetadata, packet: UploadFinis
     void client.sendPacket(new UploadFinishInfoPacket({ success: true, upload_id: metadata.upload_id, reason: undefined }));
     void sendUploadsToServices();
 
+    // TODO: Rework this system to instead update the database entry and validate ownership
     if (metadata.is_overwriting_id !== null) {
         const hasOverwritten = await deleteFileFromDatabase(metadata.is_overwriting_id);
         filesToBeOverwritten.delete(metadata.is_overwriting_id);

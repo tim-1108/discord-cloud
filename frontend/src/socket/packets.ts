@@ -9,6 +9,7 @@ import { UploadQueueUpdatePacket } from "../../../common/packet/s2c/UploadQueueU
 import { UploadStartInfoPacket } from "../../../common/packet/s2c/UploadStartInfoPacket.js";
 import { GenericBooleanPacket } from "../../../common/packet/generic/GenericBooleanPacket.js";
 import PacketType from "../../../common/packet/PacketType.js";
+import { FileModifyPacket } from "../../../common/packet/s2c/FileModifyPacket.js";
 
 // As we cannot just scan directories, this requires manual registering
 
@@ -17,7 +18,8 @@ const clientboundPackets: PacketWithID<PacketTypeMap[PacketType.Server2Client]>[
     UploadFinishInfoPacket,
     UploadQueueingPacket,
     UploadQueueUpdatePacket,
-    UploadStartInfoPacket
+    UploadStartInfoPacket,
+    FileModifyPacket
 ];
 const serverboundPackets: PacketWithID<PacketTypeMap[PacketType.Client2Server]>[] = [ListRequestPacket, PingServicesPacket, UploadQueueAddPacket];
 const genericPackets: PacketWithID<PacketTypeMap[PacketType.Generic]>[] = [GenericBooleanPacket];

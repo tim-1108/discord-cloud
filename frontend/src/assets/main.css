@@ -1,11 +1,16 @@
 @import "tailwindcss";
 
 :root {
+    --bg-color: #131313;
+    --side-color: #1b1b1b;
+    --button-color: #202020;
+    --button-hover-color: #2f2f2f;
     @apply text-white;
 }
 
 body {
-    @apply bg-emerald-950 p-8;
+    @apply p-8;
+    background-color: var(--bg-color);
 }
 
 h1 {

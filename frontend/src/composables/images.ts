@@ -1,6 +1,6 @@
 import { ref } from "vue";
 import { getAuthenticationSync } from "./authentication";
-import type { FileHandle } from "../../../common/supabase";
+import type { ClientFileHandle } from "../../../common/client";
 
 export async function generateDownloadLink(name: string, path: string) {
     const auth = getAuthenticationSync();
@@ -23,6 +23,6 @@ export function getPreviewingImage() {
     return previewingImage;
 }
 
-export function isFileImage(file: FileHandle): boolean {
+export function isFileImage(file: ClientFileHandle): boolean {
     return file.type.startsWith("image/");
 }

@@ -2,12 +2,27 @@
 import { convertPathToRoute, convertRouteToPath } from "@/composables/path";
 import type { UploadFileHandle } from "@/composables/uploads";
 import { computed, onMounted, ref, watch } from "vue";
+import SubfolderList from "../SubfolderList.vue";
+import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+import { getIconForFileType } from "@/composables/icons";
 
 const { fileList: files } = defineProps<{ fileList: UploadFileHandle[] }>();
-const emit = defineEmits<{ removeFile: [handle: UploadFileHandle]; removeFolder: [relativePath: string] }>();
+const emit = defineEmits<{ removeFile: [handle: UploadFileHandle]; removeFolder: [relativePath: string]; clear: [] }>();
 
-type FileTreeEntry = { files: File[]; subfolders: string[]; subfolder_map: Map<string, FileTreeEntry> };
-const createEmptyFileTreeEntry = () => ({ files: [], subfolders: [], subfolder_map: new Map() });
+type FileTreeEntry = { files: Map<string, File>; subfolders: string[]; subfolder_map: Map<string, FileTreeEntry> };
+const createEmptyFileTreeEntry = () => ({ files: new Map(), subfolders: [], subfolder_map: new Map() });
+
+/**
+ * @returns Whether the file can be added to the list
+ */
+function canAppendToTree(name: string, path: string): boolean {
+    const route = convertPathToRoute(path);
+    const entry = getFileTreeEntry(route, false);
+    if (entry === null) {
+        return true;
+    }
+    return !entry.files.has(name);
+}
 
 const fileTree: FileTreeEntry = createEmptyFileTreeEntry();
 /**
@@ -33,7 +48,7 @@ function buildFileTree() {
         const entry = getFileTreeEntry(route) as FileTreeEntry;
         const files = pathMap.get(path);
         if (!files) return;
-        entry.files.push(...files);
+        files.forEach((value) => entry.files.set(value.name, value));
     });
     recomputeCurrentEntry(currentRoute.value);
 }
@@ -55,20 +70,24 @@ function getFileTreeEntry(route: string[], createAlongPath: boolean = true): Fil
     return parent;
 }
 
-function removeFile(route: string[], name: string): boolean {
+function deleteFile(route: string[], name: string): boolean {
     const treeEntry = getFileTreeEntry(route, false);
     if (!treeEntry) return false;
-    const index = treeEntry.files.findIndex((handle) => handle.name === name);
-    if (index === -1) return false;
-    treeEntry.files.splice(index, 1);
-    return true;
+    return treeEntry.files.delete(name);
+}
+
+function clear() {
+    fileTree.files = new Map();
+    fileTree.subfolder_map = new Map();
+    fileTree.subfolders = [];
+    emit("clear");
 }
 
 onMounted(() => {
     buildFileTree();
 });
 
-defineExpose({ buildFileTree });
+defineExpose({ buildFileTree, canAppendToTree, clear, deleteFile });
 
 const currentRoute = ref<string[]>([]);
 const currentEntry = ref<FileTreeEntry | null>(null);
@@ -94,26 +113,24 @@ function navigateToRoot() {
 
 <template>
     <div class="flex gap-2">
-        <span @click="navigateToRoot">local root</span>
+        <span @click="navigateToRoot">...</span>
         <small v-if="!currentRoute.length">/</small>
         <template v-for="(item, index) of currentRoute">
             <small>/</small>
             <span @click="navigateUpRoute(index)">{{ item }}</span>
         </template>
     </div>
-    <div v-if="currentEntry">
-        <h1>Subfolders</h1>
+    <div v-if="currentEntry" class="grid gap-1">
+        <SubfolderList
+            :folder-list="currentEntry.subfolders"
+            @navigate="navigateToSubfolder"
+            :display-up="!!currentRoute.length"
+            @navigate-up="() => navigateUpRoute(currentRoute.length - 2)"></SubfolderList>
         <div class="grid gap-1">
-            <button v-for="name of currentEntry.subfolders" @click="navigateToSubfolder(name)">
+            <div class="flex items-center gap-2" v-for="[name, handle] of currentEntry.files">
+                <FontAwesomeIcon class="text-4xl" :icon="getIconForFileType(name)"></FontAwesomeIcon>
                 <span>{{ name }}</span>
-            </button>
-        </div>
-        <h1>Files</h1>
-        <div class="grid gap-1">
-            <button class="flex gap-2 items-center justify-between" v-for="file of currentEntry.files">
-                <span>{{ file.name }}</span>
-                <small>{{ file.size }} bytes, {{ file.type || "unknown type" }}</small>
-            </button>
+            </div>
         </div>
     </div>
     <p v-else>No current entry</p>

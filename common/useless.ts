@@ -16,7 +16,7 @@ export function parseFileSize(size: number) {
     for (let i = FILE_SIZE_IDENTIFIERS.length - 1; i >= 0; i--) {
         const divider = Math.pow(FILE_MULTIPLIER, FILE_SIZE_IDENTIFIERS.length - i - 1);
         if (size / divider > FILE_MULTIPLIER) continue;
-        return (size / divider).toFixed(1) + FILE_SIZE_IDENTIFIERS[i];
+        return (size / divider).toFixed(1) + " " + FILE_SIZE_IDENTIFIERS[i];
     }
 }
 
@@ -52,4 +52,21 @@ export function sortMapValuesAsArrayByKeyArray<K, V>(map: Map<K, V>, keys: K[]):
         list[index] = value;
     }
     return list;
+}
+
+const nowRange = 60 * 1000;
+const fullDay = 1000 * 60 * 60 * 24;
+export function parseDateObjectToRelative(obj: Date) {
+    const pad = (input: number) => input.toString(10).padStart(2, "0");
+
+    const n = Date.now();
+    const t = obj.getTime();
+    const d = Math.abs(n - t);
+
+    const isFuture = t > n;
+
+    // If the delta is within a day range, we can just show the time
+    if (d >= fullDay) {
+        return `${pad(obj.getHours())}:${pad(obj.getMinutes())}`;
+    }
 }

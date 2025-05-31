@@ -2,6 +2,7 @@ import { type CloseEvent as ServersideCloseEvent, type MessageEvent as Serversid
 import type { Packet } from "./Packet.js";
 import type { UUID } from "../index.js";
 import { isServerside } from "../types.js";
+import { logWarn } from "../logging.js";
 
 interface ResolveFunction {
     /**
@@ -149,7 +150,7 @@ export abstract class PacketReceiver {
     public sendPacket(packet: Packet): Promise<Error | null> {
         return new Promise((resolve) => {
             if (this.socket.readyState !== WebSocket.OPEN) {
-                console.warn("A service which has a closed socket has tried to send a message", this.constructor.name);
+                logWarn(this.constructor.name, "has tried to send a packet on a closed socket:", packet.toString());
                 return resolve(new Error("Service socket is closed"));
             }
 

@@ -1,4 +1,5 @@
 import type { FolderHandle } from "../../common/supabase.js";
+import { convertRouteToPath } from "../../frontend/src/composables/path.js";
 import { resolvePathToFolderId_Cached, ROOT_FOLDER_ID, supabase, type FolderOrRoot } from "./core.js";
 import { parsePostgrestResponse } from "./helper.js";
 import { Database } from "./index.js";
@@ -24,6 +25,8 @@ export async function addFolder(name: string, parent: FolderOrRoot) {
  * If the caller does not have the path to a folder and
  * only the id, no cache lookup is performed (this may take
  * way longer) and rather, the database is called directly.
+ *
+ * TODO: Maintain two caches, one mapping folder names and one map for ids
  * @param id
  */
 export function getFolderById_Database(id: number) {
@@ -35,6 +38,31 @@ export function getFolderByNameAndParent_Database(name: string, parent: FolderOr
     return parsePostgrestResponse<FolderHandle>(
         parent === ROOT_FOLDER_ID ? selector.is("parent_folder", null).single() : selector.eq("parent_folder", parent).single()
     );
+}
+
+export async function resolveRouteFromFolderId(id: FolderOrRoot): Promise<string[] | null> {
+    const route = new Array<string>();
+    if (id === "root") {
+        return route;
+    }
+
+    let $id = id;
+    while (true) {
+        const handle = await Database.folder.getById($id);
+        // The lookup has failed and thus, we'll assume the folder does not exist
+        // This condition should be impossible on anything past the first folder
+        // we check, as all folders are linked and a folder deletion is cascading
+        // to all subfolders.
+        if (!handle) {
+            return null;
+        }
+        route.push(handle.name);
+        // This means we have reached the end of the line.
+        if (handle.parent_folder === null) {
+            return route.reverse();
+        }
+        $id = handle.parent_folder;
+    }
 }
 
 /**

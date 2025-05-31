@@ -4,6 +4,11 @@ import { parsePacket } from "../../../common/packet/parser.js";
 import { getBrowserClientboundPacketList } from "./packets.js";
 import { useCurrentRoute } from "@/composables/path.js";
 import PacketType from "../../../common/packet/PacketType.js";
+import { UploadQueueUpdatePacket } from "../../../common/packet/s2c/UploadQueueUpdatePacket.js";
+import { Uploads } from "@/composables/uploads.js";
+import { UploadStartInfoPacket } from "../../../common/packet/s2c/UploadStartInfoPacket.js";
+import { FileModifyPacket } from "../../../common/packet/s2c/FileModifyPacket.js";
+import { listingFileModify } from "@/composables/listing.js";
 
 /**
  * The class that communicates with the manager using a web socket.
@@ -26,5 +31,18 @@ export class Communicator extends PacketReceiver {
         const packet = parsePacket(event.data, PacketType.Server2Client, getBrowserClientboundPacketList);
         if (!packet) return;
         const hasResolved = this.resolveReplies(packet);
+        if (hasResolved) {
+            return;
+        }
+
+        if (packet instanceof UploadQueueUpdatePacket) {
+            return Uploads.queue.advance(packet);
+        }
+        if (packet instanceof UploadStartInfoPacket) {
+            return void Uploads.start(packet);
+        }
+        if (packet instanceof FileModifyPacket) {
+            return listingFileModify(packet);
+        }
     }
 }

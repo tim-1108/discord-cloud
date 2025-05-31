@@ -1,5 +1,6 @@
 import { type PostgrestBuilder, type PostgrestFilterBuilder } from "@supabase/postgrest-js";
 import { type FolderOrRoot, ROOT_FOLDER_ID } from "./core.js";
+import { logDebug } from "../../common/logging.js";
 
 export async function parsePostgrestResponse<K, B extends PostgrestBuilder<K> = PostgrestBuilder<K>>(request: B) {
     const { data, error } = await request;
@@ -10,7 +11,7 @@ export async function parsePostgrestResponse<K, B extends PostgrestBuilder<K> = 
 
     // This just helps debugging, might prove annoying
     // @ts-expect-error
-    if (error) console.debug("[Postgrest error]", error, request.url.href);
+    if (error) logDebug("[Postgrest error]", error, request.url.href);
     return error ? null : data;
 }
 

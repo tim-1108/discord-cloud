@@ -1,4 +1,4 @@
-import jwt, { JsonWebTokenError } from "jsonwebtoken";
+import jwt from "jsonwebtoken";
 import { getEnvironmentVariables } from "../common/environment.js";
 import { getUser_Database } from "./database/users.js";
 import { Buffer } from "node:buffer";
@@ -41,7 +41,7 @@ async function verifyUserToken(token: string | null | undefined) {
     try {
         handle = jwt.verify(token ?? "", Constants.publicKey);
     } catch (error) {
-        if (!(error instanceof JsonWebTokenError)) {
+        if (!(error instanceof jwt.JsonWebTokenError)) {
             logWarn("Unknown jwt error:", error);
         }
         // Most likely an error thrown because the signature is invalid (yeah, an invalid JWT)

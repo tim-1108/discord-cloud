@@ -73,7 +73,7 @@ export function appendToRoute(folders: string[]) {
     return navigateToAbsoluteRoute(current.concat(folders));
 }
 
-function areRoutesIdentical(route1: string[], route2: string[]) {
+export function areRoutesIdentical(route1: string[], route2: string[]) {
     if (route1.length !== route2.length) return false;
     if (!route1.length) return true;
     return route1.every((value, index) => value === route2[index]);
@@ -81,6 +81,16 @@ function areRoutesIdentical(route1: string[], route2: string[]) {
 
 export function convertOptionalRouteToPath(route: string | string[]): string {
     return Array.isArray(route) ? convertRouteToPath(route) : route;
+}
+
+export function combinePaths(a: string, b: string) {
+    if (a === "/") {
+        return b;
+    }
+    if (b === "/") {
+        return a;
+    }
+    return a + b;
 }
 
 /**

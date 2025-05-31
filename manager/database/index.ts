@@ -9,7 +9,14 @@ import {
     listFilesInFolder_Database,
     updateFileHandle
 } from "./file.js";
-import { addFolder, createOrGetFolderByPath, getFolderById_Database, getFolderByNameAndParent_Database, getFolderByPath } from "./folder.js";
+import {
+    addFolder,
+    createOrGetFolderByPath,
+    getFolderById_Database,
+    getFolderByNameAndParent_Database,
+    getFolderByPath,
+    resolveRouteFromFolderId
+} from "./folder.js";
 import { removeThumbnailFromStorage, uploadThumbnailToStorage } from "./storage.js";
 import { createUser, getUserByName_Database, getUser_Database, updateUserPassword } from "./users.js";
 
@@ -32,7 +39,8 @@ export const Database = {
         getByPath: getFolderByPath,
         getById: getFolderById_Database,
         getByNameAndParent: getFolderByNameAndParent_Database,
-        getOrCreateByPath: createOrGetFolderByPath
+        getOrCreateByPath: createOrGetFolderByPath,
+        resolveRouteById: resolveRouteFromFolderId
     },
     file: {
         add: addFileHandle,

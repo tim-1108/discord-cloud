@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { watch, ref, nextTick, onMounted } from "vue";
 import FileTable from "./components/FileTable.vue";
 import PathRenderer from "./components/PathRenderer.vue";
 import Sidebar from "./components/Sidebar.vue";
@@ -15,7 +14,7 @@ const previewImage = getPreviewingImage();
 </script>
 
 <template>
-    <div id="wrapper" class="min-h-0 max-h-screen">
+    <div id="wrapper" class="min-h-0 max-h-screen gap-4">
         <PathRenderer></PathRenderer>
         <StatusBox></StatusBox>
         <div v-if="listing !== null">
@@ -31,21 +30,8 @@ const previewImage = getPreviewingImage();
 <style lang="css">
 #wrapper {
     @apply grid;
-    grid-template-columns: 4fr 1fr;
-    grid-template:
-        "a b"
-        "c d";
-    > *:nth-child(1) {
-        grid-area: "a";
-    }
-    > *:nth-child(2) {
-        grid-area: "b";
-    }
-    > *:nth-child(3) {
-        grid-area: "c";
-    }
-    > *:nth-child(4) {
-        grid-area: "d";
-    }
+    grid-template-columns:
+        4fr
+        minmax(300px, 500px);
 }
 </style>

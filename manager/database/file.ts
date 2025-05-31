@@ -1,5 +1,11 @@
+import type { ClientFileHandle, FileModifyAction } from "../../common/client.js";
+import type { UUID } from "../../common/index.js";
 import { logError } from "../../common/logging.js";
+import { FileModifyPacket } from "../../common/packet/s2c/FileModifyPacket.js";
 import type { FileHandle } from "../../common/supabase.js";
+import { convertRouteToPath } from "../../frontend/src/composables/path.js";
+import { Authentication } from "../authentication.js";
+import { ClientList } from "../client/list.js";
 import { ROOT_FOLDER_ID, supabase, type FolderOrRoot } from "./core.js";
 import { parsePostgrestResponse } from "./helper.js";
 import { Database } from "./index.js";
@@ -91,6 +97,7 @@ export async function addFileHandle(handle: Omit<FileHandle, AutoCreatedFileColu
         logError("Failed to add file", handle.folder, handle.name, "to database:", val.error);
         return null;
     }
+    broadcastToClients("add", val.data);
     putIntoCache(val.data);
     return val.data;
 }
@@ -101,13 +108,15 @@ export async function updateFileHandle(id: number, handle: Partial<FileHandle>) 
         logError("Failed to update file handle", id, "due to:", value.error);
         return null;
     }
+    // TODO: Only emit this to all clients when actually needed data changes
+    broadcastToClients("modify", value.data);
     putIntoCache(value.data);
     return value;
 }
 
 export async function deleteFileHandle(id: number) {
-    const value = await supabase.from("files").delete().eq("id", id).single();
-    // To be safe, we'll always un-cache the file
+    const value = await supabase.from("files").delete().eq("id", id).select("*").single();
+    // To be safe, we'll always un-cache the file, even when the operation failed
     const hit = fileIdCache.get(id);
     if (hit) {
         // If it is registered within the id cache,
@@ -118,6 +127,8 @@ export async function deleteFileHandle(id: number) {
 
     if (value.error) {
         logError("Failed to delete file handle", id, "due to:", value.error);
+    } else {
+        broadcastToClients("delete", value.data);
     }
     return value.error !== null;
 }
@@ -165,4 +176,32 @@ function getFileHandle_Database(folder: FolderOrRoot, name: string) {
 
 function getFileHandleId_Database(id: number) {
     return parsePostgrestResponse<FileHandle>(supabase.from("files").select("*").eq("id", id).single());
+}
+
+// TODO: Also emit to specific users whenever they receive a file share for themselves
+function broadcastToClients(action: FileModifyAction, handle: FileHandle, targetUser?: number) {
+    const handler = async (user: number) => {
+        if (user !== targetUser) {
+            return null;
+        }
+        const f = handle.folder !== null ? await Database.folder.getById(handle.folder) : "/";
+        const r = await Database.folder.resolveRouteById(handle.folder ?? "root" /* converting database to js version of root */);
+        const o = await Authentication.permissions.ownership(user, handle);
+        if (!o || !f || !r) {
+            return null;
+        }
+        const p = convertRouteToPath(r);
+        const $handle = {
+            id: handle.id,
+            name: handle.name,
+            type: handle.type,
+            has_thumbnail: handle.has_thumbnail,
+            created_at: handle.created_at ?? undefined,
+            updated_at: handle.updated_at ?? undefined,
+            size: handle.size,
+            ownership: o.status === "shared" ? o : { status: o.status, share: undefined }
+        };
+        return new FileModifyPacket({ action, path: p, handle: $handle });
+    };
+    ClientList.broadcast(handler);
 }

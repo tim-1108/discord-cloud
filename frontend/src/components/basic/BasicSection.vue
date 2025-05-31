@@ -1,5 +1,11 @@
 <template>
-    <section class="rounded-xl bg-emerald-900 p-4">
+    <section class="rounded-xl p-4">
         <slot />
     </section>
 </template>
+
+<style scoped>
+section {
+    background-color: var(--side-color);
+}
+</style>

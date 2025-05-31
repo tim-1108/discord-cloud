@@ -1,12 +1,15 @@
 import { communicator } from "@/main";
-import { convertPathToRoute, convertRouteToPath } from "./path";
+import { areRoutesIdentical, convertPathToRoute, convertRouteToPath, useCurrentRoute } from "./path";
 import { ListRequestPacket } from "../../../common/packet/c2s/ListRequestPacket";
 import { ListPacket } from "../../../common/packet/s2c/ListPacket";
 import { patterns } from "../../../common/patterns";
 import { ref } from "vue";
-import type { FileHandle, FolderHandle } from "../../../common/supabase";
+import type { FolderHandle } from "../../../common/supabase";
+import type { ClientFileHandle, FileModifyAction } from "../../../common/client";
+import type { FileModifyPacket } from "../../../common/packet/s2c/FileModifyPacket";
+import { logWarn } from "../../../common/logging";
 
-export type Listing = { files: FileHandle[]; folders: FolderHandle[] };
+export type Listing = { files: ClientFileHandle[]; folders: FolderHandle[] };
 type ListingCacheItem = {
     /**
      * A flag indicating whether the content in `files` and `folders` is
@@ -16,7 +19,7 @@ type ListingCacheItem = {
      * the data in all subfolders should stay untouched.
      */
     cached: boolean;
-    files: FileHandle[];
+    files: ClientFileHandle[];
     /**
      * Does not store any actual subfolder data, only metadata about subfolders contained herein
      */
@@ -62,7 +65,7 @@ export async function getListingForDirectory(route: string[]): Promise<Listing |
     }
     // The validator functions inside the ListPacket class assure us that these arrays do not contain undefined
     const returnValue = {
-        files: sortArrayByName(files as FileHandle[]),
+        files: sortArrayByName(files as ClientFileHandle[]),
         folders: sortArrayByName(folders as FolderHandle[])
     };
     writeToCache(route, returnValue);
@@ -178,4 +181,42 @@ export function invalidateListingCache(pathOrRoute: string | string[], allSubfol
     item.files = [];
     item.folders = [];
     return true;
+}
+
+export function listingFileModify(packet: FileModifyPacket) {
+    const { action, path, handle } = packet.getData();
+    const route = convertPathToRoute(path);
+    const hit = getCachedRoute(route);
+    // If the route is not even cached, there is no point in storing
+    // the changes. In fact, it would even be contraproductive.
+    if (!hit) {
+        return;
+    }
+
+    // If so, we will have to reload the currently rendered route
+    const isAtRoute = areRoutesIdentical(route, useCurrentRoute().value);
+
+    const $action = action as FileModifyAction;
+
+    if ($action === "add") {
+        hit.files.push(handle as ClientFileHandle);
+    } else {
+        const index = hit.files.findIndex(({ id }) => id === handle.id);
+        if (index === -1) {
+            // This should not be able to happen as only actually cached
+            // routes can get to this point - thus, everything within
+            // should also be cached.
+            logWarn("A file modify for a cached route was not cached", handle);
+            return;
+        }
+        if ($action === "delete") {
+            hit.files.splice(index, 1);
+        } else {
+            hit.files[index] = handle as ClientFileHandle;
+        }
+    }
+
+    if (isAtRoute) {
+        updateActiveListingEntry(hit);
+    }
 }

@@ -134,4 +134,8 @@ export abstract class Packet {
     public setUUID(uuid: UUID) {
         this.uuid = uuid;
     }
+
+    public toString() {
+        return `[${this.constructor.name}]: ${JSON.stringify(this.getData())}`;
+    }
 }
