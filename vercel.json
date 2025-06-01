@@ -1,4 +1,6 @@
 {
+    "$schema": "https://openapi.vercel.sh/vercel.json",
     "buildCommand": "cd frontend && vite build",
-    "framework": "vue"
+    "framework": "vue",
+    "outputDirectory": "frontend/dist"
 }
