@@ -6,6 +6,7 @@ const id = "upload-finish";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
+    // FIXME: Implement conditional validation (when success is true, everything else should be required)
     success: { type: "boolean", required: true },
     messages: { type: "array", item_type: "string", required: false },
     hash: { type: "string", required: false, pattern: patterns.hash },

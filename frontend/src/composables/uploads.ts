@@ -63,7 +63,8 @@ async function submitUpload({ handle, relativePath }: UploadFileHandle): Promise
     const path = convertRouteToPath(useCurrentRoute().value);
     const absPath = combinePaths(path, relativePath);
     const status = await communicator.sendPacketAndReply(
-        new UploadQueueAddPacket({ name: handle.name, path: absPath, size: handle.size }),
+        // TODO: allow public to be turned on/off
+        new UploadQueueAddPacket({ name: handle.name, path: absPath, size: handle.size, is_public: false }),
         UploadQueueingPacket
     );
     if (status === null) {
@@ -86,7 +87,7 @@ function advanceQueue(packet: UploadQueueUpdatePacket) {
 }
 
 async function startUpload(packet: UploadStartInfoPacket) {
-    const { upload_id, chunks, address } = packet.getData();
+    const { upload_id, chunk_size, address } = packet.getData();
     const id = upload_id as UUID;
     const handle = queue.get(id);
     if (!handle) {
@@ -94,20 +95,12 @@ async function startUpload(packet: UploadStartInfoPacket) {
         return;
     }
     void queue.delete(id);
-    if (!chunks.length) {
-        logWarn("Received no chunk lengths to upload for upload:", packet.getData());
-        return;
-    }
-    const streamFn = streamFromFile(handle.file, chunks[0]);
-    for (let i = 0; i < chunks.length; i++) {
-        const size = chunks[i];
+    const streamFn = streamFromFile(handle.file, chunk_size);
+    const cc = Math.ceil(chunk_size / handle.file.size);
+    for (let i = 0; i < cc; i++) {
         const buffer = await streamFn();
-        if (i === chunks.length - 1 && !buffer.done) {
+        if (i === cc - 1 && !buffer.done) {
             logError(`Not done reading from file stream despite chunks being finished`);
-            break;
-        }
-        if (buffer.data.byteLength !== size) {
-            logWarn("Incorrect size of data buffer", buffer.data.byteLength, size);
             break;
         }
         const cfg = { uploadId: id, targetAddress: address, chunkIndex: i, dataBuffer: buffer.data };

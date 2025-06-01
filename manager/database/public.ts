@@ -48,13 +48,18 @@ export function parseSignedFileDownload(input: string) {
     if (!patterns.base64Url.test(input)) return null;
     const buffer = Buffer.from(input, "base64url");
     if (buffer.length < 0x10) return null;
-    const decryptedBuffer = decryptBuffer(buffer);
-    const decryptedString = decryptedBuffer.toString("ascii");
+    let buf: Buffer;
+    try {
+        buf = decryptBuffer(buffer);
+    } catch {
+        return null;
+    }
+    const dec = buf.toString("ascii");
 
-    if (!/^{.*}$/.test(decryptedString)) return null;
+    if (!/^{.*}$/.test(dec)) return null;
 
     try {
-        const data = safeDestr<SingedFileDownload>(decryptedString);
+        const data = safeDestr<SingedFileDownload>(dec);
         const validation = validateObjectBySchema(data, signedFileSchema);
         if (validation.invalid) return null;
         return data;

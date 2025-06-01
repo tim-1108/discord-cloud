@@ -37,7 +37,9 @@ export function encryptBuffer(data: Buffer) {
  * @param data
  */
 export function decryptBuffer(data: Buffer) {
-    if (data.length < 0x10) throw new Error("Data to decrypt is smaller than IV size");
+    // AES chunks with 16 bytes (I think) and thus, when removing the
+    // IV, we should always at least have 16 bytes.
+    if (data.length < 0x20) throw new Error("Data to decrypt is smaller than IV size");
 
     const decryptionStart = Date.now();
     key ??= createEncryptionKey();

@@ -5,7 +5,6 @@ const id = "upload-ready";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
-    chunks: { type: "array", item_type: "number", required: true },
     accepted: { type: "boolean", required: true }
 } as const;
 

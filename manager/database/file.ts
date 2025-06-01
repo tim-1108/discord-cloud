@@ -101,7 +101,7 @@ export async function addFileHandle(handle: Omit<FileHandle, AutoCreatedFileColu
 }
 
 export async function updateFileHandle(id: number, handle: Partial<FileHandle>) {
-    const value = await supabase.from("files").update(handle).eq("id", id).single();
+    const value = await supabase.from("files").update(handle).eq("id", id).select("*").single();
     if (value.error) {
         logError("Failed to update file handle", id, "due to:", value.error);
         return null;
@@ -109,7 +109,7 @@ export async function updateFileHandle(id: number, handle: Partial<FileHandle>) 
     // TODO: Only emit this to all clients when actually needed data changes
     broadcastToClients("modify", value.data);
     putIntoCache(value.data);
-    return value;
+    return value.data;
 }
 
 export async function deleteFileHandle(id: number) {

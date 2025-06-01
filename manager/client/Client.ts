@@ -3,13 +3,13 @@ import type { UUID } from "../../common/index.js";
 import { parsePacket } from "../../common/packet/parser.js";
 import { UploadQueueAddPacket } from "../../common/packet/c2s/UploadQueueAddPacket.js";
 import { PacketReceiver } from "../../common/packet/PacketReceiver.js";
-import { performEnqueueUploadOperation, removeClientItemsFromQueue } from "../uploads.js";
 import { PingServicesPacket } from "../../common/packet/c2s/PingServicesPacket.js";
 import { pingServices } from "../pinging.js";
 import { ListRequestPacket } from "../../common/packet/c2s/ListRequestPacket.js";
 import { performListPacketOperation } from "../client-operations/listing.js";
 import { getServersidePacketList } from "../../common/packet/reader.js";
 import PacketType from "../../common/packet/PacketType.js";
+import { Uploads } from "../uploads.js";
 
 export class Client extends PacketReceiver {
     private readonly uuid: UUID;
@@ -36,7 +36,7 @@ export class Client extends PacketReceiver {
     // TODO: Whenever a client disconnects, also force the uploader (if one is connected to this client)
     //  to close any in-progress uploads
     protected handleSocketClose(event: CloseEvent) {
-        const clearedUploads = removeClientItemsFromQueue(this.uuid);
+        const clearedUploads = Uploads.clear.client(this.uuid);
         console.info(`[Client.disconnect] ${this.uuid} | Removed ${clearedUploads} queued upload(s)`);
     }
 
@@ -46,7 +46,7 @@ export class Client extends PacketReceiver {
         const hasResolved = this.resolveReplies(packet);
 
         if (packet instanceof UploadQueueAddPacket) {
-            performEnqueueUploadOperation(this, packet);
+            Uploads.enqueue(this, packet);
         } else if (packet instanceof PingServicesPacket) {
             pingServices();
         } else if (packet instanceof ListRequestPacket) {

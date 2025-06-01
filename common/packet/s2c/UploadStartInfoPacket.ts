@@ -6,7 +6,7 @@ const id = "upload-start-info";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
-    chunks: { type: "array", item_type: "number", required: true },
+    chunk_size: { type: "number", required: true, min: 1 },
     upload_id: { type: "string", pattern: patterns.uuid, required: true },
     address: { type: "string", required: true }
 } as const;

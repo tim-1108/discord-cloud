@@ -5,7 +5,6 @@ import { UploadStartPacket } from "../common/packet/s2u/UploadStartPacket.js";
 import { setPendingUpload } from "./state.js";
 import type { UUID } from "../common";
 import { UploadReadyPacket } from "../common/packet/u2s/UploadReadyPacket.js";
-import { generateChunkSizes } from "./file-helper.js";
 import { getEnvironmentVariables } from "../common/environment.js";
 import { getServersidePacketList } from "../common/packet/reader.js";
 import PacketType from "../common/packet/PacketType.js";
@@ -39,12 +38,9 @@ export class Socket extends PacketReceiver {
 
         if (packet instanceof UploadStartPacket) {
             const { upload_id, client, ...data } = packet.getData();
-            const chunks = generateChunkSizes(data.size);
-            const accepted = setPendingUpload(
-                { ...data, upload_id: upload_id as UUID, client: client as UUID, is_overwriting_id: null /* not present here */ },
-                chunks
-            );
-            this.replyToPacket(packet, new UploadReadyPacket({ accepted, chunks }));
+            const chunks = Math.ceil(data.chunk_size / data.size);
+            const accepted = setPendingUpload({ ...data, upload_id: upload_id as UUID, client: client as UUID /* not present here */ }, chunks);
+            this.replyToPacket(packet, new UploadReadyPacket({ accepted }));
         }
     }
 }

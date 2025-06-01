@@ -10,7 +10,8 @@ const dataStructure = {
     path: { type: "string", required: true, pattern: patterns.stringifiedPath },
     size: { type: "number", required: true, min: 0 },
     client: { type: "string", required: true, pattern: patterns.uuid },
-    upload_id: { type: "string", required: true, pattern: patterns.uuid }
+    upload_id: { type: "string", required: true, pattern: patterns.uuid },
+    chunk_size: { type: "number", required: true, min: 1 }
 } as const;
 
 export class UploadStartPacket extends S2UPacket {

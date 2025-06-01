@@ -48,18 +48,23 @@ export class ThumbnailService extends Service {
             logWarn("Tried adding invalid data to the thumbnail queue", id, data);
             return;
         }
-        this.queue.set(id, data);
+        ThumbnailService.queue.set(id, data);
     }
 
     public static removeQueueFileById(id: number): boolean {
-        return this.queue.delete(id);
+        return ThumbnailService.queue.delete(id);
     }
 
     public static getAndClearQueue() {
         // These can flow directly into GenThumbnailPacket
-        const packets = this.queue.entries().map(([id, { messages, type, channel }]) => ({ id, messages, type, channel }));
-        this.queue.clear();
+        const packets = ThumbnailService.queue.entries().map(([id, { messages, type, channel }]) => ({ id, messages, type, channel }));
+        ThumbnailService.queue.clear();
         return packets;
+    }
+
+    public static shouldGenerateThumbnail(type: string) {
+        // TOOD: Validate with actual types (although that is mainly done on the service itself)
+        return type.startsWith("image/") || type.startsWith("video/");
     }
 
     public constructor(socket: WebSocket, params?: Record<string, string | null>) {

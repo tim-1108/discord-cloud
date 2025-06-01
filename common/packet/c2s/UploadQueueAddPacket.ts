@@ -9,7 +9,8 @@ const dataStructure = {
     name: { type: "string", required: true, pattern: patterns.fileName },
     path: { type: "string", required: true, pattern: patterns.stringifiedPath },
     // TODO: allow empty files to be uploaded
-    size: { type: "number", required: true, min: 1 }
+    size: { type: "number", required: true, min: 1 },
+    is_public: { type: "boolean", required: true }
 } as const;
 
 export class UploadQueueAddPacket extends C2SPacket {

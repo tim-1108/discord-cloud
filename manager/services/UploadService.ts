@@ -5,12 +5,10 @@ import { UploadStartPacket } from "../../common/packet/s2u/UploadStartPacket.js"
 import { parsePacket } from "../../common/packet/parser.js";
 import { UploadFinishPacket } from "../../common/packet/u2s/UploadFinishPacket.js";
 import { UploadReadyPacket } from "../../common/packet/u2s/UploadReadyPacket.js";
-import { UploadStartInfoPacket } from "../../common/packet/s2c/UploadStartInfoPacket.js";
-import { failUpload, finishUpload, sendUploadsToServices } from "../uploads.js";
 import { getServersidePacketList } from "../../common/packet/reader.js";
 import { ClientList } from "../client/list.js";
-import { logWarn } from "../../common/logging.js";
 import PacketType from "../../common/packet/PacketType.js";
+import { Uploads } from "../uploads.js";
 
 const config = {
     name: "upload",
@@ -33,11 +31,11 @@ function validateTargetAddress(value: any) {
 
 export class UploadService extends Service {
     public addHandler(): void {
-        sendUploadsToServices();
+        Uploads.pushToServices();
     }
     public removeHandler(): void {
         if (this.uploadMetadata) {
-            failUpload(this.uploadMetadata, "The uploader has unexpectedly disconnected");
+            Uploads.fail(this.uploadMetadata, "The upload service disconnected");
         }
     }
     public config = config;
@@ -61,20 +59,23 @@ export class UploadService extends Service {
         this.address = params.address;
     }
 
+    public getAddress() {
+        return this.address;
+    }
+
     /**
      * Sends a packet to the upload service to request the start of an upload.
      *
      * Automatically informs the client of all activities.
      * @param metadata The upload metadata to send along.
      */
-    public async requestUploadStart(metadata: UploadMetadata): Promise<boolean> {
+    public async requestUploadStart(metadata: UploadMetadata): Promise<string | null> {
         // This should not be possible when called from sendUploadsToServices
         if (this.isBusy()) {
-            logWarn("Requested upload start while service is busy");
-            return false;
+            return "Requested upload whilst uploader is still busy";
         }
         this.markBusy();
-        const { is_overwriting_id, ...rest } = metadata;
+        const { overwrite_target, is_public, ...rest } = metadata;
         const result = await this.sendPacketAndReply(new UploadStartPacket(rest), UploadReadyPacket);
         const data = result?.getData();
 
@@ -84,21 +85,16 @@ export class UploadService extends Service {
         // In the time awaiting a response from the uploader, the client might have disconnected
         if (!client) {
             this.markNotBusy();
-            return false;
+            return "Client disconnected";
         }
 
         if (!data || !data.accepted) {
             this.markNotBusy();
-            failUpload(metadata, "The service rejected the upload");
-            return false;
+            return "The service rejected the upload";
         }
 
         this.uploadMetadata = metadata;
-        const hasInformedClient = await client.sendPacket(
-            new UploadStartInfoPacket({ upload_id: metadata.upload_id, chunks: data.chunks, address: this.address })
-        );
-
-        return hasInformedClient === null;
+        return null;
     }
 
     protected handleSocketMessage(event: MessageEvent): void {
@@ -121,9 +117,9 @@ export class UploadService extends Service {
             // TODO: Remove manual validation
             this.markNotBusy();
             if (success) {
-                void finishUpload(this.uploadMetadata, packet);
+                Uploads.finish(this.uploadMetadata, packet);
             } else {
-                failUpload(this.uploadMetadata, reason);
+                Uploads.fail(this.uploadMetadata, reason);
             }
             this.uploadMetadata = null;
         }

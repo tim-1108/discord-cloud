@@ -1,4 +1,4 @@
-const REQUEST_TIMEOUT_MS_PER_CHUNK = 60_000 as const;
+const REQUEST_TIMEOUT_MS_PER_CHUNK = 180_000 as const;
 
 let timeout: Timer | null = null;
 let resolveFunc: Function | null = null;

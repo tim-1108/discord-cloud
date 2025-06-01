@@ -51,7 +51,7 @@ function validateRequest(req: Request, res: Response, data: UploadData) {
     }
 
     const chunkId = parseInt(chunk, 10);
-    if (!patterns.integer.test(chunk) || isNaN(chunkId) || chunkId < 0 || chunkId >= data.chunks.length) {
+    if (!patterns.integer.test(chunk) || isNaN(chunkId) || chunkId < 0 || chunkId >= data.chunk_count) {
         respondWithError(res, "Invalid chunk");
         return null;
     }
@@ -68,12 +68,21 @@ function validateRequest(req: Request, res: Response, data: UploadData) {
     }
 
     const bufferSize = file.buffer.length;
-    if (bufferSize !== data.chunks[chunkId]) {
+    const desired = getChunkSizeAtIndex(chunkId, data.metadata.size, data.metadata.chunk_size, data.chunk_count);
+    if (bufferSize !== desired) {
         respondWithError(res, "Chunk size is invalid");
         return null;
     }
 
     return { file, chunkId };
+}
+
+function getChunkSizeAtIndex(i: number, s: number, cs: number, cc: number) {
+    if (i < cc - 1) {
+        return cs;
+    }
+    // The last chunk is just the remainder
+    return s % cs;
 }
 
 async function onFileUpload(req: Request, res: Response): Promise<void> {
@@ -121,7 +130,7 @@ async function onFileUpload(req: Request, res: Response): Promise<void> {
 app.listen(getEnvironmentVariables("upload-service").PORT, () => console.log("Upload service is listening"));
 
 function finishUploadIfDone(data: UploadData) {
-    if (data.completed_chunks.size !== data.chunks.length) {
+    if (data.completed_chunks.size !== data.chunk_count) {
         lengthenTimeout();
         return;
     }
@@ -172,8 +181,8 @@ export function cancelUpload(reason?: string) {
     resetRequestTimeout(false);
 }
 
-export async function startWatchingTimeout(chunks: number[]) {
-    const result = await startRequestTimeout(chunks.length);
+export async function startWatchingTimeout(chunks: number) {
+    const result = await startRequestTimeout(chunks);
     // If this is false, the timeout was never reached, but the request has been finished correctly
     if (!result) {
         return;

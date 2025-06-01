@@ -31,3 +31,7 @@ export function getBrowserClientboundPacketList() {
 export function getBrowserServerboundPacketList() {
     return serverboundPackets;
 }
+
+export function getBrowserGenericPacketList() {
+    return genericPackets;
+}

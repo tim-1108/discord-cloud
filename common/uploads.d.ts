@@ -9,5 +9,8 @@ export interface UploadMetadataClientProvided {
 
 export interface UploadMetadata extends UploadMetadataClientProvided {
     upload_id: UUID;
-    is_overwriting_id: number | null;
+    overwrite_target: number | null;
+    overwrite_user_id: number | null;
+    chunk_size: number;
+    is_public: boolean;
 }

@@ -19,13 +19,15 @@ export function clearUploadState() {
     data.delete("upload");
 }
 
+type ServiceUploadMetadata = Omit<UploadMetadata, "overwrite_target" | "overwrite_user_id" | "is_public">;
+
 type Data = {
     busy: boolean;
     upload: UploadData;
 };
 export interface UploadData {
-    metadata: UploadMetadata;
-    chunks: number[];
+    metadata: ServiceUploadMetadata;
+    chunk_count: number;
     /**
      * Discord message IDs mapped to the indices of chunks
      */
@@ -57,19 +59,16 @@ type DataMap = Map<
 >;
 const data: DataMap = new Map([["busy", false]]);
 
-export function setPendingUpload(metadata: UploadMetadata, chunks: number[]) {
+export function setPendingUpload(metadata: ServiceUploadMetadata, chunks: number) {
     if (isBusy()) return false;
-    // TODO: allow empty files to be uploaded
-    if (!chunks.length) return false;
-
     markBusy();
     data.set("upload", {
         metadata,
-        chunks,
+        chunk_count: chunks,
         completed_chunks: new Map(),
         processing: new Set(),
         type: "application/octet-stream",
-        hashes: new Array<string>(chunks.length),
+        hashes: new Array<string>(chunks),
         should_encrypt: getEnvironmentVariables("upload-service").ENCRYPTION === "1",
         channel_id: null
     });
