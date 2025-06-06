@@ -12,8 +12,10 @@ export let communicator: Communicator;
     const authentication = await getAuthentication();
 
     const socketUrl = new URL(authentication.address);
+    socketUrl.protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const httpUrl = new URL(authentication.address);
-    httpUrl.protocol = "http:";
+    // No "mixed content" is allowed
+    httpUrl.protocol = window.location.protocol;
     httpUrl.pathname = "/login";
     httpUrl.searchParams.append("username", authentication.username);
     httpUrl.searchParams.append("password", authentication.password);
