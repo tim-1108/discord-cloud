@@ -9,6 +9,7 @@ import { Uploads } from "@/composables/uploads.js";
 import { UploadStartInfoPacket } from "../../../common/packet/s2c/UploadStartInfoPacket.js";
 import { FileModifyPacket } from "../../../common/packet/s2c/FileModifyPacket.js";
 import { listingFileModify } from "@/composables/listing.js";
+import { logWarn } from "../../../common/logging.js";
 
 /**
  * The class that communicates with the manager using a web socket.
@@ -25,7 +26,7 @@ export class Communicator extends PacketReceiver {
 
     protected handleSocketClose(event: CloseEvent): void {
         // TODO: Replace with better error handler (reconnection and show to user)
-        alert(`The socket connection was lost with code ${event.code} and reason "${event.reason || "unknown"}"`);
+        logWarn(`The socket connection was lost with code ${event.code} and reason "${event.reason || "unknown"}"`);
     }
     protected handleSocketMessage(event: MessageEvent): void {
         const packet = parsePacket(event.data, PacketType.Server2Client, getBrowserClientboundPacketList);

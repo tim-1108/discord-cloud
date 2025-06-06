@@ -56,17 +56,36 @@ export function sortMapValuesAsArrayByKeyArray<K, V>(map: Map<K, V>, keys: K[]):
 
 const nowRange = 60 * 1000;
 const fullDay = 1000 * 60 * 60 * 24;
+const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 export function parseDateObjectToRelative(obj: Date) {
     const pad = (input: number) => input.toString(10).padStart(2, "0");
 
-    const n = Date.now();
+    const obj2 = new Date();
+    const n = obj2.getTime();
     const t = obj.getTime();
     const d = Math.abs(n - t);
 
     const isFuture = t > n;
 
+    const time = `at ${pad(obj.getHours())}:${pad(obj.getMinutes())}`;
+    const dayMonth = `${months[obj.getMonth()]} ${obj.getDate()}`;
+
     // If the delta is within a day range, we can just show the time
-    if (d >= fullDay) {
-        return `${pad(obj.getHours())}:${pad(obj.getMinutes())}`;
+    if (d <= fullDay) {
+        return time;
     }
+
+    // If within a three day range, a day this week cannot overlap with a day
+    // of the same name next week (too little distance)
+    else if (d <= fullDay * 3) {
+        return `${days[obj.getDay()]} ${time}`;
+    }
+
+    // If the date fell within this year, we don't show the year
+    else if (obj.getFullYear() === obj2.getFullYear()) {
+        return `${dayMonth} ${time}`;
+    }
+
+    return `${dayMonth}, ${obj.getFullYear()} ${time}`;
 }

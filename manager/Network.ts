@@ -48,6 +48,10 @@ export class Network {
 
         /* === HTTP === */
         this.app.use(express.json());
+        this.app.use((_, res, next) => {
+            res.setHeader("Access-Control-Allow-Origin", "*");
+            next();
+        });
         this.setupRoutes();
 
         /* === SOCKET === */

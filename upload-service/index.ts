@@ -78,6 +78,10 @@ function validateRequest(req: Request, res: Response, data: UploadData) {
 }
 
 function getChunkSizeAtIndex(i: number, s: number, cs: number, cc: number) {
+    if (cc === 1) {
+        return s;
+    }
+
     if (i < cc - 1) {
         return cs;
     }

@@ -21,4 +21,7 @@ export async function createUser(username: string, password: string) {
     return response.data;
 }
 
-export async function updateUserPassword(id: number, hash: string, salt: number) {}
+export async function updateUserPassword({ id, password, salt }: Pick<UserHandle, "id" | "password" | "salt">) {
+    // TODO: should we log off all clients of this user?
+    return parsePostgrestResponse<UserHandle>(supabase.from("users").update({ password, salt }).eq("id", id).select("*").single());
+}

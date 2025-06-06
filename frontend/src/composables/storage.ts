@@ -16,6 +16,10 @@ export function writeObjectToStorage(key: LocalStorageKey, data: any): void {
     localStorage.setItem(key, JSON.stringify(data));
 }
 
+export function deleteObjectFromStorage(key: LocalStorageKey) {
+    return localStorage.removeItem(key);
+}
+
 export enum LocalStorageKey {
     Authentication = "discord-cloud-authentication"
 }

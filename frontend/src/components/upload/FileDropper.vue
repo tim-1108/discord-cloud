@@ -3,8 +3,11 @@ import { traverseFileTree } from "@/composables/filesystem";
 import type { UploadFileHandle } from "@/composables/uploads";
 import { useTemplateRef } from "vue";
 
+defineProps<{ disabled?: boolean; hidden?: boolean }>();
+
 const emit = defineEmits<{
     add: [files: UploadFileHandle[]];
+    preprocessing: [];
 }>();
 
 const inputEl = useTemplateRef("input");
@@ -12,6 +15,7 @@ const inputEl = useTemplateRef("input");
 function onInputChange(event: Event) {
     const target = event.target as HTMLInputElement;
     if (!target.files) return;
+    emit("preprocessing");
     const addedFiles = Array.from(target.files).map((file) => ({ handle: file, relativePath: "/" }));
     emit("add", addedFiles);
     clearSavedFiles();
@@ -22,11 +26,15 @@ async function onFileDrop(event: DragEvent) {
     // we need to make sure the webkitGetAsEntry method exists on them.
     // This DOES NOT exist on Firefox for Android
     // (where you cannot even drop anything - it is mobile after all)
-    if (!DataTransferItem.prototype.webkitGetAsEntry) return;
-    if (!event.dataTransfer) return;
+    // https://developer.mozilla.org/en-US/docs/Web/API/DataTransferItem/webkitGetAsEntry
+    // The function may end up being renamed to getAsEntry...
+    // @ts-expect-error
+    const fn: () => FileSystemEntry | null = DataTransferItem.prototype.getAsEntry ?? DataTransferItem.prototype.webkitGetAsEntry;
+    if (!fn || !event.dataTransfer) return;
+    emit("preprocessing");
     const { items } = event.dataTransfer;
     const filesAndFolders = Array.from(items)
-        .map((entry) => DataTransferItem.prototype.webkitGetAsEntry.apply(entry))
+        .map((entry) => fn.apply(entry))
         .filter((entry) => entry !== null);
     const promises = await Promise.allSettled(filesAndFolders.map((ff) => traverseFileTree(ff)));
     const droppedFiles = promises.filter((result) => result.status === "fulfilled").flatMap((result) => result.value);
@@ -41,8 +49,15 @@ function clearSavedFiles() {
 </script>
 
 <template>
-    <div @click="inputEl?.click()" @drop.prevent="onFileDrop" @dragover.prevent="">
-        <p>Drop any files or folders here</p>
-        <input class="pointer-events-none" ref="input" type="file" multiple @change="onInputChange" />
+    <div @click="inputEl?.click()" @drop.prevent.capture="onFileDrop" @dragover.prevent="">
+        <slot></slot>
+        <input
+            class="pointer-events-none"
+            :class="{ hidden: hidden }"
+            ref="input"
+            type="file"
+            :disabled="disabled"
+            multiple
+            @change="onInputChange" />
     </div>
 </template>

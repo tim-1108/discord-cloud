@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { parseFileSize } from "../../../common/useless";
+import { parseDateObjectToRelative, parseFileSize } from "../../../common/useless";
 import { generateDownloadLink, getPreviewingImage, isFileImage } from "@/composables/images";
 import { convertRouteToPath, useCurrentRoute } from "@/composables/path";
 import type { Listing } from "@/composables/listing";
@@ -33,7 +33,7 @@ async function openImageOrDownload(file: ClientFileHandle) {
             <tr v-for="file of listing.files" class="" @click="openImageOrDownload(file)">
                 <td></td>
                 <td>{{ file.name }}</td>
-                <td>{{ file.updated_at }}</td>
+                <td>{{ parseDateObjectToRelative(new Date(file.updated_at ?? "")) }}</td>
                 <td>{{ parseFileSize(file.size) }}</td>
             </tr>
         </tbody>

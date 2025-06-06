@@ -1,10 +1,11 @@
 import { ref } from "vue";
-import { LocalStorageKey, readObjectFromStorage, writeObjectToStorage } from "./storage";
-import { useSidebarState } from "./sidebar";
+import { deleteObjectFromStorage, LocalStorageKey, readObjectFromStorage, writeObjectToStorage } from "./storage";
 import type { SchemaToType } from "../../../common/validator";
+import { Dialogs } from "./dialog";
 
 const authenticationSchema = {
     address: { type: "string", required: true, validator_function: validateSocketUrl },
+    username: { type: "string", required: true },
     password: { type: "string", required: true, min_length: 1 }
 } as const;
 type Authentication = SchemaToType<typeof authenticationSchema>;
@@ -36,16 +37,18 @@ export function getAuthenticationSync(): Authentication | null {
 
 export async function getAuthentication(): Promise<Authentication> {
     const storedData = readObjectFromStorage(LocalStorageKey.Authentication, authenticationSchema);
-    const sidebarState = useSidebarState();
     if (!storedData) {
         // Might occurr if data should happen to be invalid
         localStorage.removeItem(LocalStorageKey.Authentication);
-        sidebarState.value = "auth";
+        Dialogs.mount("login");
         const result = await new Promise<Authentication>((resolve) => (resolver.value = resolve));
-        sidebarState.value = "default";
+        Dialogs.unmount("login");
         writeObjectToStorage(LocalStorageKey.Authentication, result);
         return result;
     }
-    sidebarState.value = "default";
     return storedData;
+}
+
+export function clearAuthentication() {
+    deleteObjectFromStorage(LocalStorageKey.Authentication);
 }

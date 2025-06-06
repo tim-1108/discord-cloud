@@ -75,7 +75,7 @@ export class UploadService extends Service {
             return "Requested upload whilst uploader is still busy";
         }
         this.markBusy();
-        const { overwrite_target, is_public, ...rest } = metadata;
+        const { overwrite_target, overwrite_user_id, is_public, ...rest } = metadata;
         const result = await this.sendPacketAndReply(new UploadStartPacket(rest), UploadReadyPacket);
         const data = result?.getData();
 

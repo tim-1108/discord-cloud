@@ -1,16 +1,23 @@
 <script setup lang="ts">
-import { useSidebarState } from "@/composables/sidebar";
-import BasicSection from "./basic/BasicSection.vue";
-import SidebarAuth from "./sidebar/auth.vue";
-import SidebarDefault from "./sidebar/default.vue";
-import SidebarUpload from "./sidebar/upload.vue";
-const state = useSidebarState();
+import { clearAuthentication } from "@/composables/authentication";
+import { Dialogs } from "@/composables/dialog";
+import { faUpLong } from "@fortawesome/free-solid-svg-icons";
+import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+
+function logOff() {
+    clearAuthentication();
+    location.reload();
+}
 </script>
 
 <template>
-    <BasicSection id="sidebar">
-        <SidebarAuth v-if="state === 'auth'"></SidebarAuth>
-        <SidebarDefault v-else-if="state === 'default'"></SidebarDefault>
-        <SidebarUpload v-else-if="state === 'upload'"></SidebarUpload>
-    </BasicSection>
+    <aside class="px-4">
+        <button
+            class="p-4 bg-[var(--text-selected-color)] text-[var(--selected-color)] items-center flex gap-4 drop-shadow transition-all rounded-xl hover:shadow-lg hover:bg-[var(--text-selected-color-lighter)]"
+            @click="Dialogs.mount('upload-submit')">
+            <FontAwesomeIcon :icon="faUpLong"></FontAwesomeIcon>
+            <span>Upload</span>
+        </button>
+        <button @click="logOff">Log off</button>
+    </aside>
 </template>

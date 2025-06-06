@@ -59,6 +59,5 @@ export const Database = {
         share: {
             get: getFileShare
         }
-    },
-    authenticated: {}
+    }
 } as const;

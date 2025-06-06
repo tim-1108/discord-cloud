@@ -1,15 +1,16 @@
 <script setup lang="ts">
 import { convertRouteToPath, navigateToAbsolutePath, navigateUpPath, useCurrentRoute } from "@/composables/path";
-import BasicSection from "./basic/BasicSection.vue";
 import HoverUnderlineText from "./basic/HoverUnderlineText.vue";
 import { computed, ref, toRaw } from "vue";
+import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+import { faCheck, faPencil } from "@fortawesome/free-solid-svg-icons";
 
 const route = useCurrentRoute();
 const path = computed(() => convertRouteToPath(route.value));
 const updatedPath = ref<string>("");
 
 function toggleEditing() {
-    const mode = (isEditingModeActive.value = !isEditingModeActive.value);
+    const mode = (isEditing.value = !isEditing.value);
     if (mode) {
         updatedPath.value = toRaw(path.value);
     } else {
@@ -17,23 +18,38 @@ function toggleEditing() {
     }
 }
 
-const isEditingModeActive = ref(false);
+const isEditing = ref(false);
 </script>
 
 <template>
-    <BasicSection class="flex gap-2 font-bold text-xl w-full">
-        <template v-if="!isEditingModeActive">
+    <section
+        class="font-bold min-w-0 max-w-full rounded-full h-14 py-2 px-4 relative transition-colors flex items-center"
+        :data-editing="isEditing ? '' : null"
+        :class="{ 'border-2 border-dashed border-[var(--text-selected-color)]': isEditing }">
+        <div class="flex gap-2 text-3xl min-w-0 max-w-full h-full overflow-x-auto overflow-y-hidden items-center" v-if="!isEditing">
             <HoverUnderlineText v-if="route.length" @click.capture="navigateToAbsolutePath('/')">~</HoverUnderlineText>
             <span v-else>~</span>
             <template v-for="(entry, index) of route">
-                <span class="text-lg text-gray-400">/</span>
+                <span class="text-xl text-gray-400">/</span>
                 <HoverUnderlineText v-if="index < route.length - 1" @click.capture="navigateUpPath(index)">{{ entry }}</HoverUnderlineText>
                 <span v-else>{{ entry }}</span>
             </template>
-            <button @click="toggleEditing">Edit</button>
-        </template>
-        <form v-else @submit.prevent="toggleEditing()">
-            <input class="bg-emerald-700" v-model="updatedPath" />
+        </div>
+        <form v-else @submit.prevent="toggleEditing" class="w-full">
+            <input v-model="updatedPath" class="w-full text-2xl h-full rounded-full absolute top-0 left-0 py-4 pl-6 pr-14" autofocus />
         </form>
-    </BasicSection>
+        <button class="rounded-full grid place-content-center text-xl absolute right-2 shadow h-10 w-10 aspect-square" @click="toggleEditing">
+            <FontAwesomeIcon :icon="isEditing ? faCheck : faPencil"></FontAwesomeIcon>
+        </button>
+    </section>
 </template>
+
+<style scoped>
+section {
+    background-color: var(--component-color);
+}
+section[data-editing] {
+    background-color: var(--selected-color);
+    color: var(--text-selected-color);
+}
+</style>

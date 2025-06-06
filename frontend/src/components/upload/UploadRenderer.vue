@@ -112,23 +112,26 @@ function navigateToRoot() {
 </script>
 
 <template>
-    <div class="flex gap-2">
+    <h2 class="font-bold">Navigation</h2>
+    <div class="flex gap-2 items-center">
         <span @click="navigateToRoot">...</span>
         <small v-if="!currentRoute.length">/</small>
         <template v-for="(item, index) of currentRoute">
             <small>/</small>
-            <span @click="navigateUpRoute(index)">{{ item }}</span>
+            <span class="bg-[var(--component-color)] px-2 py-1 rounded-full cursor-pointer" @click="navigateUpRoute(index)">{{ item }}</span>
         </template>
     </div>
     <div v-if="currentEntry" class="grid gap-1">
+        <h2 class="font-bold">Folders</h2>
         <SubfolderList
             :folder-list="currentEntry.subfolders"
             @navigate="navigateToSubfolder"
             :display-up="!!currentRoute.length"
             @navigate-up="() => navigateUpRoute(currentRoute.length - 2)"></SubfolderList>
-        <div class="grid gap-1">
+        <h2 class="font-bold">Files</h2>
+        <div class="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
             <div class="flex items-center gap-2" v-for="[name, handle] of currentEntry.files">
-                <FontAwesomeIcon class="text-4xl" :icon="getIconForFileType(name)"></FontAwesomeIcon>
+                <FontAwesomeIcon :icon="getIconForFileType(name)"></FontAwesomeIcon>
                 <span>{{ name }}</span>
             </div>
         </div>

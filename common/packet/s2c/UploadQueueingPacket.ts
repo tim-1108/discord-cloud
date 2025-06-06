@@ -9,7 +9,8 @@ const dataStructure = {
     size: { type: "number", required: true },
     name: { type: "string", required: true },
     upload_id: { type: "string", required: true },
-    queue_position: { type: "number", required: true }
+    queue_position: { type: "number", required: true },
+    chunk_size: { type: "number", required: true, min: 1 }
 } as const;
 
 export class UploadQueueingPacket extends S2CPacket {

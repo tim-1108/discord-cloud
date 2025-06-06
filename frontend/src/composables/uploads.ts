@@ -1,11 +1,12 @@
 import { communicator } from "@/main";
 import { UploadQueueAddPacket } from "../../../common/packet/c2s/UploadQueueAddPacket";
 import type { UUID } from "../../../common";
-import { combinePaths, convertRouteToPath, useCurrentRoute } from "./path";
+import { combinePaths, convertPathToRoute, convertRouteToPath, useCurrentRoute } from "./path";
 import { UploadQueueingPacket } from "../../../common/packet/s2c/UploadQueueingPacket";
 import type { UploadQueueUpdatePacket } from "../../../common/packet/s2c/UploadQueueUpdatePacket";
 import type { UploadStartInfoPacket } from "../../../common/packet/s2c/UploadStartInfoPacket";
 import { logError, logWarn } from "../../../common/logging";
+import { ref, type Ref } from "vue";
 
 export interface UploadFileHandle {
     handle: File;
@@ -13,15 +14,26 @@ export interface UploadFileHandle {
 }
 
 function streamFromFile(file: File, chunkSize: number) {
+    /**
+     * A buffer in which we write the data we have read from the stream.
+     * If the buffer size exceeds the
+     */
     let buffer = new Uint8Array();
     const stream = file.stream();
     const reader = stream.getReader();
 
-    async function readNextChunk(): Promise<{ data: Uint8Array<ArrayBuffer>; done: boolean }> {
+    /**
+     * Returns the next chunk with the previously inputted {@link chunkSize} or the remainder.
+     * If done, no value is returned anymore. "done: true" is only emitted after the final
+     * chunk has been read (similar to using a ReadableStreamReader)
+     */
+    async function readNextChunk(): Promise<{ value: Uint8Array<ArrayBuffer>; done: false } | { value?: Uint8Array<ArrayBuffer>; done: true }> {
+        // There is already enough data stored within the buffer,
+        // we can just return the asked for amount from there.
         if (buffer.byteLength >= chunkSize) {
-            const data = buffer.subarray(0, chunkSize);
+            const value = buffer.subarray(0, chunkSize);
             buffer = buffer.subarray(chunkSize);
-            return { data, done: false };
+            return { value, done: false };
         }
 
         while (true) {
@@ -29,29 +41,35 @@ function streamFromFile(file: File, chunkSize: number) {
 
             if (done) {
                 // if done, there is no value
-                const data = buffer.subarray(0, chunkSize);
-                // If we get unlucky, the last chunk of our stream sits between
+                // thus, we just take everything we have stored
+                const value = buffer.subarray(0, chunkSize);
+                // If we get unlucky, the last chunk of our stream.read sits between
                 // the second to last upload chunk and the remainder.
+                // In such a case, this function will get called again for
+                // the final chunk and then all the remainder will be returned
                 if (buffer.byteLength > chunkSize) {
                     buffer = buffer.subarray(chunkSize);
-                    return { data, done: false };
+                    return { value, done: false };
                 }
                 // once we're actually done, we clear all data
                 // so - if this gets called accidentially again - the data is not returned twice
                 // (this oughn't happen though)
                 buffer = new Uint8Array();
-                return { data, done: true };
+                return { value: undefined, done: true };
             }
 
             const newBuffer = new Uint8Array(buffer.byteLength + value.byteLength);
+            // appending both buffers
             newBuffer.set(buffer, 0);
             newBuffer.set(value, buffer.byteLength);
             buffer = newBuffer;
 
+            // We have just read a chunk from the stream and all the accumulated
+            // data is enough to return a finished chunk!
             if (buffer.byteLength >= chunkSize) {
-                const data = buffer.subarray(0, chunkSize);
+                const value = buffer.subarray(0, chunkSize);
                 buffer = buffer.subarray(chunkSize);
-                return { data, done: false };
+                return { value, done: false };
             }
         }
     }
@@ -99,11 +117,11 @@ async function startUpload(packet: UploadStartInfoPacket) {
     const cc = Math.ceil(chunk_size / handle.file.size);
     for (let i = 0; i < cc; i++) {
         const buffer = await streamFn();
-        if (i === cc - 1 && !buffer.done) {
-            logError(`Not done reading from file stream despite chunks being finished`);
+        if (buffer.done) {
+            logError(`Stream reported done despite chunks still remaining`);
             break;
         }
-        const cfg = { uploadId: id, targetAddress: address, chunkIndex: i, dataBuffer: buffer.data };
+        const cfg = { uploadId: id, targetAddress: address, chunkIndex: i, dataBuffer: buffer.value };
         const result = await sendChunk(cfg);
         // TODO: Implement retry system, we'll just move on for now
         if (!result) {
@@ -154,9 +172,59 @@ interface UploadQueueHandle {
 
 const queue = new Map<UUID, UploadQueueHandle>();
 
+// === preview section ===
+type PreviewItem = { files: Map<string, UploadFileHandle>; subfolders: Map<string, PreviewItem> };
+function createPreviewItem(): PreviewItem {
+    return { files: new Map(), subfolders: new Map() };
+}
+let previews = ref(createPreviewItem());
+const previewTotal = ref(0);
+function addPreviews(list: UploadFileHandle[]): void {
+    for (const h of list) {
+        const r = convertPathToRoute(h.relativePath);
+        let parent = previews.value;
+        for (let i = 0; i < r.length; i++) {
+            const n = r[i];
+            let child = parent.subfolders.get(n);
+            if (!child) {
+                child = createPreviewItem();
+                parent.subfolders.set(n, child);
+            }
+            parent = child;
+        }
+        // This file will not be added
+        // TODO: Should we overwrite it instead?
+        //       Ask for user confirmation Promise?
+        if (parent.files.has(h.handle.name)) {
+            continue;
+        }
+        parent.files.set(h.handle.name, h);
+        previewTotal.value++;
+    }
+}
+
+function getPreviewsForRoute(route: string[]): PreviewItem | null {
+    let parent = previews.value;
+    for (let i = 0; i < route.length; i++) {
+        const n = route[i];
+        let child = parent.subfolders.get(n);
+        if (!child) {
+            return null;
+        }
+        parent = child;
+    }
+    return parent;
+}
+
 export const Uploads = {
     submit: submitUpload,
     start: startUpload,
+    preview: {
+        add: addPreviews,
+        getForRoute: getPreviewsForRoute,
+        count: previewTotal,
+        reset: () => (previews.value = createPreviewItem())
+    },
     queue: {
         advance: advanceQueue
     }

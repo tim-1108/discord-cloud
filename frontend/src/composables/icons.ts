@@ -27,7 +27,7 @@ const extentions = [
 ];
 
 export function getIconForFileType(filename: string): IconDefinition {
-    const ext = filename.split(".").at(-1) ?? "";
+    const ext = filename.split(".").at(-1)?.toLowerCase() ?? "";
     if (!ext.length) {
         return faFile;
     }

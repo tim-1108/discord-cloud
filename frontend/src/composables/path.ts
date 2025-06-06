@@ -45,10 +45,10 @@ watch(route, (value) => {
 });
 
 export function navigateToAbsolutePath(path: string) {
-    const checkedPath = checkAndRepairStringPath(path);
+    const $path = checkAndRepairStringPath(path);
     // TODO: build warning/handling system
-    if (!checkedPath) return alert("This path is incorrect");
-    return navigateToAbsoluteRoute(convertPathToRoute(path));
+    if (!$path) return alert("This path is incorrect");
+    return navigateToAbsoluteRoute(convertPathToRoute($path));
 }
 
 export function navigateToAbsoluteRoute(newRoute: string[]) {
@@ -60,6 +60,17 @@ export function navigateToAbsoluteRoute(newRoute: string[]) {
 export function navigateUpPath(toIndex: number) {
     if (toIndex >= route.value.length - 1 || !route.value.length || toIndex < 0) return;
     route.value.splice(toIndex + 1, route.value.length - 1);
+    void triggerMeOnNavigation();
+}
+
+export function navigateToParentFolder() {
+    const l = route.value.length;
+    if (!l) return;
+    if (l === 1) {
+        route.value = [];
+    } else {
+        route.value.splice(l - 1, 1);
+    }
     void triggerMeOnNavigation();
 }
 
@@ -118,7 +129,7 @@ export function checkAndRepairStringPath(path: string): string | null {
     if (!path.includes("/")) path.replace(/\\/g, "/");
     if (path[0] !== "/") path = `/${path}`;
 
-    const route = convertPathToRoute(path);
+    const route = convertPathToRoute(path).map((val) => val.trim());
     if (route.length > maxmiums.subfolderCount) {
         route.splice(maxmiums.subfolderCount /* this index is the entry after the max allowed */, route.length - maxmiums.subfolderCount);
     }

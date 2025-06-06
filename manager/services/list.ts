@@ -28,8 +28,6 @@ type ServiceClassMap = {
 type GenericServiceParams = Record<string, string | null>;
 
 function registerAndGetService(name: ServiceName, socket: WebSocket, params: GenericServiceParams | undefined) {
-    // In this function's signature, we do not require the input name to be anything actually valid,
-    // as the caller could not possibly match that type requirement.
     type T = ServiceClassMap[typeof name];
     const $class = serviceClassMap.get(name) as T;
     // This is validated before being passed here

@@ -8,6 +8,7 @@ import type { FolderHandle } from "../../../common/supabase";
 import type { ClientFileHandle, FileModifyAction } from "../../../common/client";
 import type { FileModifyPacket } from "../../../common/packet/s2c/FileModifyPacket";
 import { logWarn } from "../../../common/logging";
+import { globals } from "./globals";
 
 export type Listing = { files: ClientFileHandle[]; folders: FolderHandle[] };
 type ListingCacheItem = {
@@ -54,6 +55,8 @@ export async function getListingForDirectory(route: string[]): Promise<Listing |
 
     const cacheHit = getCachedRoute(route);
     if (cacheHit) return cacheHit;
+
+    globals.listing.writeActive(null);
 
     const reply = await communicator.sendPacketAndReply(new ListRequestPacket({ path }), ListPacket);
     if (!reply) {
