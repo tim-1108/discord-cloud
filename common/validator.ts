@@ -302,22 +302,14 @@ type ArraySchemaEntryTypeDetection<T extends ArraySchemaEntry> = T["item_type"] 
         ? Array<unknown>
         : Array<T["type_declaration"]>;
 
-type OptionalSchemaEntryType<T extends SchemaEntry> = T extends StringSchemaEntry
-    ? string | undefined
-    : T extends NumberSchemaEntry
-      ? number | undefined
-      : T extends BooleanSchemaEntry
-        ? boolean | undefined
-        : T extends RecordSchemaEntry
-          ? SchemaToType<T["items"]> | undefined
-          : T extends ArraySchemaEntry
-            ? ArraySchemaEntryTypeDetection<T> | undefined
-            : unknown;
+export type SchemaToType<T extends SchemaEntryConsumer | null> = T extends SchemaEntryConsumer
+    ? RequiredSchemaFields<T> & OptionalSchemaFields<T>
+    : null;
 
-export type SchemaToType<T extends SchemaEntryConsumer | null> = {
-    [K in keyof T]: T extends SchemaEntryConsumer
-        ? T[K]["required"] extends true
-            ? RequiredSchemaEntryType<T[K]>
-            : OptionalSchemaEntryType<T[K]>
-        : null;
+type RequiredSchemaFields<T extends SchemaEntryConsumer> = {
+    [K in keyof T as T[K]["required"] extends true ? K : never]: RequiredSchemaEntryType<T[K]>;
+};
+
+type OptionalSchemaFields<T extends SchemaEntryConsumer> = {
+    [K in keyof T as T[K]["required"] extends false ? K : never]?: RequiredSchemaEntryType<T[K]>;
 };
