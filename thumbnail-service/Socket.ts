@@ -13,7 +13,6 @@ export class Socket extends PacketReceiver {
         const address = new URL(env.MANAGER_ADDRESS);
         address.searchParams.append("type", "thumbnail");
         address.searchParams.append("key", env.SERVICE_PASSWORD);
-        address.searchParams.append("address", env.OWN_ADDRESS);
 
         const socket = new WebSocket(address);
         super(socket);

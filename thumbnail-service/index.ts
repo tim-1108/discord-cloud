@@ -21,7 +21,7 @@ import { Socket } from "./Socket.js";
 import sharp from "sharp";
 import ffmpeg from "fluent-ffmpeg";
 import { Readable } from "node:stream";
-import config from "./thumbnail-config.json";
+import config from "./thumbnail-config.json" with { type: "json" };
 import fs from "node:fs/promises";
 import { logDebug } from "../common/logging.js";
 import { ThumbnailDataPacket } from "../common/packet/t2s/ThumbnailDataPacket.js";
