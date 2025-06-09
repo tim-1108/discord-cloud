@@ -62,7 +62,7 @@ export const patterns = {
      * characters.
      */
     integer: /^(-)?\d{1,10}$/,
-    webhookUrl: /^https:\/\/((canary|www)\.)?discord\.com\/api\/webhooks\/\d{17,22}\/[a-zA-Z0-9_]{10,100}$/,
+    webhookUrl: /^https:\/\/((canary|www)\.)?discord\.com\/api\/webhooks\/\d{17,22}\/[a-zA-Z0-9_\-]{10,100}$/,
     /**
      * A packet id should be of format "<from>2<to>:<packet id, containing lowercase chars, numbers and hyphens>".
      *
