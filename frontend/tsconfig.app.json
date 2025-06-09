@@ -1,6 +1,6 @@
 {
     "extends": "@vue/tsconfig/tsconfig.dom.json",
-    "include": ["src/**/*", "src/**/*.vue", "../common/**/*"],
+    "include": ["src/**/*", "src/**/*.vue", "../common/**/*", "components.d.ts"],
     "exclude": ["src/**/__tests__/*", "../manager/**/*", "../thumbnail-service/**/*", "../upload-service/**/*"],
     "compilerOptions": {
         "composite": true,

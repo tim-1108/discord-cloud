@@ -4,8 +4,13 @@ import { createApp } from "vue";
 import App from "./App.vue";
 import { Communicator } from "./socket/Communicator.js";
 import { clearAuthentication, getAuthentication } from "./composables/authentication.js";
+import { vIntersectionObserver } from "@vueuse/components";
+import { Dialogs } from "./composables/dialog.js";
 
-createApp(App).mount("#app");
+const app = createApp(App);
+app.directive("intersection-observer", vIntersectionObserver);
+app.mount("#app");
+
 export let communicator: Communicator;
 (async () => {
     // TODO: Rework!!!!
@@ -24,7 +29,7 @@ export let communicator: Communicator;
     const data = await response.json();
 
     if (!data.token) {
-        alert("Invalid authentication");
+        await Dialogs.alert({ title: "Authentication failed", body: "Your authentication may be incorrect. You will be logged off" });
         clearAuthentication();
         location.reload();
         return;

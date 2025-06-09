@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { FileModifyAction } from "../../common/client.js";
 import { logError } from "../../common/logging.js";
 import { FileModifyPacket } from "../../common/packet/s2c/FileModifyPacket.js";
@@ -7,6 +8,7 @@ import { ClientList } from "../client/list.js";
 import { ROOT_FOLDER_ID, routeToPath, supabase, type FolderOrRoot } from "./core.js";
 import { parsePostgrestResponse } from "./helper.js";
 import { Database } from "./index.js";
+import { patterns } from "../../common/patterns.js";
 
 /**
  * Maps file name to a handle.
@@ -176,6 +178,47 @@ function getFileHandleId_Database(id: number) {
     return parsePostgrestResponse<FileHandle>(supabase.from("files").select("*").eq("id", id).single());
 }
 
+/**
+ * In Windows explorer, when attempting to rename a file to another that already exists
+ * (or pasting it there), Windows will append a suffix like " (1)" to the file name.
+ *
+ * By default, the file should never actually be overwritten (even if the user has permissions),
+ * to prevent acccidental overwrites. This is a safer system and the user may choose to delete
+ * any "duplicated" files later on.
+ *
+ * This function takes the maximum file length into account. If a fitting file name cannot
+ * be found, `null` is returned. If successful, the new name is returned.
+ */
+export async function findReplacementFileName(name: string, folder: FolderOrRoot): Promise<string | null> {
+    let handle: FileHandle | null;
+    let i = 1;
+    // After a certain point, looking up file names for an infinite time
+    // is maybe a little bit too much. At some point, we'll have to quit.
+    const LIMIT = 99;
+    const ext = path.extname(name);
+    const extI = name.lastIndexOf(".");
+    const qualifiedName = extI > -1 ? name.substring(0, extI).trim() : name.trim();
+    do {
+        const suffix = ` (${i})`;
+        const result = qualifiedName + suffix + ext;
+        if (!patterns.fileName.test(result)) {
+            return null;
+        }
+        // Of course, this lookup could fail for other reasons (network, rate limit, whatever)
+        // But for now, we will assume that if this fails, the file is non-existent
+        // (another motivation to implement win32's GetLastError or just another return value)
+        handle = await Database.file.get(folder, result);
+        if (handle === null) {
+            return result;
+        }
+        if (i === LIMIT) {
+            return null;
+        }
+        i++;
+    } while (handle);
+    return null;
+}
+
 // TODO: Also emit to specific users whenever they receive a file share for themselves
 function broadcastToClients(action: FileModifyAction, handle: FileHandle, targetUser?: number) {
     const handler = async (user: number) => {
@@ -189,6 +232,7 @@ function broadcastToClients(action: FileModifyAction, handle: FileHandle, target
             return null;
         }
         const p = routeToPath(r);
+        const t = handle.has_thumbnail && Authentication.permissions.canReadFile(o) ? await Database.thumbnail.getSignedLink(handle.id) : null;
         const $handle = {
             id: handle.id,
             name: handle.name,
@@ -197,7 +241,8 @@ function broadcastToClients(action: FileModifyAction, handle: FileHandle, target
             created_at: handle.created_at ?? undefined,
             updated_at: handle.updated_at ?? undefined,
             size: handle.size,
-            ownership: o.status === "shared" ? o : { status: o.status, share: undefined }
+            ownership: o.status === "shared" ? o : { status: o.status, share: undefined },
+            thumbnail_url: t ?? undefined
         };
         return new FileModifyPacket({ action, path: p, handle: $handle });
     };

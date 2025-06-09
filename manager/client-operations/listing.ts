@@ -30,25 +30,37 @@ export async function performListPacketOperation(client: Client, packet: ListReq
         return sendReplyPacket(client, packet, [], [], false);
     }
 
-    const $files = new Array<ClientFileHandle>();
-    for (const f of files) {
-        const o = await Authentication.permissions.ownership(client.getUserId(), f);
-        if (o === null) {
-            continue;
-        }
-        $files.push({
-            id: f.id,
-            name: f.name,
-            type: f.type,
-            has_thumbnail: f.has_thumbnail,
-            created_at: f.created_at,
-            updated_at: f.updated_at,
-            size: f.size,
-            ownership: o
-        });
-    }
+    // We use a list of Promises to simultaniously fetch all signed thumbnail links
+    // TODO: maybe build some spam protection for that?
+    const $files = await Promise.all<ClientFileHandle | null>(
+        files.map(async (f) => {
+            // TODO: Unify this ClientFileHandle generation with the broadcast in file.ts
+            const o = await Authentication.permissions.ownership(client.getUserId(), f);
+            if (o === null) {
+                return null;
+            }
+            const t = f.has_thumbnail && Authentication.permissions.canReadFile(o) ? await Database.thumbnail.getSignedLink(f.id) : null;
+            return {
+                id: f.id,
+                name: f.name,
+                type: f.type,
+                has_thumbnail: f.has_thumbnail,
+                created_at: f.created_at,
+                updated_at: f.updated_at,
+                size: f.size,
+                ownership: o,
+                thumbnail_url: t ?? undefined
+            };
+        })
+    );
 
-    sendReplyPacket(client, packet, folders, $files, true);
+    sendReplyPacket(
+        client,
+        packet,
+        folders,
+        $files.filter((v) => v !== null),
+        true
+    );
 }
 
 function sendReplyPacket(

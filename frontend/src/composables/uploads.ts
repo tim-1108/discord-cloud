@@ -6,7 +6,7 @@ import { UploadQueueingPacket } from "../../../common/packet/s2c/UploadQueueingP
 import type { UploadQueueUpdatePacket } from "../../../common/packet/s2c/UploadQueueUpdatePacket";
 import type { UploadStartInfoPacket } from "../../../common/packet/s2c/UploadStartInfoPacket";
 import { logError, logWarn } from "../../../common/logging";
-import { ref, type Ref } from "vue";
+import { computed, reactive, ref, type Ref } from "vue";
 
 export interface UploadFileHandle {
     handle: File;
@@ -170,7 +170,7 @@ interface UploadQueueHandle {
     queue_position: number;
 }
 
-const queue = new Map<UUID, UploadQueueHandle>();
+const queue = reactive(new Map<UUID, UploadQueueHandle>());
 
 // === preview section ===
 type PreviewItem = { files: Map<string, UploadFileHandle>; subfolders: Map<string, PreviewItem> };
@@ -216,16 +216,49 @@ function getPreviewsForRoute(route: string[]): PreviewItem | null {
     return parent;
 }
 
+function getAllPreviewsAndReset() {
+    // We trust our count variable here
+    const a = new Array<UploadFileHandle>(previewTotal.value);
+    if (!previewTotal.value) {
+        return a;
+    }
+
+    const scheduledRoutes = new Array<string[]>([] /* make sure root is in there */);
+    while (scheduledRoutes.length) {
+        const route = scheduledRoutes[0];
+        scheduledRoutes.splice(0, 1);
+        const item = getPreviewsForRoute(route);
+        if (!item) {
+            logWarn("No preview log despite having key for route:", route);
+            continue;
+        }
+        a.push(...Array.from(item.files.values()));
+        // appending the subfolder names to the active route (without modifying the original array handle)
+        const routes = Array.from(item.subfolders.keys()).map((name) => route.concat([name]));
+        scheduledRoutes.push(...routes);
+    }
+
+    resetPreviews();
+    return a;
+}
+
+function resetPreviews() {
+    previews.value = createPreviewItem();
+    previewTotal.value = 0;
+}
+
 export const Uploads = {
     submit: submitUpload,
     start: startUpload,
     preview: {
         add: addPreviews,
         getForRoute: getPreviewsForRoute,
+        getAllAndReset: getAllPreviewsAndReset,
         count: previewTotal,
-        reset: () => (previews.value = createPreviewItem())
+        reset: resetPreviews
     },
     queue: {
-        advance: advanceQueue
+        advance: advanceQueue,
+        count: computed(() => queue.size)
     }
 } as const;

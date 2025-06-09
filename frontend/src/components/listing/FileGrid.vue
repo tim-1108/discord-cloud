@@ -7,7 +7,7 @@ const emit = defineEmits<{ select: [name: string] }>();
 </script>
 
 <template>
-    <section id="file-grid" class="grid gap-2 grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
+    <section id="file-grid" class="grid gap-2 grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6">
         <button
             class="px-4 py-3 rounded-xl grid grid-cols-[25px_1fr] text-start items-center gap-2 bg-[var(--component-color)]"
             v-for="handle of fileList"

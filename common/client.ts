@@ -9,6 +9,7 @@ export type ClientFileHandle = {
     created_at: string | null;
     updated_at: string | null;
     size: number;
+    thumbnail_url?: string;
 };
 
 export type ClientFileOwnership = "owned" | "shared" | "public" | "restricted";
@@ -44,6 +45,7 @@ export const ClientFileSchema = {
         },
         created_at: { type: "string" },
         updated_at: { type: "string" },
-        size: { type: "number", required: true }
+        size: { type: "number", required: true },
+        thumbnail_url: { type: "string", required: false }
     }
 } as const;

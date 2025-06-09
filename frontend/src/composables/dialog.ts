@@ -1,19 +1,27 @@
+import AlertDialog from "@/components/dialog/AlertDialog.vue";
 import ConfirmDialog from "@/components/dialog/ConfirmDialog.vue";
 import LoginDialog from "@/components/dialog/LoginDialog.vue";
 import RenameActionDialog from "@/components/dialog/RenameActionDialog.vue";
 import UploadSubmitDialog from "@/components/dialog/UploadSubmitDialog.vue";
-import { h, ref, type VNode } from "vue";
+import { h, ref, type DefineComponent, type VNode } from "vue";
+import { createResolveFunction } from "../../../common/useless";
 
 const components = {
     "upload-submit": UploadSubmitDialog,
     rename: RenameActionDialog,
     confirm: ConfirmDialog,
-    login: LoginDialog
+    login: LoginDialog,
+    alert: AlertDialog
 } as const;
 type ComponentName = keyof typeof components;
 const list = ref(new Map<ComponentName, VNode>());
 
-function mount(name: ComponentName, props?: Record<string, any>) {
+/**
+ * Infers the props of a Component object passed into the type.
+ */
+export type PropsOf<C> = C extends DefineComponent<infer P, any, any, any, any> ? P : never;
+
+function mount<N extends ComponentName>(name: N, props: PropsOf<(typeof components)[N]>) {
     if (list.value.has(name)) {
         return false;
     }
@@ -44,18 +52,32 @@ export interface ConfirmDialogConfig {
     cancel?: string;
     confirm?: string;
 }
+export interface AlertDialogConfig {
+    title?: string;
+    body: string;
+    confirm?: string;
+}
 async function confirmDialog(cfg: ConfirmDialogConfig): Promise<boolean> {
-    // TODO: mount a confirm dialog and return a boolean depending on what the user selects!
-    let resolve: ((val: boolean) => void) | undefined = undefined;
-    const p = new Promise<boolean>((r) => (resolve = r));
+    const { promise, resolve } = createResolveFunction<boolean>();
     const hasMounted = mount("confirm", { cfg, callback: resolve });
     if (!hasMounted) {
         // TODO: maybe allow to mount multiple at once
         return false;
     }
-    const result = await p;
+    const result = await promise;
     unmount("confirm");
     return result;
+}
+
+async function alertDialog(cfg: AlertDialogConfig): Promise<void> {
+    const { promise, resolve } = createResolveFunction();
+    const hasMounted = mount("alert", { cfg, callback: resolve });
+    if (!hasMounted) {
+        // TODO: maybe allow to mount multiple at once
+        return;
+    }
+    await promise;
+    unmount("alert");
 }
 
 export const Dialogs = {
@@ -63,5 +85,6 @@ export const Dialogs = {
     unmount,
     isMounted,
     iterator: list,
-    confirm: confirmDialog
+    confirm: confirmDialog,
+    alert: alertDialog
 };

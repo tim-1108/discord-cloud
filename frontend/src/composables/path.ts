@@ -10,11 +10,11 @@ export function convertPathToRoute(path: string): string[] {
         return [];
     }
     const untrailed = path.replace(/^\/|\/$/g, "");
-    return untrailed.split("/");
+    return untrailed.split("/").map((v) => v.trim());
 }
 
 export function convertRouteToPath(route: string[]): string {
-    return `/${route.join("/")}`;
+    return `/${route.map((v) => v.trim()).join("/")}`;
 }
 
 export function useCurrentRoute(): Ref<string[]> {
@@ -52,6 +52,7 @@ export function navigateToAbsolutePath(path: string) {
 }
 
 export function navigateToAbsoluteRoute(newRoute: string[]) {
+    newRoute = newRoute.map((v) => v.trim());
     if (areRoutesIdentical(route.value, newRoute)) return;
     route.value = newRoute;
     void triggerMeOnNavigation();
@@ -80,6 +81,7 @@ async function triggerMeOnNavigation() {
 }
 
 export function appendToRoute(folders: string[]) {
+    folders = folders.map((v) => v.trim());
     const current = toRaw(route.value);
     return navigateToAbsoluteRoute(current.concat(folders));
 }
@@ -114,13 +116,18 @@ export function combinePaths(a: string, b: string) {
 export function checkAndRepairStringPath(path: string): string | null {
     // TODO: Notify the user if any changes had to be made to their input
 
+    // The actual trimming of individual items is executed below
+    path = path.trim();
+
     if (!path.length || path === "/") {
         return "/";
     }
 
-    // If the path is already correct, we only remove a trailing slash at the end (not required to have that)
+    // A trailing slash in the string is not required
+    path = path.replace(/\/$/, "");
     if (patterns.stringifiedPath.test(path)) {
-        return path.replace(/\/$/, "");
+        const route = convertPathToRoute(path).map((val) => val.trim());
+        return convertRouteToPath(route);
     }
 
     // Although backslashes are allowed in folder/file names, we cannot know whether those
@@ -152,5 +159,5 @@ const emptyStringTag = "?";
 function attemptRepairFolderOrFileName(name: string) {
     name = name.replace(doubleDotsPattern, "").replace(negatedSet, emptyStringTag).substring(0, maxmiums.title);
     name ||= emptyStringTag;
-    return name;
+    return name.trim();
 }

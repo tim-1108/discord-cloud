@@ -10,7 +10,7 @@
     --text-selected-color-lighter: #005e98;
     --text-color: #1f1f1f;
     --component-color: #f0f4f9;
-    --darker-component-color: #e9f3ff;
+    --darker-component-color: #dbe6f4;
     color: var(--text-color);
     font-family: "Open Sans", sans-serif;
     font-weight: 400;

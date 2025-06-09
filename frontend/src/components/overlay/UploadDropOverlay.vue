@@ -14,7 +14,7 @@ async function addFiles(list: UploadFileHandle[]) {
     isProcessing.value = true;
     await nextTick();
     Uploads.preview.add(list);
-    Dialogs.mount("upload-submit");
+    Dialogs.mount("upload-submit", {});
     emit("hide");
 }
 </script>

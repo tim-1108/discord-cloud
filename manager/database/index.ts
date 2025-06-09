@@ -3,6 +3,7 @@ import { getFileShare } from "./file-share.js";
 import {
     addFileHandle,
     deleteFileHandle,
+    findReplacementFileName,
     getFileHandle_Cached,
     getFileHandleById_Cached,
     getFileHandleWithPath_Cached,
@@ -17,7 +18,7 @@ import {
     getFolderByPath,
     resolveRouteFromFolderId
 } from "./folder.js";
-import { removeThumbnailFromStorage, uploadThumbnailToStorage } from "./storage.js";
+import { getSignedLinkForThumbnail, deleteThumbnailFromStorage, uploadThumbnailToStorage } from "./storage.js";
 import { createUser, getUserByName_Database, getUser_Database, updateUserPassword } from "./users.js";
 
 export const Database = {
@@ -26,7 +27,8 @@ export const Database = {
     },
     thumbnail: {
         upload: uploadThumbnailToStorage,
-        delete: removeThumbnailFromStorage
+        delete: deleteThumbnailFromStorage,
+        getSignedLink: getSignedLinkForThumbnail
     },
     user: {
         add: createUser,
@@ -56,6 +58,7 @@ export const Database = {
         getWithPath: getFileHandleWithPath_Cached,
         getById: getFileHandleById_Cached,
         listInFolder: listFilesInFolder_Database,
+        findReplacementName: findReplacementFileName,
         share: {
             get: getFileShare
         }

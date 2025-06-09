@@ -5,7 +5,7 @@ import { type SchemaToType, validateObjectBySchema } from "../../common/validato
 import { resolvePathToFolderId_Cached, ROOT_FOLDER_ID, supabase, type FolderOrRoot } from "./core.js";
 import { folderOrRootToDatabaseType, nullOrTypeSelection, parsePostgrestResponse } from "./helper.js";
 import { ThumbnailService } from "../services/ThumbnailService.js";
-import { removeThumbnailFromStorage } from "./storage.js";
+import { deleteThumbnailFromStorage } from "./storage.js";
 import { Database } from "./index.js";
 import type { FileHandle, FolderHandle } from "../../common/supabase.js";
 
@@ -71,7 +71,7 @@ export function parseSignedFileDownload(input: string) {
 export async function deleteFileFromDatabase(id: number) {
     void ThumbnailService.removeQueueFileById(id);
     const result = await supabase.from("files").delete().eq("id", id);
-    void removeThumbnailFromStorage(id);
+    void deleteThumbnailFromStorage(id);
     // The data, even if successful, is null.
     // If an error object exists, something has gone wrong.
     return result.error === null;

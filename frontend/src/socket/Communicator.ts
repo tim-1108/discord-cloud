@@ -10,6 +10,7 @@ import { UploadStartInfoPacket } from "../../../common/packet/s2c/UploadStartInf
 import { FileModifyPacket } from "../../../common/packet/s2c/FileModifyPacket.js";
 import { listingFileModify } from "@/composables/listing.js";
 import { logWarn } from "../../../common/logging.js";
+import { Dialogs } from "@/composables/dialog.js";
 
 /**
  * The class that communicates with the manager using a web socket.
@@ -27,6 +28,10 @@ export class Communicator extends PacketReceiver {
     protected handleSocketClose(event: CloseEvent): void {
         // TODO: Replace with better error handler (reconnection and show to user)
         logWarn(`The socket connection was lost with code ${event.code} and reason "${event.reason || "unknown"}"`);
+        Dialogs.alert({
+            title: "Connection lost",
+            body: "You have lost connection to the server. Please reload the page and check the developer console. Also consider logging off and logging back in again."
+        });
     }
     protected handleSocketMessage(event: MessageEvent): void {
         const packet = parsePacket(event.data, PacketType.Server2Client, getBrowserClientboundPacketList);

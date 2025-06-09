@@ -40,7 +40,7 @@ export async function getAuthentication(): Promise<Authentication> {
     if (!storedData) {
         // Might occurr if data should happen to be invalid
         localStorage.removeItem(LocalStorageKey.Authentication);
-        Dialogs.mount("login");
+        Dialogs.mount("login", {});
         const result = await new Promise<Authentication>((resolve) => (resolver.value = resolve));
         Dialogs.unmount("login");
         writeObjectToStorage(LocalStorageKey.Authentication, result);

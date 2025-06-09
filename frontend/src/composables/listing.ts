@@ -9,6 +9,7 @@ import type { ClientFileHandle, FileModifyAction } from "../../../common/client"
 import type { FileModifyPacket } from "../../../common/packet/s2c/FileModifyPacket";
 import { logWarn } from "../../../common/logging";
 import { globals } from "./globals";
+import { Thumbnails } from "./thumbnail";
 
 export type Listing = { files: ClientFileHandle[]; folders: FolderHandle[] };
 type ListingCacheItem = {
@@ -214,7 +215,14 @@ export function listingFileModify(packet: FileModifyPacket) {
         }
         if ($action === "delete") {
             hit.files.splice(index, 1);
+            // We place this after the check whether the file handle itself is cached
+            // as we can assume that if the file itself is not cached, the thumbnail
+            // cannot be cached either. (viewing the thumb required having seen the file)
+            Thumbnails.invalidate(handle.id);
         } else {
+            if (handle.thumbnail_url && handle.thumbnail_url === hit.files[index].thumbnail_url) {
+                Thumbnails.overwrite(handle.id, handle.thumbnail_url);
+            }
             hit.files[index] = handle as ClientFileHandle;
         }
     }

@@ -8,11 +8,11 @@ onMounted(() => {
 </script>
 
 <template>
-    <dialog class="bg-white px-8 place-self-center rounded-3xl grid gap-4 relative grid-rows-[min-content_1fr_min-content]" ref="dialog">
-        <header class="sticky top-0 bg-white z-10 pt-8 pb-2">
+    <dialog class="bg-white px-6 place-self-center rounded-3xl grid gap-2 relative grid-rows-[min-content_1fr_min-content] min-w-0" ref="dialog">
+        <header class="sticky top-0 bg-white z-10 pt-4 pb-2">
             <slot name="header"></slot>
         </header>
-        <main class="pb-2">
+        <main class="pb-2 min-w-0 w-full overflow-auto">
             <slot name="main"></slot>
         </main>
         <footer class="sticky bottom-0 bg-white z-10">
@@ -25,7 +25,13 @@ onMounted(() => {
 @import "tailwindcss";
 
 dialog {
+    --bg-color: #e9eef6;
     animation: key forwards cubic-bezier(0.5, 0, 0, 1) 250ms;
+}
+dialog,
+dialog > header,
+dialog > footer {
+    background-color: var(--bg-color);
 }
 dialog::backdrop {
     @apply bg-black/80;

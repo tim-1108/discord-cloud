@@ -5,13 +5,15 @@ import { getPreviewingImage } from "./composables/images";
 import { globals } from "./composables/globals";
 import FolderGrid from "./components/listing/FolderGrid.vue";
 import UploadDropOverlay from "./components/overlay/UploadDropOverlay.vue";
-import { onMounted, onUnmounted, ref, watch } from "vue";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 import { Dialogs } from "./composables/dialog";
-import { appendToRoute, navigateToParentFolder, useCurrentRoute } from "./composables/path";
+import { appendToRoute, convertRouteToPath, navigateToParentFolder, useCurrentRoute } from "./composables/path";
 import Sidebar from "./components/Sidebar.vue";
+import ThumbnailFileGrid from "./components/listing/ThumbnailFileGrid.vue";
 
 const listing = globals.listing.active;
 const route = useCurrentRoute();
+const path = computed(() => convertRouteToPath(route.value));
 
 const previewImage = getPreviewingImage();
 
@@ -40,20 +42,22 @@ const dropPreview = {
                 <img class="h-full min-h-0 w-20" src="./assets/logo.png" />
             </div>
             <div>
-                <PathRenderer class="lg:w-[50%]"></PathRenderer>
+                <PathRenderer class="lg:w-[50%] lg:max-w-[50%]"></PathRenderer>
             </div>
         </header>
 
         <Sidebar class="row-span-1 overflow-auto"></Sidebar>
-        <main class="row-span-1 overflow-auto p-4 min-h-0 bg-white rounded-tl-3xl">
-            <template v-if="listing?.files">
+        <main class="row-span-1 overflow-auto p-4 bg-white rounded-tl-3xl min-h-0">
+            <div v-if="listing" class="grid gap-2" :key="path">
+                <h3>Folders</h3>
                 <FolderGrid
-                    :folder-list="listing?.folders"
+                    :folder-list="listing.folders"
                     :show-up="route.length > 0"
                     @navigate="(name) => appendToRoute([name])"
                     @navigate-up="navigateToParentFolder"></FolderGrid>
-                <FileTable :listing="listing"></FileTable>
-            </template>
+                <h3>Files</h3>
+                <ThumbnailFileGrid :file-list="listing.files"></ThumbnailFileGrid>
+            </div>
         </main>
         <component v-for="[k, cmp] of Dialogs.iterator.value" :is="cmp" :key="k"></component>
         <UploadDropOverlay

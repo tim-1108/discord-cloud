@@ -25,8 +25,9 @@ function log(level: LogLevel, ...data: any[]): void {
     const cwd = isServerside() ? process.cwd() : "";
     const stack = traceError.stack ? traceError.stack.split("\n") : [];
     // When tracing the error, Bun does not have the logInfo, logDebug, ... function
-    // within it's stacktrace. Node (and Deno) have this function too.
-    const isBun = "Bun" in globalThis;
+    // within it's stacktrace. Node (and Deno) do have this function included in the trace.
+    // Browsers (Firefox, to current testing) do not have it within the trace.
+    const isBun = "Bun" in globalThis || "window" in globalThis;
     /**
      * The indicies are as follows:
      * 0: "Error:"
@@ -35,8 +36,7 @@ function log(level: LogLevel, ...data: any[]): void {
      * 2nd: the actual callee
      *
      * Replacing "    at " as a prefix for the stack line should work on all
-     * V8 based engines and Firefox. As this runs only in a Node context,
-     * this ought to work fine at all times.
+     * V8 based engines and Firefox.
      *
      * For Windows paths, all backslashes will be replaced by normal slashes.
      */

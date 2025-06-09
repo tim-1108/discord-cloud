@@ -125,12 +125,21 @@ async function getUserFileOwnershipStatus(user: number, file: number | FileHandl
     return { status: "restricted" };
 }
 
+function canReadFile(status: FileOwnershipStatus) {
+    return status.status !== "restricted";
+}
+function canWriteFile(status: FileOwnershipStatus) {
+    return status.status === "owned" || (status.status === "shared" && status.share.can_write);
+}
+
 export const Authentication = {
     generateUserToken,
     verifyUserToken,
     permissions: {
         file: getUserFilePermissions,
-        ownership: getUserFileOwnershipStatus
+        ownership: getUserFileOwnershipStatus,
+        canReadFile,
+        canWriteFile
     },
     password: {
         generate: saltAndHashPassword,
