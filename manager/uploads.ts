@@ -128,6 +128,8 @@ async function pushToServices(isFromQueueAdd?: boolean): Promise<void> {
         client.sendPacket(new UploadStartInfoPacket({ chunk_size, upload_id, address: s.getAddress() })), c++;
     }
 
+    logDebug("Pushed", c, "jobs to upload services");
+
     // In the queue add process, nothing should change, so nobody needs to be notified.
     if (isFromQueueAdd || c === 0) return;
     pushQueueUpdateToClients(0, c);

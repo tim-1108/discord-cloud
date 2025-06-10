@@ -38,7 +38,7 @@ export class Socket extends PacketReceiver {
 
         if (packet instanceof UploadStartPacket) {
             const { upload_id, client, ...data } = packet.getData();
-            const chunks = Math.ceil(data.chunk_size / data.size);
+            const chunks = Math.ceil(data.size / data.chunk_size);
             const accepted = setPendingUpload({ ...data, upload_id: upload_id as UUID, client: client as UUID /* not present here */ }, chunks);
             this.replyToPacket(packet, new UploadReadyPacket({ accepted }));
         }

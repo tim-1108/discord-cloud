@@ -2,7 +2,7 @@ import { UploadService } from "./UploadService.js";
 import type { Service, ServiceConfiguration, ServiceParams } from "./Service.js";
 import { WebSocket } from "ws";
 import { ThumbnailService } from "./ThumbnailService.js";
-import { logWarn } from "../../common/logging.js";
+import { logDebug, logWarn } from "../../common/logging.js";
 import { getSearchParamsForAddress } from "../utils/url.js";
 import { validateObjectBySchema } from "../../common/validator.js";
 
@@ -34,6 +34,8 @@ function registerAndGetService(name: ServiceName, socket: WebSocket, params: Gen
     if (!$class) {
         throw new ReferenceError("Failed to get service class for a previously validated type: " + name);
     }
+
+    logDebug("Instantiating new service", name, params);
 
     const inst = new $class(socket, params as ServiceParams<T["prototype"]>);
 

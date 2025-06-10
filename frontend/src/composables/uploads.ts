@@ -19,6 +19,7 @@ function streamFromFile(file: File, chunkSize: number) {
      * If the buffer size exceeds the
      */
     let buffer = new Uint8Array();
+    let remainder = file.size;
     const stream = file.stream();
     const reader = stream.getReader();
 
@@ -28,6 +29,7 @@ function streamFromFile(file: File, chunkSize: number) {
      * chunk has been read (similar to using a ReadableStreamReader)
      */
     async function readNextChunk(): Promise<{ value: Uint8Array<ArrayBuffer>; done: false } | { value?: Uint8Array<ArrayBuffer>; done: true }> {
+        remainder = remainder - chunkSize;
         // There is already enough data stored within the buffer,
         // we can just return the asked for amount from there.
         if (buffer.byteLength >= chunkSize) {
@@ -47,8 +49,11 @@ function streamFromFile(file: File, chunkSize: number) {
                 // the second to last upload chunk and the remainder.
                 // In such a case, this function will get called again for
                 // the final chunk and then all the remainder will be returned
-                if (buffer.byteLength > chunkSize) {
-                    buffer = buffer.subarray(chunkSize);
+
+                if (remainder <= 0) {
+                    // The last chunk typically is not as long as the default chunk length,
+                    // thus the remainder variable will be less than 0.
+                    buffer = buffer.subarray(value.length);
                     return { value, done: false };
                 }
                 // once we're actually done, we clear all data
@@ -114,7 +119,7 @@ async function startUpload(packet: UploadStartInfoPacket) {
     }
     void queue.delete(id);
     const streamFn = streamFromFile(handle.file, chunk_size);
-    const cc = Math.ceil(chunk_size / handle.file.size);
+    const cc = Math.ceil(handle.file.size / chunk_size);
     for (let i = 0; i < cc; i++) {
         const buffer = await streamFn();
         if (buffer.done) {
