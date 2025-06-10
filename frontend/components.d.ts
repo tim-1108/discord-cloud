@@ -17,6 +17,7 @@ declare module 'vue' {
     FileGrid: typeof import('./src/components/listing/FileGrid.vue')['default']
     FileTable: typeof import('./src/components/FileTable.vue')['default']
     FolderGrid: typeof import('./src/components/listing/FolderGrid.vue')['default']
+    HighlightButton: typeof import('./src/components/basic/HighlightButton.vue')['default']
     HoverUnderlineText: typeof import('./src/components/basic/HoverUnderlineText.vue')['default']
     ImagePreview: typeof import('./src/components/ImagePreview.vue')['default']
     LoginDialog: typeof import('./src/components/dialog/LoginDialog.vue')['default']

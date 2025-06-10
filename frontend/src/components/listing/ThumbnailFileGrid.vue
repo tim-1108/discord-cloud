@@ -11,10 +11,10 @@ const emit = defineEmits<{ select: [name: string] }>();
 const thumbnailMap: Record<number, ComputedRef<string>> = shallowReactive({});
 
 async function setThumbnail(entry: IntersectionObserverEntry, handle: ClientFileHandle) {
-    if (!entry.isIntersecting || !handle.thumbnail_url) {
+    if (!entry.isIntersecting || !handle.has_thumbnail) {
         return;
     }
-    const ref = await Thumbnails.get(handle.id, handle.thumbnail_url);
+    const ref = await Thumbnails.get(handle.id);
     if (!ref) {
         return;
     }
@@ -39,7 +39,7 @@ async function setThumbnail(entry: IntersectionObserverEntry, handle: ClientFile
             </div>
             <div
                 class="absolute h-full w-full top-0 left-0 pointer-events-none"
-                v-if="handle.thumbnail_url"
+                v-if="handle.has_thumbnail"
                 v-intersection-observer="[([entry]: IntersectionObserverEntry[]) => setThumbnail(entry, handle), { root: null }]"></div>
         </button>
     </section>

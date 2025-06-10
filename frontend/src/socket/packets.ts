@@ -26,14 +26,13 @@ const clientboundPackets: PacketWithID<PacketTypeMap[PacketType.Server2Client]>[
 const serverboundPackets: PacketWithID<PacketTypeMap[PacketType.Client2Server]>[] = [ListRequestPacket, PingServicesPacket, UploadQueueAddPacket];
 const genericPackets: PacketWithID<PacketTypeMap[PacketType.Generic]>[] = [GenericBooleanPacket];
 
-export function getBrowserClientboundPacketList() {
-    return clientboundPackets;
-}
-
-export function getBrowserServerboundPacketList() {
-    return serverboundPackets;
-}
-
-export function getBrowserGenericPacketList() {
-    return genericPackets;
+export function getBrowserPacketList<T extends PacketType>(type: T): PacketWithID<PacketTypeMap[T]>[] {
+    if (type === PacketType.Client2Server) {
+        return serverboundPackets;
+    } else if (type === PacketType.Server2Client) {
+        return clientboundPackets;
+    } else if (type === PacketType.Generic) {
+        return genericPackets;
+    }
+    throw new TypeError("Invalid packet type inserted into getBrowserPacketList: " + type);
 }

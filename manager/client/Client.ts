@@ -10,6 +10,9 @@ import { performListPacketOperation } from "../client-operations/listing.js";
 import { getServersidePacketList } from "../../common/packet/reader.js";
 import PacketType from "../../common/packet/PacketType.js";
 import { Uploads } from "../uploads.js";
+import { CreateFolderPacket } from "../../common/packet/c2s/CreateFolderPacket.js";
+import { ThumbnailRequestPacket } from "../../common/packet/c2s/ThumbnailRequestPacket.js";
+import { performThumbnailRequestOperation } from "../client-operations/thumbnail.js";
 
 export class Client extends PacketReceiver {
     private readonly uuid: UUID;
@@ -51,6 +54,9 @@ export class Client extends PacketReceiver {
             pingServices();
         } else if (packet instanceof ListRequestPacket) {
             void performListPacketOperation(this, packet);
+        } else if (packet instanceof CreateFolderPacket) {
+        } else if (packet instanceof ThumbnailRequestPacket) {
+            void performThumbnailRequestOperation(this, packet);
         }
     }
 }

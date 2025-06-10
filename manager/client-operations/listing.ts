@@ -30,8 +30,6 @@ export async function performListPacketOperation(client: Client, packet: ListReq
         return sendReplyPacket(client, packet, [], [], false);
     }
 
-    // We use a list of Promises to simultaniously fetch all signed thumbnail links
-    // TODO: maybe build some spam protection for that?
     const $files = await Promise.all<ClientFileHandle | null>(
         files.map(async (f) => {
             // TODO: Unify this ClientFileHandle generation with the broadcast in file.ts
@@ -39,7 +37,6 @@ export async function performListPacketOperation(client: Client, packet: ListReq
             if (o === null) {
                 return null;
             }
-            const t = f.has_thumbnail && Authentication.permissions.canReadFile(o) ? await Database.thumbnail.getSignedLink(f.id) : null;
             return {
                 id: f.id,
                 name: f.name,
@@ -48,8 +45,8 @@ export async function performListPacketOperation(client: Client, packet: ListReq
                 created_at: f.created_at,
                 updated_at: f.updated_at,
                 size: f.size,
-                ownership: o,
-                thumbnail_url: t ?? undefined
+                ownership: o
+                // thumbnail_url is not sent here by design
             };
         })
     );

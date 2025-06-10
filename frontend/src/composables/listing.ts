@@ -3,7 +3,7 @@ import { areRoutesIdentical, convertPathToRoute, convertRouteToPath, useCurrentR
 import { ListRequestPacket } from "../../../common/packet/c2s/ListRequestPacket";
 import { ListPacket } from "../../../common/packet/s2c/ListPacket";
 import { patterns } from "../../../common/patterns";
-import { ref } from "vue";
+import { nextTick, ref } from "vue";
 import type { FolderHandle } from "../../../common/supabase";
 import type { ClientFileHandle, FileModifyAction } from "../../../common/client";
 import type { FileModifyPacket } from "../../../common/packet/s2c/FileModifyPacket";
@@ -33,16 +33,31 @@ type ListingCacheItem = {
 };
 const cache: { root: ListingCacheItem | null } = { root: null };
 
-export const activeListingEntry = ref<Listing | null>(null);
-export function updateActiveListingEntry(val: Listing | null) {
+export const activeListingEntry = ref<Listing | ListingError | null>(null);
+export function updateActiveListingEntry(val: Listing | ListingError | null) {
     // Should cause Vue refs that are not { deep: true } to refresh too
     // (If only array contents change, the array itself might not count as updated)
     // TODO: Is it necessary to update to null?
     activeListingEntry.value = null;
-    activeListingEntry.value = val;
+    // This causes the listing container to unmount whenever switching paths,
+    // even when cached. Makes sure that i.e. the thumbnail containers are
+    // unloaded properly. If not, they would keep/inherit from the previous path.
+    nextTick(() => {
+        activeListingEntry.value = val;
+    });
 }
 
-export async function getListingForDirectory(route: string[]): Promise<Listing | null> {
+export interface ListingError {
+    code: string;
+    can_retry: boolean;
+    can_create_folder?: boolean;
+}
+
+export function isListingError(data: any): data is ListingError {
+    return typeof data.code === "string";
+}
+
+export async function getListingForDirectory(route: string[]): Promise<Listing | ListingError> {
     const path = convertRouteToPath(route);
 
     // The only places where user input should be admitted directly into a path,
@@ -59,13 +74,13 @@ export async function getListingForDirectory(route: string[]): Promise<Listing |
 
     globals.listing.writeActive(null);
 
-    const reply = await communicator.sendPacketAndReply(new ListRequestPacket({ path }), ListPacket);
+    const reply = await communicator.sendPacketAndReply(new ListRequestPacket({ path }), ListPacket, 60_000);
     if (!reply) {
-        return null;
+        return { code: "The server did not respond in time", can_retry: true };
     }
     const { files, folders, success } = reply.getData();
     if (!success) {
-        return null;
+        return { code: "This folder does not exist", can_retry: false, can_create_folder: true };
     }
     // The validator functions inside the ListPacket class assure us that these arrays do not contain undefined
     const returnValue = {

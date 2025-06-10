@@ -28,7 +28,7 @@ import { ThumbnailDataPacket } from "../common/packet/t2s/ThumbnailDataPacket.js
 import express from "express";
 
 const app = express();
-app.listen(4000);
+app.listen(6000);
 const socket = new Socket();
 
 export async function processThumbnailRequest(packet: GenThumbnailPacket) {

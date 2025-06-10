@@ -1,6 +1,28 @@
+import { communicator } from "@/main";
 import { ref, type Ref } from "vue";
+import { ThumbnailRequestPacket } from "../../../common/packet/c2s/ThumbnailRequestPacket";
+import { GenericBooleanPacket } from "../../../common/packet/generic/GenericBooleanPacket";
 
 const cache = new Map<number, Ref<Blob>>();
+
+/**
+ * Requests the url of the thumbnail for the file of the id.
+ * Only send a request if you know that the file should have
+ * a thumbnail (`has_thumbnail = true`) and that the user
+ * actually has reading permissions (`ownership.status` is not `restricted`)
+ */
+async function requestUrl(id: number): Promise<string | null> {
+    const reply = await communicator.sendPacketAndReply(new ThumbnailRequestPacket({ id }), GenericBooleanPacket);
+    if (!reply) {
+        return null;
+    }
+    // In a success case, message is used to communicate the link
+    const { success, message } = reply.getData();
+    if (!success || !message || !URL.canParse(message)) {
+        return null;
+    }
+    return message;
+}
 
 async function fetchThumbnail(link: string): Promise<Blob | null> {
     try {
@@ -17,10 +39,15 @@ async function fetchThumbnail(link: string): Promise<Blob | null> {
     }
 }
 
-async function get(id: number, link: string): Promise<Ref<Blob> | null> {
+async function get(id: number): Promise<Ref<Blob> | null> {
     const hit = cache.get(id);
     if (hit) {
         return hit;
+    }
+
+    const link = await requestUrl(id);
+    if (!link) {
+        return null;
     }
 
     const blob = await fetchThumbnail(link);
@@ -63,6 +90,7 @@ async function overwrite(id: number, link: string): Promise<boolean> {
 }
 
 export const Thumbnails = {
+    requestUrl,
     get,
     invalidate,
     overwrite

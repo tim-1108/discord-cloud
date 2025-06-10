@@ -9,6 +9,10 @@ export type ClientFileHandle = {
     created_at: string | null;
     updated_at: string | null;
     size: number;
+    /**
+     * Not passed on listings, only when the file is modified or added,
+     * so just on `FileModifyPacket`s.
+     */
     thumbnail_url?: string;
 };
 

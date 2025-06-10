@@ -1,7 +1,7 @@
 import { globals } from "@/composables/globals.js";
 import { PacketReceiver } from "../../../common/packet/PacketReceiver.js";
 import { parsePacket } from "../../../common/packet/parser.js";
-import { getBrowserClientboundPacketList } from "./packets.js";
+import { getBrowserPacketList } from "./packets.js";
 import { useCurrentRoute } from "@/composables/path.js";
 import PacketType from "../../../common/packet/PacketType.js";
 import { UploadQueueUpdatePacket } from "../../../common/packet/s2c/UploadQueueUpdatePacket.js";
@@ -11,6 +11,7 @@ import { FileModifyPacket } from "../../../common/packet/s2c/FileModifyPacket.js
 import { listingFileModify } from "@/composables/listing.js";
 import { logWarn } from "../../../common/logging.js";
 import { Dialogs } from "@/composables/dialog.js";
+import { Connection } from "@/composables/connection.js";
 
 /**
  * The class that communicates with the manager using a web socket.
@@ -20,6 +21,7 @@ export class Communicator extends PacketReceiver {
         const socket = new WebSocket(address);
         super(socket);
         this.socket.addEventListener("open", async () => {
+            Connection.isConnected.value = true;
             const result = await globals.listing.fetch(useCurrentRoute().value);
             globals.listing.writeActive(result);
         });
@@ -34,7 +36,7 @@ export class Communicator extends PacketReceiver {
         });
     }
     protected handleSocketMessage(event: MessageEvent): void {
-        const packet = parsePacket(event.data, PacketType.Server2Client, getBrowserClientboundPacketList);
+        const packet = parsePacket(event.data, PacketType.Server2Client, getBrowserPacketList);
         if (!packet) return;
         const hasResolved = this.resolveReplies(packet);
         if (hasResolved) {

@@ -35,10 +35,21 @@ function getPacketClassById<T extends PacketType>(id: string, expectedType: T, p
     return new classVar();
 }
 
+/**
+ * Parses a raw message received by a socket into a `Packet` instance meeting the required
+ * subtype of `PacketType`. If not, or in an invalid state, `null` is returned. The packet's
+ * data structure is also validated upon creation, and `null` is returned when the structure
+ * is invalid.
+ * @param message The raw data received over the socket. Is allowed to be everything received from a socket
+ * @param type The `PacketType` this function should allow to parse, `Generic` is always included
+ * @param packetProvider A function that resolves a `PacketType` to an array of `Packet` subclasses.
+ *                       On the server, use `getServersidePacketList` from `reader.ts`.
+ * @returns
+ */
 export function parsePacket<T extends PacketType>(
     message: string | Buffer | ArrayBuffer | Buffer[],
     type: T,
-    packetProvider: PacketProvider<T>
+    packetProvider: PacketProvider<T | PacketType.Generic>
 ): PacketTypeMap[T] | null {
     if (Array.isArray(message)) {
         message = Buffer.concat(message.map((x) => new Uint8Array(x))).toString();
@@ -61,7 +72,10 @@ export function parsePacket<T extends PacketType>(
         return null;
     }
 
-    const packet = getPacketClassById(data.id, type, packetProvider) as PacketTypeMap[T] | null;
+    // If no packet of this type (like c2s) was found, we default to parsing a generic packet.
+    // This still means that no packets from other channels can get onto this channel,
+    // only that everyone can used the shared generic packets to communicate.
+    const packet = getPacketClassById(data.id, type, packetProvider) ?? getPacketClassById(data.id, PacketType.Generic, packetProvider);
     if (packet === null) return null;
 
     const isValidData = packet.setData(data.data);
