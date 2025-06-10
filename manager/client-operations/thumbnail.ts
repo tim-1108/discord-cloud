@@ -1,5 +1,5 @@
 import type { ThumbnailRequestPacket } from "../../common/packet/c2s/ThumbnailRequestPacket.js";
-import { GenericBooleanPacket } from "../../common/packet/generic/GenericBooleanPacket";
+import { GenericBooleanPacket } from "../../common/packet/generic/GenericBooleanPacket.js";
 import { Authentication } from "../authentication.js";
 import type { Client } from "../client/Client.js";
 import { Database } from "../database/index.js";
