@@ -12,7 +12,7 @@ import loginRoute from "./routes/login.js";
 import registerRoute from "./routes/register.js";
 import { ClientList } from "./client/list.js";
 import { ServiceRegistry, type ServiceName } from "./services/list.js";
-import { logError } from "../common/logging.js";
+import { logDebug, logError } from "../common/logging.js";
 import type { Duplex } from "node:stream";
 import type { ServiceConfiguration } from "./services/Service.js";
 import { validateObjectBySchema } from "../common/validator.js";
@@ -95,6 +95,7 @@ export class Network {
      */
     private async verifyAndGetSocketParams(request: IncomingMessage): Promise<SocketParams | null> {
         const { SERVICE_PASSWORD } = getEnvironmentVariables("manager");
+        logDebug("Verifying socket:", request.url);
         if (!this.ready || !request.url) {
             return null;
         }
