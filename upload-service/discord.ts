@@ -8,6 +8,9 @@ import { logError } from "../common/logging.js";
 
 export async function sendWebhookMessage(attachment: Buffer, index: number, message: string, attemptCounter: number = 0) {
     const url = getWebhookURL();
+    // FIXME: Will this bypass any cloudflare 429's?
+    //        Even on the unnauthenticated webhook endpoint?
+    const { BOT_TOKEN } = getEnvironmentVariables("upload-service");
     if (!url) {
         return null;
     }
@@ -17,7 +20,7 @@ export async function sendWebhookMessage(attachment: Buffer, index: number, mess
     try {
         // Axios might be better, this still needs to be tested
         const response = await axios.post(url, form.getBuffer(), {
-            headers: form.getHeaders(),
+            headers: { ...form.getHeaders(), Authorization: `Bot ${BOT_TOKEN}` },
             validateStatus(status) {
                 // Anything but 200 is something we do not expect
                 return status === 200;
@@ -36,8 +39,8 @@ export async function sendWebhookMessage(attachment: Buffer, index: number, mess
         if (error.status === 429 && attemptCounter < 5) {
             const retryAfterSeconds = parseFloat(error.response?.data?.retry_after) || 1;
             await sleep(retryAfterSeconds * 1000);
-            // CRUCIAL: increment before call
-            return sendWebhookMessage(attachment, index, message, ++attemptCounter);
+            attemptCounter++;
+            return sendWebhookMessage(attachment, index, message, attemptCounter);
         }
         return null;
     }
