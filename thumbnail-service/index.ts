@@ -13,19 +13,18 @@
 // When it comes to huge images, that is another question.
 
 import { decryptBuffer } from "../common/crypto.js";
-import { downloadBinaryData, fetchMessageAttachments } from "../common/discord.js";
 import type { GenThumbnailPacket } from "../common/packet/s2t/GenThumbnailPacket.js";
 import { enqueue, shiftQueue } from "../common/processing-queue.js";
-import { sleep } from "../common/useless.js";
 import { Socket } from "./Socket.js";
 import sharp from "sharp";
 import ffmpeg from "fluent-ffmpeg";
 import { Readable } from "node:stream";
 import config from "./thumbnail-config.json" with { type: "json" };
 import fs from "node:fs/promises";
-import { logDebug } from "../common/logging.js";
+import { logDebug, logError } from "../common/logging.js";
 import { ThumbnailDataPacket } from "../common/packet/t2s/ThumbnailDataPacket.js";
 import express from "express";
+import { Discord } from "../common/discord_new.js";
 
 const app = express();
 app.listen(6000);
@@ -45,12 +44,13 @@ export async function processThumbnailRequest(packet: GenThumbnailPacket) {
         return;
     }
 
-    const encryptedBuffer = await downloadBinaryData(attachmentLink);
-    if (encryptedBuffer == null) {
+    // FIXME: We just assume the buffer is encrypted... wrong!
+    const response = await Discord.cdn.fetch(attachmentLink);
+    if (!response.buffer) {
         shiftQueue();
         return;
     }
-    const buffer = decryptBuffer(Buffer.from(encryptedBuffer));
+    const buffer = decryptBuffer(Buffer.from(response.buffer));
     const func = getGeneratingFunctionForFileType(type);
 
     try {
@@ -122,21 +122,10 @@ async function fetchAttachmentLinkOrFail(message: string, channel: string, attem
         return null;
     }
 
-    const reattempt = () => fetchAttachmentLinkOrFail(message, channel, ++attempt);
-
-    const result = await fetchMessageAttachments(message, channel, true);
-    if (!result) return reattempt();
-
-    if (result.attachment !== null) {
-        return result.attachment;
+    const response = await Discord.bot.getMessages([message], channel);
+    if (!response.data) {
+        logError("Failed to fetch message due to:", response.error);
+        return null;
     }
-
-    // Even if the header is not actually defined, we just sleep for that time...
-    const header = parseFloat(result.headers.get("X-RateLimit-Reset-After") ?? "0");
-
-    if (isNaN(header) || header < 0) return reattempt();
-    if (header > MAX_WAIT_TIME_SECONDS) return null;
-
-    await sleep(header * 1000);
-    return reattempt();
+    return response.data.get(message) ?? null;
 }

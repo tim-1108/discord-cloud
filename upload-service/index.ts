@@ -3,14 +3,15 @@ import multer from "multer";
 import { clearUploadState, getUploadState, isBusy, type UploadData } from "./state.js";
 import { patterns } from "../common/patterns.js";
 import { Socket } from "./Socket.js";
-import { sendWebhookMessage } from "./discord.js";
 import { formatJSON } from "../common/useless.js";
 import { UploadFinishPacket } from "../common/packet/u2s/UploadFinishPacket.js";
 import { fileTypeFromBuffer } from "file-type";
 import { createHashFromBinaryLike, encryptBuffer } from "../common/crypto.js";
 import { lengthenTimeout, resetRequestTimeout, startRequestTimeout } from "./timeout.js";
 import { getEnvironmentVariables, validateEnvironmentVariables } from "../common/environment.js";
+import { Discord } from "../common/discord_new.js";
 validateEnvironmentVariables("common", "upload-service");
+const env = getEnvironmentVariables("upload-service");
 
 const app = express();
 const upload = multer();
@@ -110,14 +111,20 @@ async function onFileUpload(req: Request, res: Response): Promise<void> {
 
     data.processing.add(chunkId);
     const mayBeEncrypted = data.should_encrypt ? encryptBuffer(file.buffer) : file.buffer;
-    const result = await sendWebhookMessage(mayBeEncrypted, chunkId, "```json\n" + formatJSON(data.metadata) + "\n```");
+    const cfg = {
+        buf: mayBeEncrypted,
+        filename: chunkId.toString(10),
+        content: "```json\n" + formatJSON(data.metadata) + "\n```"
+    };
+    const response = await Discord.bot.sendMessage(env.CHANNEL_ID, cfg);
 
     // If this single upload failed, the user may feel free to try again.
     // However, the call to the Discord api may be in a timeout, so this may take some time
-    if (!result) {
+    if (!response.data) {
         data.processing.delete(chunkId);
         return respondWithError(res, "Failed to upload chunk to Discord", 500);
     }
+    const result = response.data;
 
     console.info("[Upload] Finished chunk", chunkId);
 
