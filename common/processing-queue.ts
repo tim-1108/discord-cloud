@@ -1,24 +1,28 @@
-let currentlyProcessing = false;
+import { createResolveFunction } from "./useless.js";
+
+/**
+ * The amount of currently active processes
+ */
+let count = 0;
+const MAX_COUNT = 10;
 const queue = new Array<Function>();
 
-export async function enqueue(): Promise<void> {
-    if (!currentlyProcessing) {
-        currentlyProcessing = true;
-        return;
+export function enqueue(): Promise<void> {
+    if (count < MAX_COUNT) {
+        count++;
+        return Promise.resolve();
     }
 
-    let resolveFunc: Function;
-    const promise = new Promise<void>((resolve) => (resolveFunc = resolve));
+    const { promise, resolve } = createResolveFunction();
 
-    queue.push(resolveFunc!);
+    queue.push(resolve);
     return promise;
 }
 
 export function shiftQueue() {
     const next = queue.shift();
-    if (!next) {
-        currentlyProcessing = false;
-        return;
+    count = Math.max(count - 1, 0);
+    if (next) {
+        next();
     }
-    next();
 }

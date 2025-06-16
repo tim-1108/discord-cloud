@@ -1,16 +1,14 @@
 import type { Request, Response } from "express";
-import { getEnvironmentVariables } from "../../common/environment.js";
 import { getRequestQuery, generateErrorResponse, getRequestAuthorization } from "../utils/http.js";
 import { patterns } from "../../common/patterns.js";
 import { PassThrough } from "node:stream";
 import archiver from "archiver";
-import { logError, logWarn } from "../../common/logging.js";
+import { logDebug, logError, logWarn } from "../../common/logging.js";
 import { getAllFilesInSubfolders } from "../database/public.js";
 import { streamFileContents } from "../utils/stream-download.js";
 import { Authentication } from "../authentication.js";
 
 export default async function handleRequest(req: Request, res: Response): Promise<void> {
-    const env = getEnvironmentVariables("manager");
     const query = getRequestQuery(req);
     if (!query) {
         return void generateErrorResponse(res, 400, "Bad request query");
@@ -27,6 +25,14 @@ export default async function handleRequest(req: Request, res: Response): Promis
     if (user === null) {
         return void generateErrorResponse(res, 401, "Unauthorized");
     }
+
+    const { socket } = res;
+    if (socket === null) {
+        return void generateErrorResponse(res, 500);
+    }
+
+    let _closed = !res.writable;
+    socket.on("close", () => (_closed = true));
 
     const files = await getAllFilesInSubfolders(path);
     if (files === null) {
@@ -73,10 +79,16 @@ export default async function handleRequest(req: Request, res: Response): Promis
     archive.pipe(res);
 
     for (const { file, path } of files) {
+        if (_closed) {
+            archive.end();
+            res.end();
+            logDebug("Request has been terminated before finish");
+            return;
+        }
         const pass = new PassThrough();
         archive.append(pass, { name: `${path}/${file.name}` });
 
-        const result = await streamFileContents(pass, file);
+        const result = await streamFileContents(pass, file, res.socket);
         if (result !== null) {
             logWarn("Failed to attach file", file, "at", path, "to bundle:", result);
         }

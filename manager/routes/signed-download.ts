@@ -56,7 +56,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
     // any response body is sent. Without the headers sent, the request might time out.
     res.write("");
 
-    const result = await streamFileContents(res, handle);
+    const result = await streamFileContents(res, handle, res.socket);
     if (result !== null) {
         logError("Signed download route failure:", result);
     }

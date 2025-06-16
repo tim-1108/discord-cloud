@@ -93,6 +93,7 @@ async function getMessages(input: string[], channel: string) {
 
     while (neededRuns > 0) {
         const newestMsg = $msgs[$msgs.length - 1];
+        // By using the "before" param on the discord api, the message itself is never fetched by bulk
         const response = await fetchMessages(channel, newestMsg, $msgs);
         if (!response.data) {
             logDebug("Failed to fetch bulk messages due to:", response.error);
@@ -103,6 +104,15 @@ async function getMessages(input: string[], channel: string) {
             a.set(msg.id, link);
             attachmentLinkCache.set(msg.id, link);
         }
+        const individual = await fetchIndividualMessage(channel, newestMsg);
+        if (!individual.data) {
+            logDebug("Failed to fetch individual last message due to:", individual.error);
+            return { data: null, error: "Failed to fetch all messages" };
+        }
+        const link = extractAttachmentLinkFromMessage(individual.data);
+        a.set(individual.data.id, link);
+        attachmentLinkCache.set(individual.data.id, link);
+        stats.individual++;
         // As the messages that have just been looked up
         // MUST all be at the end of the array, we can just
         // remove from that index on. Working with MESSAGE_FETCH_LIMIT
@@ -115,7 +125,8 @@ async function getMessages(input: string[], channel: string) {
         // CRITICAL: As we use "before" param, we can never fetch
         //           the last message using bulk
         const targetIndex = Math.max($msgs.length - response.data.length - 1, 0);
-        $msgs.splice(targetIndex, response.data.length);
+        // as we now also have fetched the last message individually, we can splice it off as well
+        $msgs.splice(targetIndex);
 
         stats.bulk += response.data.length;
         neededRuns--;

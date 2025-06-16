@@ -41,7 +41,6 @@ export function decryptBuffer(data: Buffer) {
     // IV, we should always at least have 16 bytes.
     if (data.length < 0x20) throw new Error("Data to decrypt is smaller than IV size");
 
-    const decryptionStart = Date.now();
     key ??= createEncryptionKey();
     const iv = Uint8Array.prototype.slice.apply(data, [0x00, 0x10]);
     const ciphertext = Uint8Array.prototype.slice.apply(data, [0x10]);
@@ -50,7 +49,6 @@ export function decryptBuffer(data: Buffer) {
 
     // @ts-ignore
     const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
-    logDebug("Decryption of size", decrypted.length, "took", Date.now() - decryptionStart, "ms");
     return decrypted;
 }
 
