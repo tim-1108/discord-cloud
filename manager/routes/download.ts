@@ -2,8 +2,7 @@ import type { Request, Response } from "express";
 import { generateErrorResponse, getRequestQuery, getRequestUrl, isCrawlerRequest } from "../utils/http.js";
 import { patterns } from "../../common/patterns.js";
 import { escapeQuotes, parseFileSize } from "../../common/useless.js";
-import { streamFileContents } from "../utils/stream-download.js";
-import { logError } from "../../common/logging.js";
+import { streamFileToResponse_wrapper } from "../utils/stream-download.js";
 import { Database } from "../database/index.js";
 import { Authentication } from "../authentication.js";
 
@@ -56,14 +55,5 @@ export default async function handleRequest(req: Request, res: Response): Promis
         return void generateErrorResponse(res, 403, "Forbidden");
     }
 
-    res.setHeader("Content-Disposition", `attachment; filename="${handle.name}"`);
-    res.setHeader("Content-Length", handle.size);
-    // I am responsible for causing the headers to be sent to the client before
-    // any response body is sent. Without the headers sent, the request might time out.
-    res.write("");
-
-    const result = await streamFileContents(res, handle, res.socket);
-    if (result !== null) {
-        logError("Download route error:", result);
-    }
+    void streamFileToResponse_wrapper(req, res, handle);
 }

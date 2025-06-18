@@ -80,5 +80,10 @@ export const patterns = {
     snowflake: /^[0-9]{15,22}$/,
     hex: /^[0-9a-f]+$/,
     applicationJson: /^[ \t]*application\/json(?:\s*;\s*charset=[A-Za-z0-9._-]+)?\s*$/i,
-    username: /^[a-z0-9]{1,16}$/i
+    username: /^[a-z0-9]{1,16}$/i,
+    /**
+     * This is only a rough verification, ignoring whether these ranges contradict
+     * each other or are entirely invalid.
+     */
+    rangeHeader: /^(?:bytes=)((\d+-\d+)|(-\d+)|(\d+-))((?:, )((\d+-\d+)|(-\d+)|(\d+-)))*$/
 };

@@ -41,7 +41,8 @@ export const Uploads = {
         client: removeClientItemsFromQueue
     },
     fail: failUpload,
-    finish: finishUpload
+    finish: finishUpload,
+    chunkSize: () => Constants.chunkSize
 } as const;
 
 async function performEnqueueUploadOperation(client: Client, packet: UploadQueueAddPacket) {
@@ -125,7 +126,8 @@ async function pushToServices(isFromQueueAdd?: boolean): Promise<void> {
         }
 
         const { chunk_size, upload_id } = meta;
-        client.sendPacket(new UploadStartInfoPacket({ chunk_size, upload_id, address: s.getAddress() })), c++;
+        client.sendPacket(new UploadStartInfoPacket({ chunk_size, upload_id, address: s.getAddress() }));
+        c++;
     }
 
     logDebug("Pushed", c, "jobs to upload services");

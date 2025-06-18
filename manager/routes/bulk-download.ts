@@ -88,7 +88,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
         const pass = new PassThrough();
         archive.append(pass, { name: `${path}/${file.name}` });
 
-        const result = await streamFileContents(pass, file, res.socket);
+        const result = await streamFileContents(pass, file, undefined /* here, ranges are unsupported */, res.socket);
         if (result !== null) {
             logWarn("Failed to attach file", file, "at", path, "to bundle:", result);
         }

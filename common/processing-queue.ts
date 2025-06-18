@@ -4,7 +4,7 @@ import { createResolveFunction } from "./useless.js";
  * The amount of currently active processes
  */
 let count = 0;
-const MAX_COUNT = 10;
+const MAX_COUNT = 3;
 const queue = new Array<Function>();
 
 export function enqueue(): Promise<void> {

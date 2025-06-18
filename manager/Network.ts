@@ -3,6 +3,7 @@ import http, { type IncomingMessage } from "node:http";
 import { WebSocket, WebSocketServer } from "ws";
 import { getSearchParamsForAddress } from "./utils/url.js";
 import { getEnvironmentVariables } from "../common/environment.js";
+import signedDownloadMetadataRoute from "./routes/signed-download-metadata.js";
 import signedDownloadRoute from "./routes/signed-download.js";
 import generateSignedDownloadRoute from "./routes/generate-signed-download.js";
 import downloadRoute from "./routes/download.js";
@@ -77,6 +78,7 @@ export class Network {
         }
         this.app.get("/health", healthRoute);
         this.app.get("/signed-download", signedDownloadRoute);
+        this.app.get("/signed-download-metadata", signedDownloadMetadataRoute);
         this.app.get("/generate-signed-download", generateSignedDownloadRoute);
         this.app.get("/download", downloadRoute);
         this.app.get("/bulk-download", bulkDownloadRoute);
