@@ -7,7 +7,6 @@ import { UploadQueueingPacket } from "../common/packet/s2c/UploadQueueingPacket.
 import { UploadFinishInfoPacket } from "../common/packet/s2c/UploadFinishInfoPacket.js";
 import type { UploadFinishPacket } from "../common/packet/u2s/UploadFinishPacket.js";
 import { ThumbnailService } from "./services/ThumbnailService.js";
-import { GenThumbnailPacket } from "../common/packet/s2t/GenThumbnailPacket.js";
 import { logDebug } from "../common/logging.js";
 import { ClientList } from "./client/list.js";
 import { ServiceRegistry } from "./services/list.js";
@@ -254,13 +253,7 @@ async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket
     // We will not be waiting here for a response, as that might get queued
     // up or take a long time. Thus, the packet receiver will handle that.
     if (!ThumbnailService.shouldGenerateThumbnail($handle.type)) return;
-    const tService = ServiceRegistry.random.all("thumbnail");
-    const t = { messages: $handle.messages, type: $handle.type, channel: $handle.channel };
-    if (!tService) {
-        ThumbnailService.enqueueFile($handle.id, t);
-        return;
-    }
-    tService.sendPacket(new GenThumbnailPacket({ ...t, id: $handle.id }));
+    void ThumbnailService.enqueueOrSendToRandom($handle);
 }
 
 function failUpload(metadata: UploadMetadata, reason?: string) {

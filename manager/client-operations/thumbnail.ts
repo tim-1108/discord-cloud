@@ -5,6 +5,10 @@ import type { Client } from "../client/Client.js";
 import { Database } from "../database/index.js";
 
 export async function performThumbnailRequestOperation(client: Client, packet: ThumbnailRequestPacket): Promise<void> {
+    // TODO: Should sending this packet also cause thumbnail generation if not
+    //       yet present? Technically, the client only sends this packet when
+    //       it knows has_thumbnail = true and after the listing packet (which
+    //       causes generation) has been sent.
     const fail = (message?: string) => void client.replyToPacket(packet, new GenericBooleanPacket({ success: false, message }));
     const { id } = packet.getData();
     const handle = await Database.file.getById(id);

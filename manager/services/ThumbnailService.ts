@@ -4,7 +4,9 @@ import { parsePacket } from "../../common/packet/parser.js";
 import { getServersidePacketList } from "../../common/packet/reader.js";
 import { GenThumbnailPacket } from "../../common/packet/s2t/GenThumbnailPacket.js";
 import { ThumbnailDataPacket } from "../../common/packet/t2s/ThumbnailDataPacket.js";
+import type { FileHandle } from "../../common/supabase.js";
 import { Database } from "../database/index.js";
+import { ServiceRegistry } from "./list.js";
 import { Service, type ServiceParams } from "./Service.js";
 import type { MessageEvent, WebSocket } from "ws";
 
@@ -53,6 +55,20 @@ export class ThumbnailService extends Service {
 
     public static removeQueueFileById(id: number): boolean {
         return ThumbnailService.queue.delete(id);
+    }
+
+    /**
+     * Returns whether the file has been sent immediately to a service.
+     */
+    public static enqueueOrSendToRandom(handle: FileHandle): boolean {
+        const s = ServiceRegistry.random.all("thumbnail");
+        const t = { messages: handle.messages, type: handle.type, channel: handle.channel };
+        if (!s) {
+            ThumbnailService.enqueueFile(handle.id, t);
+            return false;
+        }
+        s.sendPacket(new GenThumbnailPacket({ ...t, id: handle.id }));
+        return true;
     }
 
     public static getAndClearQueue() {

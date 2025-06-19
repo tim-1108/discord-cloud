@@ -6,6 +6,7 @@ import { listSubfolders } from "../database/public.js";
 import { Database } from "../database/index.js";
 import type { ClientFileHandle, ClientFolderHandle } from "../../common/client.js";
 import { Authentication } from "../authentication.js";
+import { ThumbnailService } from "../services/ThumbnailService.js";
 
 /**
  * Performs a query on the database for all folders and files listed
@@ -37,6 +38,14 @@ export async function performListPacketOperation(client: Client, packet: ListReq
             if (o === null) {
                 return null;
             }
+
+            // Whenever a file is viewed, we might just try to generate a thumbnail
+            // for it. If that succedes, a file modify packet will be emitted to all
+            // clients and thus they will render that thumbnail (shortly after).
+            if (!f.has_thumbnail && ThumbnailService.shouldGenerateThumbnail(f.type)) {
+                void ThumbnailService.enqueueOrSendToRandom(f);
+            }
+
             return {
                 id: f.id,
                 name: f.name,
