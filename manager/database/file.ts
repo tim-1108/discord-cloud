@@ -166,6 +166,19 @@ export async function listFilesInFolder_Database(folderId: FolderOrRoot) {
     return data;
 }
 
+export async function renameFile(id: number, targetName: string) {
+    if (!patterns.fileName.test(targetName)) return null;
+    const handle = await Database.file.getById(id);
+    if (!handle) return null;
+    if (handle.name === targetName) return null;
+
+    const existingFile = await Database.file.get(handle.folder ?? "root", targetName);
+    const $target = existingFile ? await findReplacementFileName(targetName, handle.folder ?? "root") : targetName;
+    if ($target === null) return null;
+    const { data } = await supabase.from("files").update({ name: $target }).eq("id", id).select().single();
+    return data;
+}
+
 /**
  * Not exposed to force the use of the cache.
  */

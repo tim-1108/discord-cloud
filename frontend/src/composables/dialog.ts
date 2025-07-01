@@ -5,13 +5,15 @@ import RenameActionDialog from "@/components/dialog/RenameActionDialog.vue";
 import UploadSubmitDialog from "@/components/dialog/UploadSubmitDialog.vue";
 import { h, ref, type DefineComponent, type VNode } from "vue";
 import { createResolveFunction } from "../../../common/useless";
+import UploadsDialog from "@/components/dialog/UploadsDialog.vue";
 
 const components = {
     "upload-submit": UploadSubmitDialog,
     rename: RenameActionDialog,
     confirm: ConfirmDialog,
     login: LoginDialog,
-    alert: AlertDialog
+    alert: AlertDialog,
+    uploads: UploadsDialog
 } as const;
 type ComponentName = keyof typeof components;
 const list = ref(new Map<ComponentName, VNode>());

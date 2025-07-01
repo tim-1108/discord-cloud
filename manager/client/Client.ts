@@ -13,6 +13,13 @@ import { Uploads } from "../uploads.js";
 import { CreateFolderPacket } from "../../common/packet/c2s/CreateFolderPacket.js";
 import { ThumbnailRequestPacket } from "../../common/packet/c2s/ThumbnailRequestPacket.js";
 import { performThumbnailRequestOperation } from "../client-operations/thumbnail.js";
+import { Database } from "../database/index.js";
+import { ActionClientOperations } from "../client-operations/actions.js";
+import { DeleteFilePacket } from "../../common/packet/c2s/DeleteFilePacket.js";
+import { MoveFilesPacket } from "../../common/packet/c2s/MoveFilesPacket.js";
+import { RenameFolderPacket } from "../../common/packet/c2s/RenameFolderPacket.js";
+import { RenameFilePacket } from "../../common/packet/c2s/RenameFilePacket.js";
+import { ClientList } from "./list.js";
 
 export class Client extends PacketReceiver {
     private readonly uuid: UUID;
@@ -39,6 +46,7 @@ export class Client extends PacketReceiver {
     // TODO: Whenever a client disconnects, also force the uploader (if one is connected to this client)
     //  to close any in-progress uploads
     protected handleSocketClose(event: CloseEvent) {
+        ClientList.unregister(this);
         const clearedUploads = Uploads.clear.client(this.uuid);
         console.info(`[Client.disconnect] ${this.uuid} | Removed ${clearedUploads} queued upload(s)`);
     }
@@ -55,8 +63,17 @@ export class Client extends PacketReceiver {
         } else if (packet instanceof ListRequestPacket) {
             void performListPacketOperation(this, packet);
         } else if (packet instanceof CreateFolderPacket) {
+            void ActionClientOperations.createFolder(this, packet);
         } else if (packet instanceof ThumbnailRequestPacket) {
             void performThumbnailRequestOperation(this, packet);
+        } else if (packet instanceof DeleteFilePacket) {
+            void ActionClientOperations.deleteFile(this, packet);
+        } else if (packet instanceof MoveFilesPacket) {
+            void ActionClientOperations.moveFiles(this, packet);
+        } else if (packet instanceof RenameFolderPacket) {
+            void ActionClientOperations.renameFolder(this, packet);
+        } else if (packet instanceof RenameFilePacket) {
+            void ActionClientOperations.renameFile(this, packet);
         }
     }
 }

@@ -125,10 +125,12 @@ async function getUserFileOwnershipStatus(user: number, file: number | FileHandl
     return { status: "restricted" };
 }
 
-function canReadFile(status: FileOwnershipStatus) {
+function canReadFile(status: FileOwnershipStatus | null) {
+    if (!status) return false;
     return status.status !== "restricted";
 }
-function canWriteFile(status: FileOwnershipStatus) {
+function canWriteFile(status: FileOwnershipStatus | null) {
+    if (!status) return false;
     return status.status === "owned" || (status.status === "shared" && status.share.can_write);
 }
 

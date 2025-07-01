@@ -1,4 +1,3 @@
-import { communicator } from "@/main";
 import { UploadQueueAddPacket } from "../../../common/packet/c2s/UploadQueueAddPacket";
 import type { UUID } from "../../../common";
 import { combinePaths, convertPathToRoute, convertRouteToPath, useCurrentRoute } from "./path";
@@ -6,7 +5,8 @@ import { UploadQueueingPacket } from "../../../common/packet/s2c/UploadQueueingP
 import type { UploadQueueUpdatePacket } from "../../../common/packet/s2c/UploadQueueUpdatePacket";
 import type { UploadStartInfoPacket } from "../../../common/packet/s2c/UploadStartInfoPacket";
 import { logError, logWarn } from "../../../common/logging";
-import { computed, reactive, ref, type Ref } from "vue";
+import { computed, reactive, ref } from "vue";
+import { getOrCreateCommunicator } from "./authentication";
 
 export interface UploadFileHandle {
     handle: File;
@@ -82,12 +82,32 @@ function streamFromFile(file: File, chunkSize: number) {
     return readNextChunk;
 }
 
+interface ActiveUpload {
+    targetAddress: string;
+    file: File;
+    id: UUID;
+    chunks: number;
+    processed_chunks: number;
+    /**
+     * A value ranging from 0 to 1 describing the total
+     * upload progress on the file.
+     */
+    progress: number;
+    path: string;
+}
+const activeUploads = reactive(new Map<UUID, ActiveUpload>());
+
 async function submitUpload({ handle, relativePath }: UploadFileHandle): Promise<UUID | null> {
+    // For now, empty files cannot be accepted
+    if (handle.size === 0) {
+        return null;
+    }
     const path = convertRouteToPath(useCurrentRoute().value);
     const absPath = combinePaths(path, relativePath);
-    const status = await communicator.sendPacketAndReply(
+    const c = await getOrCreateCommunicator();
+    const status = await c.sendPacketAndReply(
         // TODO: allow public to be turned on/off
-        new UploadQueueAddPacket({ name: handle.name, path: absPath, size: handle.size, is_public: false }),
+        new UploadQueueAddPacket({ name: handle.name, path: absPath, size: handle.size, is_public: true }),
         UploadQueueingPacket
     );
     if (status === null) {
@@ -120,6 +140,18 @@ async function startUpload(packet: UploadStartInfoPacket) {
     void queue.delete(id);
     const streamFn = streamFromFile(handle.file, chunk_size);
     const cc = Math.ceil(handle.file.size / chunk_size);
+
+    const au: ActiveUpload = {
+        id: upload_id as UUID,
+        targetAddress: address,
+        chunks: cc,
+        processed_chunks: 0,
+        progress: 0,
+        file: handle.file,
+        path: handle.path
+    };
+    activeUploads.set(upload_id as UUID, au);
+
     for (let i = 0; i < cc; i++) {
         const buffer = await streamFn();
         if (buffer.done) {
@@ -128,6 +160,7 @@ async function startUpload(packet: UploadStartInfoPacket) {
         }
         const cfg = { uploadId: id, targetAddress: address, chunkIndex: i, dataBuffer: buffer.value };
         const result = await sendChunk(cfg);
+        au.processed_chunks++;
         // TODO: Implement retry system, we'll just move on for now
         if (!result) {
             logError("Failed to upload chunk", i, "for upload", handle);
@@ -151,6 +184,7 @@ function sendChunk(cfg: SendConfig) {
 
         const xhr = new XMLHttpRequest();
         xhr.open("POST", cfg.targetAddress);
+        // TODO: speed measurement and progress indicator
         xhr.upload.addEventListener("progress", ({ loaded, total, lengthComputable }) => {});
 
         xhr.onload = () => {
@@ -255,6 +289,7 @@ function resetPreviews() {
 export const Uploads = {
     submit: submitUpload,
     start: startUpload,
+    active: activeUploads,
     preview: {
         add: addPreviews,
         getForRoute: getPreviewsForRoute,

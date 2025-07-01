@@ -25,6 +25,9 @@ import { logDebug, logError } from "../common/logging.js";
 import { ThumbnailDataPacket } from "../common/packet/t2s/ThumbnailDataPacket.js";
 import express from "express";
 import { Discord } from "../common/discord_new.js";
+import { loadPackets } from "../common/packet/reader.js";
+
+await loadPackets();
 
 const app = express();
 app.listen(6000);
@@ -32,6 +35,7 @@ const socket = new Socket();
 
 export async function processThumbnailRequest(packet: GenThumbnailPacket) {
     const data = packet.getData();
+    console.log(data);
     const message = data.messages[0];
     const { id, channel, type } = data;
 

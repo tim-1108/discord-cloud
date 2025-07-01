@@ -10,8 +10,11 @@ import { createHashFromBinaryLike, encryptBuffer } from "../common/crypto.js";
 import { lengthenTimeout, resetRequestTimeout, startRequestTimeout } from "./timeout.js";
 import { getEnvironmentVariables, validateEnvironmentVariables } from "../common/environment.js";
 import { Discord } from "../common/discord_new.js";
+import { loadPackets } from "../common/packet/reader.js";
 validateEnvironmentVariables("common", "upload-service");
 const env = getEnvironmentVariables("upload-service");
+
+await loadPackets();
 
 const app = express();
 const upload = multer();

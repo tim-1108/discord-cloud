@@ -39,7 +39,7 @@ dialog::backdrop {
 
 @keyframes key {
     from {
-        scale: 50%;
+        scale: 80%;
         opacity: 0%;
     }
     to {

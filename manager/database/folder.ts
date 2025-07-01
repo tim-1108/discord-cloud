@@ -1,5 +1,9 @@
+import type { FolderModifyAction } from "../../common/client.js";
+import { FolderModifyPacket } from "../../common/packet/s2c/FolderModifyPacket.js";
+import { patterns } from "../../common/patterns.js";
 import type { FolderHandle } from "../../common/supabase.js";
-import { resolvePathToFolderId_Cached, ROOT_FOLDER_ID, supabase, type FolderOrRoot } from "./core.js";
+import { ClientList } from "../client/list.js";
+import { resolvePathToFolderId_Cached, ROOT_FOLDER_ID, routeToPath, supabase, type FolderOrRoot } from "./core.js";
 import { parsePostgrestResponse } from "./helper.js";
 import { Database } from "./index.js";
 
@@ -17,6 +21,29 @@ export async function addFolder(name: string, parent: FolderOrRoot) {
     if (existingFolder) return existingFolder;
 
     const { data } = await supabase.from("folders").insert({ name, parent_folder: parentId }).select().single();
+    if (data) {
+        broadcastToClients("add", data);
+    }
+    return data;
+}
+
+export async function renameFolder(id: number, targetName: string): Promise<FolderHandle | null> {
+    const handle = await Database.folder.getById(id);
+    if (!handle) {
+        return null;
+    }
+    if (handle.name === targetName || !patterns.fileName.test(targetName)) {
+        return null;
+    }
+    const existingFolder = await Database.folder.getByNameAndParent(targetName, handle.parent_folder ?? "root");
+    if (existingFolder) {
+        // TODO: (very compilicated) merge both folders?
+        return null;
+    }
+    const { data } = await supabase.from("folders").update({ name: targetName }).eq("name", targetName).select().single();
+    if (data) {
+        void broadcastToClients("rename", data, handle.name);
+    }
     return data;
 }
 
@@ -72,4 +99,14 @@ export function createOrGetFolderByPath(path: string) {
 }
 export function getFolderByPath(path: string) {
     return resolvePathToFolderId_Cached(path, false);
+}
+
+async function broadcastToClients(action: FolderModifyAction, handle: FolderHandle, renameOrigin?: string) {
+    const route = await Database.folder.resolveRouteById(handle.id);
+    if (!route) {
+        return;
+    }
+    const path = routeToPath(route);
+    const packet = new FolderModifyPacket({ action, path, handle, rename_orgin: renameOrigin });
+    ClientList.broadcast(packet);
 }

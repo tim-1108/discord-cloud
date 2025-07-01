@@ -35,7 +35,7 @@ export abstract class Packet {
         this.isReceivedPacket = typeof data === "undefined";
         if (data) {
             const result = this.setData(data);
-            if (!result) throw new SyntaxError("Invalid data provided in constructor for " + this.constructor.name);
+            if (!result) throw new SyntaxError("Invalid data provided in constructor for " + this.constructor.name + ": " + JSON.stringify(data));
         }
     }
 

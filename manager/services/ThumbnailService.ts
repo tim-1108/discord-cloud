@@ -6,9 +6,9 @@ import { GenThumbnailPacket } from "../../common/packet/s2t/GenThumbnailPacket.j
 import { ThumbnailDataPacket } from "../../common/packet/t2s/ThumbnailDataPacket.js";
 import type { FileHandle } from "../../common/supabase.js";
 import { Database } from "../database/index.js";
-import { ServiceRegistry } from "./list.js";
-import { Service, type ServiceParams } from "./Service.js";
+import { Service } from "./Service.js";
 import type { MessageEvent, WebSocket } from "ws";
+import { createRequire } from "node:module";
 
 interface ThumbnailGenerationData {
     messages: string[];
@@ -50,6 +50,7 @@ export class ThumbnailService extends Service {
             logWarn("Tried adding invalid data to the thumbnail queue", id, data);
             return;
         }
+        // If already present, it'll just be overwritten
         ThumbnailService.queue.set(id, data);
     }
 
@@ -61,6 +62,12 @@ export class ThumbnailService extends Service {
      * Returns whether the file has been sent immediately to a service.
      */
     public static enqueueOrSendToRandom(handle: FileHandle): boolean {
+        // This is a VERY HACKY way to bypass circular imports from ./list.ts
+        // As that file imports ThumbnailService for it's service registry,
+        // we here also import that file - something which results in an error.
+        // FIXME: Remove that circular dependency (somehow?)
+        const require = createRequire(import.meta.url);
+        const { ServiceRegistry } = require("./list.js");
         const s = ServiceRegistry.random.all("thumbnail");
         const t = { messages: handle.messages, type: handle.type, channel: handle.channel };
         if (!s) {

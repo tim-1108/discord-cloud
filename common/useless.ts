@@ -12,6 +12,9 @@ export function escapeQuotes(text: string) {
 
 const FILE_SIZE_IDENTIFIERS = ["TB", "GB", "MB", "KB", "B"];
 const FILE_MULTIPLIER = 1024;
+/**
+ * @deprecated use {@link formatByteString}
+ */
 export function parseFileSize(size: number) {
     for (let i = FILE_SIZE_IDENTIFIERS.length - 1; i >= 0; i--) {
         const divider = Math.pow(FILE_MULTIPLIER, FILE_SIZE_IDENTIFIERS.length - i - 1);
@@ -94,4 +97,49 @@ export function createResolveFunction<Return = void>() {
     let r: (val: Return) => void;
     const p = new Promise<Return>((resolve) => (r = resolve));
     return { promise: p, resolve: r! };
+}
+
+interface FormatByteStringConfig {
+    type?: "full" | "short";
+    has_spacing?: boolean;
+    float_digits?: number;
+}
+export function formatByteString(byte_val: number, cfg?: FormatByteStringConfig): string {
+    const offsets = ["B", "KB", "MB", "GB", "TB"];
+    const offsetsLong = ["Byte", "Kilobyte", "Megabyte", "Gigabyte", "Terabyte"];
+    const len = offsets.length;
+
+    const isNegative = byte_val < 0;
+    byte_val = Math.abs(byte_val);
+
+    const format = (val: number, offset_index: number) => {
+        // When we have bytes, we do not need to show digits
+        const float_digits = offset_index === 0 ? 0 : (cfg?.float_digits ?? 1);
+        const float = val.toFixed(float_digits);
+        const str_val = float + (cfg?.has_spacing ? " " : "");
+        const sign = isNegative ? "-" : "";
+        if (cfg?.type === "full") {
+            // Although there is room here for float inprecision,
+            // that is not actually that important.
+            const suffix = val === 1.0 ? "" : "s";
+            return sign + str_val + offsetsLong[offset_index] + suffix;
+        }
+        return sign + str_val + offsets[offset_index];
+    };
+
+    const multiplier = 1024;
+    for (let i = 0; i < len; i++) {
+        // This is the minimum value of the next higher iteration.
+        // If this is not reached, we know that this must be within
+        // this region.
+        const min_next = multiplier ** (i + 1);
+        if (byte_val >= min_next) {
+            continue;
+        }
+        const divider = multiplier ** i;
+        return format(byte_val / divider, i);
+    }
+
+    const divider_max = multiplier ** (len - 1);
+    return format(byte_val / divider_max, len - 1);
 }

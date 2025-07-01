@@ -1,7 +1,14 @@
 {
     "extends": "@vue/tsconfig/tsconfig.dom.json",
     "include": ["src/**/*", "src/**/*.vue", "../common/**/*", "components.d.ts"],
-    "exclude": ["src/**/__tests__/*", "../manager/**/*", "../thumbnail-service/**/*", "../upload-service/**/*"],
+    "exclude": [
+        "src/**/__tests__/*",
+        "../manager/**/*",
+        "../thumbnail-service/**/*",
+        "../upload-service/**/*",
+        "../common/packet/reader.ts",
+        "../common/environment.ts"
+    ],
     "compilerOptions": {
         "composite": true,
         "tsBuildInfoFile": "../node_modules/.tmp/tsconfig.app.tsbuildinfo",

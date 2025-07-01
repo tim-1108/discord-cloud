@@ -1,4 +1,4 @@
-import { logDebug, logInfo, logWarn } from "../logging.js";
+import { logDebug, logWarn } from "../logging.js";
 import type { Packet } from "./Packet.js";
 import { type PacketTypeMap, type PacketWithID } from "./definitions.js";
 import { parsePacket } from "./parser.js";
@@ -83,11 +83,9 @@ export function getServersidePacketList<T extends PacketType>(type: T): PacketWi
     return packetTypeLists[type];
 }
 
-async function loadPackets() {
+export async function loadPackets() {
     for (const key of PacketDefinitions.enumArray) {
         packetTypeLists[key] = await loadClassesForFolder(key);
     }
     logDebug("Loaded packets", ...Object.values(packetTypeLists));
 }
-
-setTimeout(loadPackets, 1);

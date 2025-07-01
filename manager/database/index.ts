@@ -1,4 +1,4 @@
-import { invalidateFolderCache } from "./core.js";
+import { invalidateFolderCache, ROOT_FOLDER_ID } from "./core.js";
 import { getFileShare } from "./file-share.js";
 import {
     addFileHandle,
@@ -8,6 +8,7 @@ import {
     getFileHandleById_Cached,
     getFileHandleWithPath_Cached,
     listFilesInFolder_Database,
+    renameFile,
     updateFileHandle
 } from "./file.js";
 import {
@@ -16,12 +17,14 @@ import {
     getFolderById_Database,
     getFolderByNameAndParent_Database,
     getFolderByPath,
+    renameFolder,
     resolveRouteFromFolderId
 } from "./folder.js";
 import { getSignedLinkForThumbnail, deleteThumbnailFromStorage, uploadThumbnailToStorage } from "./storage.js";
 import { createUser, getUserByName_Database, getUser_Database, updateUserPassword } from "./users.js";
 
 export const Database = {
+    root: "root" as const,
     cache: {
         invalidateFolder: invalidateFolderCache
     },
@@ -42,7 +45,8 @@ export const Database = {
         getById: getFolderById_Database,
         getByNameAndParent: getFolderByNameAndParent_Database,
         getOrCreateByPath: createOrGetFolderByPath,
-        resolveRouteById: resolveRouteFromFolderId
+        resolveRouteById: resolveRouteFromFolderId,
+        rename: renameFolder
     },
     file: {
         add: addFileHandle,
@@ -59,6 +63,7 @@ export const Database = {
         getById: getFileHandleById_Cached,
         listInFolder: listFilesInFolder_Database,
         findReplacementName: findReplacementFileName,
+        rename: renameFile,
         share: {
             get: getFileShare
         }

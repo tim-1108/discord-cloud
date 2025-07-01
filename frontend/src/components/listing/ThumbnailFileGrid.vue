@@ -4,6 +4,7 @@ import { getIconForFileType } from "@/composables/icons";
 import type { ClientFileHandle } from "../../../../common/client";
 import { Thumbnails } from "@/composables/thumbnail";
 import { computed, reactive, ref, shallowReactive, toRaw, type ComputedRef, type Ref } from "vue";
+import { faLock } from "@fortawesome/free-solid-svg-icons";
 
 defineProps<{ fileList: ClientFileHandle[] }>();
 const emit = defineEmits<{ select: [name: string] }>();
@@ -28,10 +29,12 @@ async function setThumbnail(entry: IntersectionObserverEntry, handle: ClientFile
             class="p-2 rounded-xl grid grid-rows-[1fr_150px] gap-1 text-start bg-[var(--component-color)] relative"
             v-for="handle of fileList"
             @click="emit('select', handle.name)">
-            <span class="font-semibold min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">{{ handle.name }}</span>
+            <div class="flex gap-1 items-center min-w-0 overflow-hidden text-ellipsis whitespace-nowrap">
+                <FontAwesomeIcon :icon="faLock" v-if="handle.ownership.status === 'restricted'"></FontAwesomeIcon>
+                <span class="font-semibold">{{ handle.name }}</span>
+            </div>
             <div class="bg-white rounded-xl grid place-content-center relative">
                 <FontAwesomeIcon :icon="getIconForFileType(handle.name)" class="text-5xl" v-if="!thumbnailMap[handle.id]"></FontAwesomeIcon>
-                <!-- TODO: preserve aspect ratio (maybe as css background?) -->
                 <div
                     class="thumbnail opacity-0 rounded-xl h-full w-full absolute bg-cover bg-center"
                     v-else

@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { parseDateObjectToRelative, parseFileSize } from "../../../common/useless";
+import { formatByteString, parseDateObjectToRelative } from "../../../../common/useless";
 import { generateDownloadLink, getPreviewingImage, isFileImage } from "@/composables/images";
 import { convertRouteToPath, useCurrentRoute } from "@/composables/path";
-import type { Listing } from "@/composables/listing";
-import type { ClientFileHandle } from "../../../common/client";
+import type { ClientFileHandle } from "../../../../common/client";
 
-const props = defineProps<{ listing: Listing }>();
+const props = defineProps<{ fileList: ClientFileHandle[] }>();
 const route = useCurrentRoute();
 async function openImageOrDownload(file: ClientFileHandle) {
-    console.log(route.value, convertRouteToPath(route.value));
     const link = await generateDownloadLink(file.name, convertRouteToPath(route.value));
     if (isFileImage(file)) {
         getPreviewingImage().value = link;
@@ -19,7 +17,7 @@ async function openImageOrDownload(file: ClientFileHandle) {
 </script>
 
 <template>
-    <table v-if="typeof listing !== 'string'" class="w-full gap-y-4">
+    <table class="w-full gap-y-4">
         <thead>
             <tr>
                 <th>Select</th>
@@ -30,15 +28,14 @@ async function openImageOrDownload(file: ClientFileHandle) {
             </tr>
         </thead>
         <tbody>
-            <tr v-for="file of listing.files" class="" @click="openImageOrDownload(file)">
+            <tr v-for="file of fileList" class="" @click="openImageOrDownload(file)">
                 <td></td>
                 <td>{{ file.name }}</td>
                 <td>{{ parseDateObjectToRelative(new Date(file.updated_at ?? "")) }}</td>
-                <td>{{ parseFileSize(file.size) }}</td>
+                <td>{{ formatByteString(file.size) }}</td>
             </tr>
         </tbody>
     </table>
-    <div v-else>{{ listing }}</div>
 </template>
 
 <style scoped>

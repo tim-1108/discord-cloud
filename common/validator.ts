@@ -49,9 +49,18 @@ export function validateObjectBySchema<S extends SchemaEntryConsumer>(object: an
             offenses.push({ key, offense, schema: serializeSchemaEntry(schema), items });
         }
 
-        if (typeof value === "undefined" || value == null) {
+        if (typeof value === "undefined") {
             if (schema.required) invalidateKey("required_missing");
             // If it is not required and not set, we continue to the next key w/o any issues.
+            continue;
+        }
+
+        if (value === null) {
+            if (!schema.allow_null) {
+                if (schema.required) invalidateKey("required_missing");
+                continue;
+            }
+
             continue;
         }
 
@@ -177,9 +186,20 @@ interface BaseSchemaEntry {
      * @param value The value that is meant to be checked
      */
     validator_function?: (value: any) => boolean;
+    /**
+     * Indicates that the field's value may also be `null` instead of the
+     * required type. Is technically still required if `required` is set to
+     * `true`, as, if `undefined`, the field is not present at alll.
+     *
+     * This makes the key typed as `<val> | null`.
+     *
+     * If however the field is not required, `null` is also always accepted
+     * as a value that means that the field does not exist.
+     */
+    allow_null?: boolean;
 }
 
-interface StringSchemaEntry extends BaseSchemaEntry {
+export interface StringSchemaEntry extends BaseSchemaEntry {
     type: "string";
     /**
      * The minimum length the string may have.
@@ -306,10 +326,12 @@ export type SchemaToType<T extends SchemaEntryConsumer | null> = T extends Schem
     ? RequiredSchemaFields<T> & OptionalSchemaFields<T>
     : null;
 
+type OrNull<S extends SchemaEntry, T> = S["allow_null"] extends true ? T | null : T;
+
 type RequiredSchemaFields<T extends SchemaEntryConsumer> = {
-    [K in keyof T as T[K]["required"] extends true ? K : never]: RequiredSchemaEntryType<T[K]>;
+    [K in keyof T as T[K]["required"] extends true ? K : never]: OrNull<T[K], RequiredSchemaEntryType<T[K]>>;
 };
 
 type OptionalSchemaFields<T extends SchemaEntryConsumer> = {
-    [K in keyof T as T[K]["required"] extends false ? K : never]?: RequiredSchemaEntryType<T[K]>;
+    [K in keyof T as T[K]["required"] extends false ? K : never]?: OrNull<T[K], RequiredSchemaEntryType<T[K]>>;
 };

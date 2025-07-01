@@ -1,15 +1,18 @@
-import { communicator } from "@/main";
-import { areRoutesIdentical, convertPathToRoute, convertRouteToPath, useCurrentRoute } from "./path";
+import { areRoutesIdentical, convertPathToRoute, convertRouteToPath, navigateToAbsolutePath, navigateToAbsoluteRoute, useCurrentRoute } from "./path";
 import { ListRequestPacket } from "../../../common/packet/c2s/ListRequestPacket";
 import { ListPacket } from "../../../common/packet/s2c/ListPacket";
 import { patterns } from "../../../common/patterns";
 import { nextTick, ref } from "vue";
 import type { FolderHandle } from "../../../common/supabase";
-import type { ClientFileHandle, FileModifyAction } from "../../../common/client";
+import type { ClientFileHandle, FileModifyAction, FolderModifyAction } from "../../../common/client";
 import type { FileModifyPacket } from "../../../common/packet/s2c/FileModifyPacket";
-import { logWarn } from "../../../common/logging";
+import { logError, logWarn } from "../../../common/logging";
 import { globals } from "./globals";
 import { Thumbnails } from "./thumbnail";
+import { getOrCreateCommunicator } from "./authentication";
+import { CreateFolderPacket } from "../../../common/packet/c2s/CreateFolderPacket";
+import { GenericBooleanPacket } from "../../../common/packet/generic/GenericBooleanPacket";
+import type { FolderModifyPacket } from "../../../common/packet/s2c/FolderModifyPacket";
 
 export type Listing = { files: ClientFileHandle[]; folders: FolderHandle[] };
 type ListingCacheItem = {
@@ -74,7 +77,8 @@ export async function getListingForDirectory(route: string[]): Promise<Listing |
 
     globals.listing.writeActive(null);
 
-    const reply = await communicator.sendPacketAndReply(new ListRequestPacket({ path }), ListPacket, 60_000);
+    const c = await getOrCreateCommunicator();
+    const reply = await c.sendPacketAndReply(new ListRequestPacket({ path }), ListPacket, 60_000);
     if (!reply) {
         return { code: "The server did not respond in time", can_retry: true };
     }
@@ -160,7 +164,7 @@ function getParentOfLastRouteItem(route: string[]): ListingCacheItem | null {
         const name = route[i];
         const child = parent.subfolder_cache.get(name);
         if (!child) return null;
-        parent = child as ListingCacheItem;
+        parent = child;
     }
     return parent;
 }
@@ -200,6 +204,29 @@ export function invalidateListingCache(pathOrRoute: string | string[], allSubfol
     item.files = [];
     item.folders = [];
     return true;
+}
+
+/**
+ * Call this function when the currently active path does not exist.
+ */
+export function createFolderAtCurrentRoute() {
+    const route = useCurrentRoute();
+    const path = convertRouteToPath(route.value);
+    return createFolderAtPath(path);
+}
+
+export async function createFolderAtPath(path: string) {
+    if (patterns.stringifiedPath.test(path)) {
+        logError("Attempted to create folder with incorrect path. Too long?");
+        return false;
+    }
+    const packet = new CreateFolderPacket({ path });
+    const communicator = await getOrCreateCommunicator();
+    const response = await communicator.sendPacketAndReply(packet, GenericBooleanPacket, 60_000);
+    if (!response) {
+        return false;
+    }
+    return response.getData().success ?? false;
 }
 
 export function listingFileModify(packet: FileModifyPacket) {
@@ -244,5 +271,50 @@ export function listingFileModify(packet: FileModifyPacket) {
 
     if (isAtRoute) {
         updateActiveListingEntry(hit);
+    }
+}
+
+export function listingFolderModify(packet: FolderModifyPacket) {
+    const { path, handle, action, rename_orgin } = packet.getData();
+    const r = convertPathToRoute(path);
+    const cr = useCurrentRoute();
+
+    // If (for whatever reason) this occurrs, we ignore it as such a
+    // circumstance is impossible, we cannot do anything with the root
+    if (!r.length) return;
+
+    // This means we are currently either at this route or beyond it
+    // Looking up indices unchecked (cr may be shorter) is no problem,
+    // it will just fail.
+    const isAtRoute = r.every((key, index) => cr.value[index] === key);
+
+    const $action = action as FolderModifyAction;
+
+    const parent = r.slice(0, -1);
+
+    if ($action === "delete") {
+        if (isAtRoute) navigateToAbsoluteRoute(parent);
+        invalidateListingCache(r, true);
+    } else if ($action === "add") {
+        const parent = getParentOfLastRouteItem(r);
+        // As this is only relevant to caching, if not present, we can safely
+        // abort anything we might be doing. The user might eventually load the folder.
+        if (!parent) return;
+        // We do not add it to "subfolder_cache" as we don't have any contents for the folder
+        parent.folders.push(handle);
+    } else if ($action === "rename") {
+        if (!rename_orgin) return;
+
+        const parent = getParentOfLastRouteItem(r);
+        if (!parent) return;
+        const stored = parent.folders.find(({ id }) => id === handle.id);
+        if (stored) {
+            stored.name = handle.name;
+        }
+        const hit = parent.subfolder_cache.get(rename_orgin);
+        if (hit) {
+            parent.subfolder_cache.delete(rename_orgin);
+            parent.subfolder_cache.set(handle.name, hit);
+        }
     }
 }

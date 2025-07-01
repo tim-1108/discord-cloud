@@ -1,3 +1,4 @@
+import { patterns } from "./patterns.js";
 import type { FileShareHandle, FolderHandle } from "./supabase.js";
 
 export type ClientFileHandle = {
@@ -21,6 +22,8 @@ export type FileOwnershipStatus = { status: Exclude<ClientFileOwnership, "shared
 
 export type ClientFolderHandle = FolderHandle;
 export type FileModifyAction = "add" | "delete" | "modify";
+
+export type FolderModifyAction = "add" | "delete" | "rename";
 
 export const ClientFileSchema = {
     type: "record",
@@ -51,5 +54,15 @@ export const ClientFileSchema = {
         updated_at: { type: "string" },
         size: { type: "number", required: true },
         thumbnail_url: { type: "string", required: false }
+    }
+} as const;
+
+export const FolderHandleSchema = {
+    type: "record",
+    required: true,
+    items: {
+        id: { type: "number", required: true, min: 0 },
+        name: { type: "string", required: true, pattern: patterns.fileName },
+        parent_folder: { type: "number", required: true, allow_null: true, min: 0 }
     }
 } as const;

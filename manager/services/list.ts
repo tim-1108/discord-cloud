@@ -1,10 +1,8 @@
 import { UploadService } from "./UploadService.js";
-import type { Service, ServiceConfiguration, ServiceParams } from "./Service.js";
+import type { Service, ServiceParams } from "./Service.js";
 import { WebSocket } from "ws";
 import { ThumbnailService } from "./ThumbnailService.js";
 import { logDebug, logWarn } from "../../common/logging.js";
-import { getSearchParamsForAddress } from "../utils/url.js";
-import { validateObjectBySchema } from "../../common/validator.js";
 
 /**
  * Services have to be registered here

@@ -2,13 +2,16 @@
 import { clearAuthentication } from "@/composables/authentication";
 import { Dialogs } from "@/composables/dialog";
 import { Uploads } from "@/composables/uploads";
-import { faPlus } from "@fortawesome/free-solid-svg-icons";
+import { faArrowRightFromBracket, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+import { computed } from "vue";
 
 function logOff() {
     clearAuthentication();
     location.reload();
 }
+
+const uploadCount = computed(() => Uploads.queue.count.value + Uploads.active.size);
 </script>
 
 <template>
@@ -19,7 +22,9 @@ function logOff() {
             <FontAwesomeIcon :icon="faPlus"></FontAwesomeIcon>
             <span>Upload</span>
         </button>
-        <button @click="logOff">Log off</button>
-        <p>{{ Uploads.queue.count.value }} uploads in queue</p>
+        <GrayHighlightButton @click="Dialogs.mount('uploads', {})" v-if="uploadCount >= 0" styling="default"
+            >View {{ uploadCount }} upload{{ uploadCount > 1 ? "s" : "" }}</GrayHighlightButton
+        >
+        <GrayHighlightButton styling="default" @click="logOff" :icon="faArrowRightFromBracket">Log out</GrayHighlightButton>
     </aside>
 </template>

@@ -215,7 +215,7 @@ async function fetchToDiscordApi<R>(cfg: FetchConfig): Promise<FetchToDiscordApi
             return new Promise((resolve) =>
                 response
                     .json()
-                    .then((data: R) => resolve({ data, error: null }))
+                    .then((data) => resolve({ data: data as R, error: null }))
                     .catch(() => resolve({ data: null, error: "Failed to parse JSON" }))
             );
         }

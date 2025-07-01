@@ -9,7 +9,7 @@ defineProps<{ cfg: AlertDialogConfig; callback: () => void }>();
 <template>
     <BaseDialog>
         <template v-slot:header>
-            <h1>{{ cfg.title ?? "Confirm" }}</h1>
+            <h1>{{ cfg.title ?? "Alert" }}</h1>
         </template>
         <template v-slot:main>
             <p>{{ cfg.body }}</p>

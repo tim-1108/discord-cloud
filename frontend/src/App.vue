@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import FileTable from "./components/FileTable.vue";
+import FileTable from "./components/listing/FileTable.vue";
 import PathRenderer from "./components/PathRenderer.vue";
 import { getPreviewingImage } from "./composables/images";
 import { globals } from "./composables/globals";
@@ -13,6 +13,7 @@ import ThumbnailFileGrid from "./components/listing/ThumbnailFileGrid.vue";
 import { isListingError } from "./composables/listing";
 import { faFolderPlus, faLongArrowUp, faRotateRight } from "@fortawesome/free-solid-svg-icons";
 import { Connection } from "./composables/connection";
+import { PendingAuthenticationState } from "./composables/state";
 
 const listing = globals.listing.active;
 const route = useCurrentRoute();
@@ -38,6 +39,8 @@ const dropPreview = {
 };
 
 const isConnected = Connection.isConnected;
+
+const listingType = ref<"grid" | "table">("grid");
 </script>
 
 <template>
@@ -53,7 +56,13 @@ const isConnected = Connection.isConnected;
 
         <Sidebar class="row-span-1 overflow-auto"></Sidebar>
         <main class="row-span-1 overflow-auto p-4 bg-white rounded-tl-3xl min-h-0">
-            <div v-if="!isConnected">Connecting to the server. If this is taking longer than a minute, consider logging off.</div>
+            <div v-if="!isConnected">
+                <span v-if="PendingAuthenticationState === 'health'">Waiting for server to come online</span>
+                <span v-else-if="PendingAuthenticationState === 'login'">Logging in</span>
+                <span v-else-if="PendingAuthenticationState === 'pending'">Waiting for credentials</span>
+                <span v-else-if="PendingAuthenticationState === 'establishing'">Establishing connection</span>
+                <span v-else-if="PendingAuthenticationState === 'established'">Connected</span>
+            </div>
             <div v-else-if="listing === null" class="grid h-full w-full place-content-center">
                 <p>Loading...</p>
             </div>
@@ -69,14 +78,20 @@ const isConnected = Connection.isConnected;
                 </section>
             </div>
             <div v-else class="grid gap-2" :key="path">
-                <h3>Folders</h3>
+                <div class="flex justify-between items-end gap-4 flex-wrap">
+                    <h3>Folders</h3>
+                    <ListingTypeChooser :default-value="listingType" @update="(val) => (listingType = val)"></ListingTypeChooser>
+                </div>
                 <FolderGrid
+                    v-if="listingType === 'grid'"
                     :folder-list="listing.folders"
                     :show-up="route.length > 0"
                     @navigate="(name) => appendToRoute([name])"
                     @navigate-up="navigateToParentFolder"></FolderGrid>
+                <FolderTable v-else :folder-list="listing.folders"></FolderTable>
                 <h3>Files</h3>
-                <ThumbnailFileGrid :file-list="listing.files" :key="path"></ThumbnailFileGrid>
+                <ThumbnailFileGrid v-if="listingType === 'grid'" :file-list="listing.files"></ThumbnailFileGrid>
+                <FileTable v-else :file-list="listing.files"></FileTable>
             </div>
         </main>
         <component v-for="[k, cmp] of Dialogs.iterator.value" :is="cmp" :key="k"></component>

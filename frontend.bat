@@ -1,0 +1,1 @@
+start cmd.exe /C "bun frontend"

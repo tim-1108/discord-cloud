@@ -12,15 +12,17 @@ import { listingFileModify } from "@/composables/listing.js";
 import { logWarn } from "../../../common/logging.js";
 import { Dialogs } from "@/composables/dialog.js";
 import { Connection } from "@/composables/connection.js";
+import { PendingAuthenticationState } from "@/composables/state.js";
 
 /**
  * The class that communicates with the manager using a web socket.
  */
 export class Communicator extends PacketReceiver {
-    public constructor(address: string) {
+    public constructor(address: URL) {
         const socket = new WebSocket(address);
         super(socket);
         this.socket.addEventListener("open", async () => {
+            PendingAuthenticationState.value = "established";
             Connection.isConnected.value = true;
             const result = await globals.listing.fetch(useCurrentRoute().value);
             globals.listing.writeActive(result);

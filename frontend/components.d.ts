@@ -15,11 +15,14 @@ declare module 'vue' {
     ConfirmDialog: typeof import('./src/components/dialog/ConfirmDialog.vue')['default']
     FileDropper: typeof import('./src/components/upload/FileDropper.vue')['default']
     FileGrid: typeof import('./src/components/listing/FileGrid.vue')['default']
-    FileTable: typeof import('./src/components/FileTable.vue')['default']
+    FileTable: typeof import('./src/components/listing/FileTable.vue')['default']
     FolderGrid: typeof import('./src/components/listing/FolderGrid.vue')['default']
+    FolderTable: typeof import('./src/components/listing/FolderTable.vue')['default']
+    GrayHighlightButton: typeof import('./src/components/basic/GrayHighlightButton.vue')['default']
     HighlightButton: typeof import('./src/components/basic/HighlightButton.vue')['default']
     HoverUnderlineText: typeof import('./src/components/basic/HoverUnderlineText.vue')['default']
     ImagePreview: typeof import('./src/components/ImagePreview.vue')['default']
+    ListingTypeChooser: typeof import('./src/components/listing/ListingTypeChooser.vue')['default']
     LoginDialog: typeof import('./src/components/dialog/LoginDialog.vue')['default']
     PathRenderer: typeof import('./src/components/PathRenderer.vue')['default']
     RenameActionDialog: typeof import('./src/components/dialog/RenameActionDialog.vue')['default']
@@ -32,6 +35,7 @@ declare module 'vue' {
     UploadDropOverlay: typeof import('./src/components/overlay/UploadDropOverlay.vue')['default']
     UploadProgressRenderer: typeof import('./src/components/upload/UploadProgressRenderer.vue')['default']
     UploadRenderer: typeof import('./src/components/upload/UploadRenderer.vue')['default']
+    UploadsDialog: typeof import('./src/components/dialog/UploadsDialog.vue')['default']
     UploadSubmitDialog: typeof import('./src/components/dialog/UploadSubmitDialog.vue')['default']
   }
 }

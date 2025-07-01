@@ -154,6 +154,8 @@ function pushQueueUpdateToClients(index: number, count: number) {
 }
 
 function removeClientItemsFromQueue(clientId: UUID) {
+    // TODO: Optimize removal by finding regions that are of user
+    //       (Don't send too many packets to other clients)
     let count = 0;
     for (let i = uploadQueue.length - 1; i >= 0; i--) {
         const item = uploadQueue[i];

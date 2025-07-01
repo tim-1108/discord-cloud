@@ -85,5 +85,6 @@ export const patterns = {
      * This is only a rough verification, ignoring whether these ranges contradict
      * each other or are entirely invalid.
      */
-    rangeHeader: /^(?:bytes=)((\d+-\d+)|(-\d+)|(\d+-))((?:, )((\d+-\d+)|(-\d+)|(\d+-)))*$/
+    rangeHeader: /^(?:bytes=)((\d+-\d+)|(-\d+)|(\d+-))((?:, )((\d+-\d+)|(-\d+)|(\d+-)))*$/,
+    jwt: /^[A-Za-z0-9-_]*\.[A-Za-z0-9-_]*\.[A-Za-z0-9-_]*$/
 };

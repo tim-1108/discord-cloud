@@ -1,7 +1,7 @@
-import { communicator } from "@/main";
 import { ref, type Ref } from "vue";
 import { ThumbnailRequestPacket } from "../../../common/packet/c2s/ThumbnailRequestPacket";
 import { GenericBooleanPacket } from "../../../common/packet/generic/GenericBooleanPacket";
+import { getOrCreateCommunicator } from "./authentication";
 
 const cache = new Map<number, Ref<Blob>>();
 
@@ -12,7 +12,8 @@ const cache = new Map<number, Ref<Blob>>();
  * actually has reading permissions (`ownership.status` is not `restricted`)
  */
 async function requestUrl(id: number): Promise<string | null> {
-    const reply = await communicator.sendPacketAndReply(new ThumbnailRequestPacket({ id }), GenericBooleanPacket);
+    const c = await getOrCreateCommunicator();
+    const reply = await c.sendPacketAndReply(new ThumbnailRequestPacket({ id }), GenericBooleanPacket);
     if (!reply) {
         return null;
     }

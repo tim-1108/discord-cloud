@@ -11,6 +11,13 @@ import { GenericBooleanPacket } from "../../../common/packet/generic/GenericBool
 import PacketType from "../../../common/packet/PacketType.js";
 import { FileModifyPacket } from "../../../common/packet/s2c/FileModifyPacket.js";
 import { FolderModifyPacket } from "../../../common/packet/s2c/FolderModifyPacket.js";
+import { DeleteFilePacket } from "../../../common/packet/c2s/DeleteFilePacket.js";
+import { DeleteFolderPacket } from "../../../common/packet/c2s/DeleteFolderPacket.js";
+import { MoveFilesPacket } from "../../../common/packet/c2s/MoveFilesPacket.js";
+import { CreateFolderPacket } from "../../../common/packet/c2s/CreateFolderPacket.js";
+import { RenameFolderPacket } from "../../../common/packet/c2s/RenameFolderPacket.js";
+import { RenameFilePacket } from "../../../common/packet/c2s/RenameFilePacket.js";
+import { ThumbnailRequestPacket } from "../../../common/packet/c2s/ThumbnailRequestPacket.js";
 
 // As we cannot just scan directories, this requires manual registering
 
@@ -23,7 +30,18 @@ const clientboundPackets: PacketWithID<PacketTypeMap[PacketType.Server2Client]>[
     FileModifyPacket,
     FolderModifyPacket
 ];
-const serverboundPackets: PacketWithID<PacketTypeMap[PacketType.Client2Server]>[] = [ListRequestPacket, PingServicesPacket, UploadQueueAddPacket];
+const serverboundPackets: PacketWithID<PacketTypeMap[PacketType.Client2Server]>[] = [
+    ListRequestPacket,
+    PingServicesPacket,
+    UploadQueueAddPacket,
+    DeleteFilePacket,
+    DeleteFolderPacket,
+    MoveFilesPacket,
+    CreateFolderPacket,
+    RenameFolderPacket,
+    RenameFilePacket,
+    ThumbnailRequestPacket
+];
 const genericPackets: PacketWithID<PacketTypeMap[PacketType.Generic]>[] = [GenericBooleanPacket];
 
 export function getBrowserPacketList<T extends PacketType>(type: T): PacketWithID<PacketTypeMap[T]>[] {
