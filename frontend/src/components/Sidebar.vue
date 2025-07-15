@@ -23,7 +23,7 @@ const uploadCount = computed(() => Uploads.queue.count.value + Uploads.active.si
             <span>Upload</span>
         </button>
         <GrayHighlightButton @click="Dialogs.mount('uploads', {})" v-if="uploadCount >= 0" styling="default"
-            >View {{ uploadCount }} upload{{ uploadCount > 1 ? "s" : "" }}</GrayHighlightButton
+            >View {{ uploadCount }} upload{{ uploadCount === 1 ? "" : "s" }}</GrayHighlightButton
         >
         <GrayHighlightButton styling="default" @click="logOff" :icon="faArrowRightFromBracket">Log out</GrayHighlightButton>
     </aside>

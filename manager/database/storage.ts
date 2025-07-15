@@ -16,7 +16,7 @@ export async function uploadThumbnailToStorage(id: number, data: Buffer) {
         return false;
     }
 
-    const response = await supabase.storage.from(BUCKET_NAME).upload(idToFilePath(id), data, { contentType: "image/jpeg" });
+    const response = await supabase.storage.from(BUCKET_NAME).upload(idToFilePath(id), data, { contentType: "image/avif" });
     if (response.error !== null) {
         logError("Failed to upload thumbnail for", id, response.error);
         return false;
@@ -25,7 +25,7 @@ export async function uploadThumbnailToStorage(id: number, data: Buffer) {
     return true;
 }
 
-const idToFilePath = (id: number) => id.toString(10) + ".jpg";
+const idToFilePath = (id: number) => id.toString(10) + ".avif";
 
 export async function deleteThumbnailFromStorage(id: number) {
     const BUCKET_NAME = "thumbnails";

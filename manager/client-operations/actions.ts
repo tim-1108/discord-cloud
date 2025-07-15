@@ -1,5 +1,6 @@
 import type { CreateFolderPacket } from "../../common/packet/c2s/CreateFolderPacket.js";
 import type { DeleteFilePacket } from "../../common/packet/c2s/DeleteFilePacket.js";
+import type { EmptyFileUploadPacket } from "../../common/packet/c2s/EmptyFileUploadPacket.js";
 import type { MoveFilesPacket } from "../../common/packet/c2s/MoveFilesPacket.js";
 import type { RenameFilePacket } from "../../common/packet/c2s/RenameFilePacket.js";
 import type { RenameFolderPacket } from "../../common/packet/c2s/RenameFolderPacket.js";
@@ -92,4 +93,18 @@ async function renameFile(c: Client, p: RenameFilePacket) {
         return;
     }
     const result = await Database.file.rename(handle.id, target_name);
+}
+
+async function uploadEmptyFile(c: Client, p: EmptyFileUploadPacket) {
+    const { path, name } = p.getData();
+    const folder = await Database.folder.getByPath(path);
+    if (folder === null) {
+        return;
+    }
+    const existingFile = await Database.file.get(folder, name);
+    const targetName = existingFile ? await Database.file.findReplacementName(name, folder) : name;
+    if (targetName === null) {
+        return;
+    }
+    // TODO: How should an empty file be handled (no messages and no channel id?)
 }

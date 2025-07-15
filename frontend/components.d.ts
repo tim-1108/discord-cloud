@@ -31,6 +31,7 @@ declare module 'vue' {
     StyledButton: typeof import('./src/components/basic/StyledButton.vue')['default']
     SubfolderList: typeof import('./src/components/SubfolderList.vue')['default']
     SubfolderTable: typeof import('./src/components/SubfolderTable.vue')['default']
+    ThumbnailFile: typeof import('./src/components/listing/ThumbnailFile.vue')['default']
     ThumbnailFileGrid: typeof import('./src/components/listing/ThumbnailFileGrid.vue')['default']
     UploadDropOverlay: typeof import('./src/components/overlay/UploadDropOverlay.vue')['default']
     UploadProgressRenderer: typeof import('./src/components/upload/UploadProgressRenderer.vue')['default']

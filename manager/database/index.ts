@@ -1,5 +1,5 @@
 import { invalidateFolderCache, ROOT_FOLDER_ID } from "./core.js";
-import { getFileShare } from "./file-share.js";
+import { deleteFileShare, getFileShare, insertFileShare, updateFileShare } from "./file-share.js";
 import {
     addFileHandle,
     deleteFileHandle,
@@ -65,7 +65,10 @@ export const Database = {
         findReplacementName: findReplacementFileName,
         rename: renameFile,
         share: {
-            get: getFileShare
+            get: getFileShare,
+            insert: insertFileShare,
+            delete: deleteFileShare,
+            update: updateFileShare
         }
     }
 } as const;

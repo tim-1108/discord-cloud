@@ -2,17 +2,15 @@ import { C2SPacket } from "../C2SPacket.js";
 import { patterns } from "../../patterns.js";
 import type { SchemaToType } from "../../validator.js";
 
-const id = "upload-queue-add";
+const id = "empty-file-upload";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
-    name: { type: "string", required: true, pattern: patterns.fileName },
     path: { type: "string", required: true, pattern: patterns.stringifiedPath },
-    size: { type: "number", required: true, min: 1 },
-    is_public: { type: "boolean", required: true }
+    name: { type: "string", required: true, pattern: patterns.fileName }
 } as const;
 
-export class UploadQueueAddPacket extends C2SPacket {
+export class EmptyFileUploadPacket extends C2SPacket {
     declare protected data: DataType;
     public static readonly ID = id;
 

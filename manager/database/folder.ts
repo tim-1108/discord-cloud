@@ -101,6 +101,15 @@ export function getFolderByPath(path: string) {
     return resolvePathToFolderId_Cached(path, false);
 }
 
+export function deleteFolder_Recursive() {
+    throw new Error("Not implemented");
+}
+
+export async function mergeFolders(a: number, b: number) {
+    const fa = await Database.folder.getById(a);
+    const fb = await Database.folder.getById(b);
+}
+
 async function broadcastToClients(action: FolderModifyAction, handle: FolderHandle, renameOrigin?: string) {
     const route = await Database.folder.resolveRouteById(handle.id);
     if (!route) {

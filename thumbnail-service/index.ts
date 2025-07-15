@@ -85,7 +85,7 @@ async function resizeImageBuffer(buf: Buffer, _: string): Promise<Buffer> {
         sharp(buf)
             // The height is automagically adjusted alongside!
             .resize({ width: config.width })
-            .jpeg({ quality: config.quality })
+            .avif({ quality: config.quality })
             .toBuffer()
     );
 }

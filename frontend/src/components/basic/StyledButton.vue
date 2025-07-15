@@ -10,7 +10,7 @@ const disabledButtonColors: Record<ButtonColor, string> = {
     default: "!bg-gray-900",
     info: "!bg-blue-300",
     warning: "!bg-amber-300",
-    submit: "!bg-lime-300",
+    submit: "!bg-lime-100",
     critical: "!bg-red-300"
 };
 type ButtonColor = keyof typeof buttonColorClass;
