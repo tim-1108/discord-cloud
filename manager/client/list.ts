@@ -32,10 +32,20 @@ async function broadcast(handler: ((user: number) => Promise<BroadcastValue> | B
     }
 }
 
+function disconnect(handler: (user: number) => boolean) {
+    for (const client of map.values()) {
+        const flag = handler(client.getUserId());
+        if (flag) {
+            client.closeSocket(1000);
+        }
+    }
+}
+
 export const ClientList = {
     register,
     unregister,
     get,
     broadcast,
-    all: map
+    all: map,
+    disconnect
 } as const;

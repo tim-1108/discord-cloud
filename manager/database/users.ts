@@ -1,5 +1,6 @@
 import type { UserHandle } from "../../common/supabase.js";
 import { Authentication } from "../authentication.js";
+import { ClientList } from "../client/list.js";
 import { supabase } from "./core.js";
 import { parsePostgrestResponse } from "./helper.js";
 
@@ -22,6 +23,6 @@ export async function createUser(username: string, password: string) {
 }
 
 export async function updateUserPassword({ id, password, salt }: Pick<UserHandle, "id" | "password" | "salt">) {
-    // TODO: should we log off all clients of this user?
+    ClientList.disconnect(($id) => id === $id);
     return parsePostgrestResponse<UserHandle>(supabase.from("users").update({ password, salt }).eq("id", id).select("*").single());
 }

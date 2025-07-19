@@ -30,8 +30,10 @@ const folderCache: FolderCacheValue = { id: ROOT_FOLDER_ID, subfolders: new Map(
  * @param path
  * @returns
  */
-export function pathToRoute(path: string): string[] | null {
-    if (!patterns.stringifiedPath.test(path)) return null;
+export function pathToRoute(path: string): string[] {
+    if (!patterns.stringifiedPath.test(path)) {
+        throw new TypeError("Entered invalid path into pathToRoute: " + path);
+    }
     // To get only the relevant folders, we remove the first and last slash.
     return path.replace(/(^\/)|(\/$)/g, "").split("/");
 }
