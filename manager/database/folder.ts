@@ -119,3 +119,15 @@ async function broadcastToClients(action: FolderModifyAction, handle: FolderHand
     const packet = new FolderModifyPacket({ action, path, handle, rename_orgin: renameOrigin });
     ClientList.broadcast(packet);
 }
+
+export async function getFileCount_folder(id: FolderOrRoot) {
+    const query = supabase.from("files").select("name.sum()", { count: "exact" });
+    const response = await (id === "root" ? query.is("folder", null).single() : query.eq("folder", id).single());
+    return response.data?.sum ?? null;
+}
+
+export async function getSubfolderCount_folder(id: FolderOrRoot) {
+    const query = supabase.from("folders").select("name.sum()", { count: "exact" });
+    const response = await (id === "root" ? query.is("parent_folder", null).single() : query.eq("parent_folder", id).single());
+    return response.data?.sum ?? null;
+}

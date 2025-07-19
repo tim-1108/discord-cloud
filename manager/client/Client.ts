@@ -6,20 +6,20 @@ import { PacketReceiver } from "../../common/packet/PacketReceiver.js";
 import { PingServicesPacket } from "../../common/packet/c2s/PingServicesPacket.js";
 import { pingServices } from "../pinging.js";
 import { ListRequestPacket } from "../../common/packet/c2s/ListRequestPacket.js";
-import { performListPacketOperation } from "../client-operations/listing.js";
+import { ListingClientOperations } from "../client-operations/listing.js";
 import { getServersidePacketList } from "../../common/packet/reader.js";
 import PacketType from "../../common/packet/PacketType.js";
 import { Uploads } from "../uploads.js";
 import { CreateFolderPacket } from "../../common/packet/c2s/CreateFolderPacket.js";
 import { ThumbnailRequestPacket } from "../../common/packet/c2s/ThumbnailRequestPacket.js";
 import { performThumbnailRequestOperation } from "../client-operations/thumbnail.js";
-import { Database } from "../database/index.js";
 import { ActionClientOperations } from "../client-operations/actions.js";
 import { DeleteFilePacket } from "../../common/packet/c2s/DeleteFilePacket.js";
 import { MoveFilesPacket } from "../../common/packet/c2s/MoveFilesPacket.js";
 import { RenameFolderPacket } from "../../common/packet/c2s/RenameFolderPacket.js";
 import { RenameFilePacket } from "../../common/packet/c2s/RenameFilePacket.js";
 import { ClientList } from "./list.js";
+import { FolderStatusRequestPacket } from "../../common/packet/c2s/FolderStatusRequestPacket.js";
 
 export class Client extends PacketReceiver {
     private readonly uuid: UUID;
@@ -61,7 +61,9 @@ export class Client extends PacketReceiver {
         } else if (packet instanceof PingServicesPacket) {
             pingServices();
         } else if (packet instanceof ListRequestPacket) {
-            void performListPacketOperation(this, packet);
+            void ListingClientOperations.listRequest(this, packet);
+        } else if (packet instanceof FolderStatusRequestPacket) {
+            void ListingClientOperations.folderStatus(this, packet);
         } else if (packet instanceof CreateFolderPacket) {
             void ActionClientOperations.createFolder(this, packet);
         } else if (packet instanceof ThumbnailRequestPacket) {

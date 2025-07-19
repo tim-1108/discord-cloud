@@ -114,7 +114,7 @@ export async function getAllFilesInSubfolders(path: string): Promise<SubfolderFi
 
     async function recursive_func(id: FolderOrRoot, array: Array<SubfolderFilesListItem>, path: string): Promise<void> {
         const subfolders = await listSubfolders(id);
-        const files = await Database.file.listInFolder(id);
+        const files = await Database.folder.listing.files(id);
 
         if (subfolders !== null) {
             for (const s of subfolders) {
@@ -134,8 +134,12 @@ export async function getAllFilesInSubfolders(path: string): Promise<SubfolderFi
     return arrayRef;
 }
 
-export function listSubfolders(folderId: FolderOrRoot) {
-    const selector = supabase.from("folders").select("*");
+export function listSubfolders(folderId: FolderOrRoot, pagination?: { limit: number; offset: number }) {
+    let selector = supabase.from("folders").select("*");
+    if (pagination) {
+        // Here, the 2nd parameter is inclusive, unlike most other native JS functions
+        selector = selector.range(pagination.offset, pagination.offset + pagination.limit - 1);
+    }
     return parsePostgrestResponse<FolderHandle[]>(
         folderId !== ROOT_FOLDER_ID ? selector.eq("parent_folder", folderId) : selector.is("parent_folder", null)
     );

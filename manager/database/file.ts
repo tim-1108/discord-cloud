@@ -153,8 +153,12 @@ function putIntoCache(handle: FileHandle) {
     fileIdCache.set(handle.id, handle);
 }
 
-export async function listFilesInFolder_Database(folderId: FolderOrRoot) {
-    const selector = supabase.from("files").select("*");
+export async function listFilesInFolder_Database(folderId: FolderOrRoot, pagination?: { limit: number; offset: number }) {
+    let selector = supabase.from("files").select("*");
+    if (pagination) {
+        // Here, the 2nd parameter is inclusive, unlike most other native JS functions
+        selector = selector.range(pagination.offset, pagination.offset + pagination.limit - 1);
+    }
     // We could not possbily (well - technically, we could) know if we have all files in the directory cached
     const data = await parsePostgrestResponse<FileHandle[]>(
         folderId !== ROOT_FOLDER_ID ? selector.eq("folder", folderId) : selector.is("folder", null)

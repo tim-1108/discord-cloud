@@ -1,8 +1,8 @@
-import { areRoutesIdentical, convertPathToRoute, convertRouteToPath, navigateToAbsolutePath, navigateToAbsoluteRoute, useCurrentRoute } from "./path";
+import { areRoutesIdentical, convertPathToRoute, convertRouteToPath, navigateToAbsoluteRoute, useCurrentRoute } from "./path";
 import { ListRequestPacket } from "../../../common/packet/c2s/ListRequestPacket";
 import { ListPacket } from "../../../common/packet/s2c/ListPacket";
 import { patterns } from "../../../common/patterns";
-import { nextTick, ref } from "vue";
+import { nextTick, ref, type Reactive } from "vue";
 import type { FolderHandle } from "../../../common/supabase";
 import type { ClientFileHandle, FileModifyAction, FolderModifyAction } from "../../../common/client";
 import type { FileModifyPacket } from "../../../common/packet/s2c/FileModifyPacket";
@@ -14,7 +14,10 @@ import { CreateFolderPacket } from "../../../common/packet/c2s/CreateFolderPacke
 import { GenericBooleanPacket } from "../../../common/packet/generic/GenericBooleanPacket";
 import type { FolderModifyPacket } from "../../../common/packet/s2c/FolderModifyPacket";
 
-export type Listing = { files: ClientFileHandle[]; folders: FolderHandle[] };
+type Files = Reactive<ClientFileHandle[]>;
+type Subfolders = Reactive<FolderHandle[]>;
+export type Listing = { files: Files; folders: Subfolders };
+
 type ListingCacheItem = {
     /**
      * A flag indicating whether the content in `files` and `folders` is
@@ -24,11 +27,11 @@ type ListingCacheItem = {
      * the data in all subfolders should stay untouched.
      */
     cached: boolean;
-    files: ClientFileHandle[];
+    files: Reactive<ClientFileHandle[]>;
     /**
      * Does not store any actual subfolder data, only metadata about subfolders contained herein
      */
-    folders: FolderHandle[];
+    folders: Reactive<FolderHandle[]>;
     /**
      * This is a recursive storage, always going deeper and deeper.
      */
@@ -41,7 +44,7 @@ export function updateActiveListingEntry(val: Listing | ListingError | null) {
     // Should cause Vue refs that are not { deep: true } to refresh too
     // (If only array contents change, the array itself might not count as updated)
     // TODO: Is it necessary to update to null?
-    activeListingEntry.value = null;
+    //activeListingEntry.value = null;
     // This causes the listing container to unmount whenever switching paths,
     // even when cached. Makes sure that i.e. the thumbnail containers are
     // unloaded properly. If not, they would keep/inherit from the previous path.

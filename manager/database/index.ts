@@ -14,12 +14,15 @@ import {
 import {
     addFolder,
     createOrGetFolderByPath,
+    getFileCount_folder,
     getFolderById_Database,
     getFolderByNameAndParent_Database,
     getFolderByPath,
+    getSubfolderCount_folder,
     renameFolder,
     resolveRouteFromFolderId
 } from "./folder.js";
+import { listSubfolders } from "./public.js";
 import { getSignedLinkForThumbnail, deleteThumbnailFromStorage, uploadThumbnailToStorage } from "./storage.js";
 import { createUser, getUserByName_Database, getUser_Database, updateUserPassword } from "./users.js";
 
@@ -46,7 +49,15 @@ export const Database = {
         getByNameAndParent: getFolderByNameAndParent_Database,
         getOrCreateByPath: createOrGetFolderByPath,
         resolveRouteById: resolveRouteFromFolderId,
-        rename: renameFolder
+        rename: renameFolder,
+        counts: {
+            files: getFileCount_folder,
+            subfolders: getSubfolderCount_folder
+        },
+        listing: {
+            files: listFilesInFolder_Database,
+            subfolders: listSubfolders
+        }
     },
     file: {
         add: addFileHandle,
@@ -61,7 +72,6 @@ export const Database = {
         get: getFileHandle_Cached,
         getWithPath: getFileHandleWithPath_Cached,
         getById: getFileHandleById_Cached,
-        listInFolder: listFilesInFolder_Database,
         findReplacementName: findReplacementFileName,
         rename: renameFile,
         share: {

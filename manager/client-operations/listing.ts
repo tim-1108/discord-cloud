@@ -1,12 +1,45 @@
 import type { ListRequestPacket } from "../../common/packet/c2s/ListRequestPacket.js";
-import { resolvePathToFolderId_Cached } from "../database/core.js";
 import type { Client } from "../client/Client.js";
 import { ListPacket } from "../../common/packet/s2c/ListPacket.js";
 import { listSubfolders } from "../database/public.js";
 import { Database } from "../database/index.js";
-import type { ClientFileHandle, ClientFolderHandle } from "../../common/client.js";
+import type { ClientFileHandle } from "../../common/client.js";
 import { Authentication } from "../authentication.js";
 import { ThumbnailService } from "../services/ThumbnailService.js";
+import type { FolderStatusRequestPacket } from "../../common/packet/c2s/FolderStatusRequestPacket.js";
+import { FolderStatusPacket } from "../../common/packet/s2c/FolderStatusPacket.js";
+import { ListFilesPacket } from "../../common/packet/s2c/ListFilesPacket.js";
+import { ListFoldersPacket } from "../../common/packet/s2c/ListFoldersPacket.js";
+
+export const ListingClientOperations = {
+    folderStatus,
+    listRequest
+} as const;
+
+/**
+ * How big one page is considered
+ */
+const PAGE_SIZE = 100 as const;
+
+async function folderStatus(client: Client, packet: FolderStatusRequestPacket) {
+    const { path } = packet.getData();
+    const fid = await Database.folder.getByPath(path);
+    const invalidReply = new FolderStatusPacket({ path, exists: false, file_count: 0, subfolder_count: 0, page_size: PAGE_SIZE });
+    if (!fid) {
+        client.replyToPacket(packet, invalidReply);
+        return;
+    }
+    const subfolders = await Database.folder.counts.subfolders(fid);
+    const files = await Database.folder.counts.files(fid);
+    if (subfolders === null || files === null) {
+        client.replyToPacket(packet, invalidReply);
+        return;
+    }
+    client.replyToPacket(
+        packet,
+        new FolderStatusPacket({ path, exists: true, file_count: files, subfolder_count: subfolders, page_size: PAGE_SIZE })
+    );
+}
 
 /**
  * Performs a query on the database for all folders and files listed
@@ -19,17 +52,32 @@ import { ThumbnailService } from "../services/ThumbnailService.js";
  * @param client The client who should be replied to
  * @param packet The packet the client sent
  */
-export async function performListPacketOperation(client: Client, packet: ListRequestPacket): Promise<void> {
-    const { path } = packet.getData();
-    const folderId = await resolvePathToFolderId_Cached(path, false);
-    if (!folderId) return sendReplyPacket(client, packet, [], [], false);
+async function listRequest(client: Client, packet: ListRequestPacket): Promise<void> {
+    const { path, type, page } = packet.getData();
+    const $type = type as "subfolders" | "files";
+    const folderId = await Database.folder.getByPath(path);
+    // The client is expected to have sent a FolderStatusRequest packet beforehand.
+    // If this folder does not exist, we'll tell the client
+    if (!folderId) return;
 
-    const folders = await listSubfolders(folderId);
-    const files = await Database.file.listInFolder(folderId);
+    const fail = () => {
+        const obj = { success: false, page, path };
+        const reply = $type === "files" ? new ListFilesPacket({ ...obj, files: [] }) : new ListFoldersPacket({ ...obj, folders: [] });
+        client.replyToPacket(packet, reply);
+    };
 
-    if (!files || !folders) {
-        return sendReplyPacket(client, packet, [], [], false);
+    // As page 0 is the first page, 0 * PAGE_SIZE will be correct
+    const pagination = { limit: PAGE_SIZE, offset: page * PAGE_SIZE };
+
+    if ($type === "subfolders") {
+        const folders = await Database.folder.listing.subfolders(folderId, pagination);
+        if (folders === null) return fail();
+        client.replyToPacket(packet, new ListFoldersPacket({ folders, path, page, success: true }));
+        return;
     }
+
+    const files = await Database.folder.listing.files(folderId, pagination);
+    if (files === null) return fail();
 
     const $files = await Promise.all<ClientFileHandle | null>(
         files.map(async (f) => {
@@ -59,28 +107,5 @@ export async function performListPacketOperation(client: Client, packet: ListReq
             };
         })
     );
-
-    sendReplyPacket(
-        client,
-        packet,
-        folders,
-        $files.filter((v) => v !== null),
-        true
-    );
-}
-
-function sendReplyPacket(
-    client: Client,
-    originator: ListRequestPacket,
-    folders: ClientFolderHandle[],
-    files: ClientFileHandle[],
-    success: boolean = true
-) {
-    const { path } = originator.getData();
-    const reply = new ListPacket({ path, folders, files, success });
-    // If the packet that requested the listing had no UUID of its own,
-    // this reply might just go into the void (depending on whether the client awaits a reply or has an event listener)
-    const originatorUUID = originator.getUUID();
-    if (originatorUUID) reply.setReplyUUID(originatorUUID);
-    void client.sendPacket(reply);
+    client.replyToPacket(packet, new ListFilesPacket({ success: true, files: $files.filter((v) => v !== null), path, page }));
 }
