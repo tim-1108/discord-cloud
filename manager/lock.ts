@@ -213,7 +213,7 @@ function createEmptyStruct<T extends boolean = false>(
 ): T extends true ? RootLockStruct : LockStruct {
     const base = {
         locked_files: new Set<string>(),
-        locked_subfolders: new Map<string, LockStruct>()
+        subfolders: new Map<string, LockStruct>()
     };
     if (isRoot) {
         return base as any;
