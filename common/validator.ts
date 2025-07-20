@@ -214,7 +214,7 @@ export interface StringSchemaEntry extends BaseSchemaEntry {
      */
     max_length?: number;
     pattern?: RegExp;
-    options?: string[];
+    options?: readonly string[];
 }
 
 interface NumberSchemaEntry extends BaseSchemaEntry {
@@ -256,6 +256,8 @@ export interface ArraySchemaEntry<T = any, Allowed = any, Required extends boole
     min_length?: number;
     max_length?: number;
     allowed_items?: Allowed[];
+    // FIXME: Due to the field being optional (it is never actually declared),
+    //        the value when using is also T | undefined.
     /**
      * This is NOT VALIDATED AGAINST.
      *
@@ -266,7 +268,7 @@ export interface ArraySchemaEntry<T = any, Allowed = any, Required extends boole
     required: Required;
 }
 
-export function createArraySchemaEntry<T = any, Allowed = any, Required extends boolean = true | false>(
+export function createArraySchemaEntry<T = any, Allowed = any, Required extends boolean = true>(
     data: Omit<ArraySchemaEntry, "type">
 ): ArraySchemaEntry<T, Allowed, Required> {
     return {
@@ -288,12 +290,12 @@ function serializeSchemaEntry(entry: SchemaEntry): SerializedSchemaEntry {
     // Only overwrites the pattern property of entry, takes everything else as is
     return Object.assign({}, entry, {
         pattern: "pattern" in entry ? entry.pattern?.toString() : undefined,
-        has_validator_function: !!entry.validator_function
+        has_validator_function: typeof entry.validator_function === "function"
     });
 }
 
-type RequiredSchemaEntryType<T extends SchemaEntry> = T extends StringSchemaEntry
-    ? string
+type SchemaEntryType<T extends SchemaEntry> = T extends StringSchemaEntry
+    ? StringSchemaEntryOptionsUnion<T>
     : T extends NumberSchemaEntry
       ? number
       : T extends BooleanSchemaEntry
@@ -322,6 +324,8 @@ type ArraySchemaEntryTypeDetection<T extends ArraySchemaEntry> = T["item_type"] 
         ? Array<unknown>
         : Array<T["type_declaration"]>;
 
+type StringSchemaEntryOptionsUnion<T extends StringSchemaEntry> = T["options"] extends readonly string[] ? T["options"][number] : string;
+
 export type SchemaToType<T extends SchemaEntryConsumer | null> = T extends SchemaEntryConsumer
     ? RequiredSchemaFields<T> & OptionalSchemaFields<T>
     : null;
@@ -329,9 +333,9 @@ export type SchemaToType<T extends SchemaEntryConsumer | null> = T extends Schem
 type OrNull<S extends SchemaEntry, T> = S["allow_null"] extends true ? T | null : T;
 
 type RequiredSchemaFields<T extends SchemaEntryConsumer> = {
-    [K in keyof T as T[K]["required"] extends true ? K : never]: OrNull<T[K], RequiredSchemaEntryType<T[K]>>;
+    [K in keyof T as T[K]["required"] extends true ? K : never]: OrNull<T[K], SchemaEntryType<T[K]>>;
 };
 
 type OptionalSchemaFields<T extends SchemaEntryConsumer> = {
-    [K in keyof T as T[K]["required"] extends false ? K : never]?: OrNull<T[K], RequiredSchemaEntryType<T[K]>>;
+    [K in keyof T as T[K]["required"] extends false ? K : never]?: OrNull<T[K], SchemaEntryType<T[K]>>;
 };
