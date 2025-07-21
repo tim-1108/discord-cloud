@@ -143,3 +143,11 @@ export function formatByteString(byte_val: number, cfg?: FormatByteStringConfig)
     const divider_max = multiplier ** (len - 1);
     return format(byte_val / divider_max, len - 1);
 }
+
+export function createMapFromNamedArray<T extends { name: string }>(arr: T[]): Map<string, T> {
+    const map = new Map<string, T>();
+    for (const entry of arr) {
+        map.set(entry.name, entry);
+    }
+    return map;
+}

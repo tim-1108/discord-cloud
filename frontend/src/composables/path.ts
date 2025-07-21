@@ -1,7 +1,6 @@
 import { ref, toRaw, watch, type Ref } from "vue";
 import { getNamingMaximumLengths, getNegatedCharacterPattern, patterns } from "../../../common/patterns";
 import { logError, logWarn } from "../../../common/logging";
-import { globals } from "./globals";
 
 const route = ref<string[]>([]);
 
@@ -55,13 +54,11 @@ export function navigateToAbsoluteRoute(newRoute: string[]) {
     newRoute = newRoute.map((v) => v.trim());
     if (areRoutesIdentical(route.value, newRoute)) return;
     route.value = newRoute;
-    void triggerMeOnNavigation();
 }
 
 export function navigateUpPath(toIndex: number) {
     if (toIndex >= route.value.length - 1 || !route.value.length || toIndex < 0) return;
     route.value.splice(toIndex + 1, route.value.length - 1);
-    void triggerMeOnNavigation();
 }
 
 export function navigateToParentFolder() {
@@ -72,12 +69,6 @@ export function navigateToParentFolder() {
     } else {
         route.value.splice(l - 1, 1);
     }
-    void triggerMeOnNavigation();
-}
-
-async function triggerMeOnNavigation() {
-    const result = await globals.listing.fetch(route.value);
-    globals.listing.writeActive(result);
 }
 
 export function appendToRoute(folders: string[]) {

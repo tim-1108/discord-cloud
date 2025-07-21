@@ -25,7 +25,7 @@ async function folderStatus(client: Client, packet: FolderStatusRequestPacket) {
     const { path } = packet.getData();
     const fid = await Database.folder.getByPath(path);
     const invalidReply = new FolderStatusPacket({ path, exists: false, file_count: 0, subfolder_count: 0, page_size: PAGE_SIZE });
-    if (!fid) {
+    if (fid === null) {
         client.replyToPacket(packet, invalidReply);
         return;
     }
@@ -53,7 +53,7 @@ async function folderStatus(client: Client, packet: FolderStatusRequestPacket) {
  * @param packet The packet the client sent
  */
 async function listRequest(client: Client, packet: ListRequestPacket): Promise<void> {
-    const { path, type, page } = packet.getData();
+    const { path, type, page, sort_by, ascending_sort } = packet.getData();
     const $type = type as "subfolders" | "files";
     const folderId = await Database.folder.getByPath(path);
     // The client is expected to have sent a FolderStatusRequest packet beforehand.
@@ -70,13 +70,15 @@ async function listRequest(client: Client, packet: ListRequestPacket): Promise<v
     const pagination = { limit: PAGE_SIZE, offset: page * PAGE_SIZE };
 
     if ($type === "subfolders") {
-        const folders = await Database.folder.listing.subfolders(folderId, pagination);
+        const sortBy = sort_by === "name" ? { field: "name", ascending: ascending_sort } : undefined;
+        const folders = await Database.folder.listing.subfolders(folderId, sortBy, pagination);
         if (folders === null) return fail();
         client.replyToPacket(packet, new ListFoldersPacket({ folders, path, page, success: true }));
         return;
     }
 
-    const files = await Database.folder.listing.files(folderId, pagination);
+    const sortBy = sort_by ? { field: sort_by, ascending: ascending_sort } : undefined;
+    const files = await Database.folder.listing.files(folderId, sortBy, pagination);
     if (files === null) return fail();
 
     const $files = await Promise.all<ClientFileHandle | null>(

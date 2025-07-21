@@ -153,10 +153,17 @@ function putIntoCache(handle: FileHandle) {
     fileIdCache.set(handle.id, handle);
 }
 
-export async function listFilesInFolder_Database(folderId: FolderOrRoot, pagination?: { limit: number; offset: number }) {
+export async function listFilesInFolder_Database(
+    folderId: FolderOrRoot,
+    sortBy?: { field: string; ascending?: boolean },
+    pagination?: { limit: number; offset: number }
+) {
     let selector = supabase.from("files").select("*");
+    if (sortBy) {
+        selector = selector.order(sortBy.field, { ascending: sortBy.ascending });
+    }
     if (pagination) {
-        // Here, the 2nd parameter is inclusive, unlike most other native JS functions
+        // Here, the 2nd parameter is inclusive, unlike most native JS functions
         selector = selector.range(pagination.offset, pagination.offset + pagination.limit - 1);
     }
     // We could not possbily (well - technically, we could) know if we have all files in the directory cached

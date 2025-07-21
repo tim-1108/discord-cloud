@@ -18,6 +18,9 @@ import { CreateFolderPacket } from "../../../common/packet/c2s/CreateFolderPacke
 import { RenameFolderPacket } from "../../../common/packet/c2s/RenameFolderPacket.js";
 import { RenameFilePacket } from "../../../common/packet/c2s/RenameFilePacket.js";
 import { ThumbnailRequestPacket } from "../../../common/packet/c2s/ThumbnailRequestPacket.js";
+import { FolderStatusPacket } from "../../../common/packet/s2c/FolderStatusPacket.js";
+import { ListFilesPacket } from "../../../common/packet/s2c/ListFilesPacket.js";
+import { ListFoldersPacket } from "../../../common/packet/s2c/ListFoldersPacket.js";
 
 // As we cannot just scan directories, this requires manual registering
 
@@ -28,7 +31,10 @@ const clientboundPackets: PacketWithID<PacketTypeMap[PacketType.Server2Client]>[
     UploadQueueUpdatePacket,
     UploadStartInfoPacket,
     FileModifyPacket,
-    FolderModifyPacket
+    FolderModifyPacket,
+    FolderStatusPacket,
+    ListFilesPacket,
+    ListFoldersPacket
 ];
 const serverboundPackets: PacketWithID<PacketTypeMap[PacketType.Client2Server]>[] = [
     ListRequestPacket,

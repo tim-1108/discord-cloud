@@ -1,14 +1,11 @@
-import { globals } from "@/composables/globals.js";
 import { PacketReceiver } from "../../../common/packet/PacketReceiver.js";
 import { parsePacket } from "../../../common/packet/parser.js";
 import { getBrowserPacketList } from "./packets.js";
-import { useCurrentRoute } from "@/composables/path.js";
 import PacketType from "../../../common/packet/PacketType.js";
 import { UploadQueueUpdatePacket } from "../../../common/packet/s2c/UploadQueueUpdatePacket.js";
 import { Uploads } from "@/composables/uploads.js";
 import { UploadStartInfoPacket } from "../../../common/packet/s2c/UploadStartInfoPacket.js";
 import { FileModifyPacket } from "../../../common/packet/s2c/FileModifyPacket.js";
-import { listingFileModify } from "@/composables/listing.js";
 import { logWarn } from "../../../common/logging.js";
 import { Dialogs } from "@/composables/dialog.js";
 import { Connection } from "@/composables/connection.js";
@@ -24,8 +21,6 @@ export class Communicator extends PacketReceiver {
         this.socket.addEventListener("open", async () => {
             PendingAuthenticationState.value = "established";
             Connection.isConnected.value = true;
-            const result = await globals.listing.fetch(useCurrentRoute().value);
-            globals.listing.writeActive(result);
         });
     }
 
@@ -52,7 +47,7 @@ export class Communicator extends PacketReceiver {
             return void Uploads.start(packet);
         }
         if (packet instanceof FileModifyPacket) {
-            return listingFileModify(packet);
+            //return listingFileModify(packet);
         }
     }
 }

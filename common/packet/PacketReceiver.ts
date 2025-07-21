@@ -1,8 +1,9 @@
 import { type CloseEvent as ServersideCloseEvent, type MessageEvent as ServersideMessageEvent, WebSocket as ServersideWebSocket } from "ws";
 import type { Packet } from "./Packet.js";
-import type { UUID } from "../index.js";
+import type { DataErrorFields, UUID } from "../index.js";
 import { isServerside } from "../types.js";
 import { logWarn } from "../logging.js";
+import { createResolveFunction } from "../useless.js";
 
 interface ResolveFunction {
     /**
@@ -19,7 +20,7 @@ interface ResolveFunction {
      *
      * Maybe this is some strange quirk, and this implementation may not work either.
      */
-    resolve: (data: unknown) => void;
+    resolve: (val: Packet | null) => void;
 }
 
 /**
@@ -74,23 +75,23 @@ export abstract class PacketReceiver {
         this.socket.close(code, reason);
     }
 
-    private static REPLY_TIMEOUT = 10_000 as const;
-    protected scheduleReply<T extends Packet>(id: UUID, timeout?: number): Promise<T | null> {
-        return new Promise((resolve) => {
-            const timer = setTimeout(() => {
-                this.replies.get(id)?.resolve(null);
-                this.replies.delete(id);
-            }, timeout ?? PacketReceiver.REPLY_TIMEOUT);
+    private static REPLY_TIMEOUT_MS = 10_000 as const;
+    protected scheduleReply(id: UUID, timeout?: number) {
+        const { promise, resolve } = createResolveFunction<Packet | null>();
+        const timer = setTimeout(() => {
+            resolve(null);
+            this.replies.delete(id);
+        }, timeout ?? PacketReceiver.REPLY_TIMEOUT_MS);
 
-            const resolveFunc = (data: T) => {
-                clearTimeout(timer);
-                this.replies.get(id)?.resolve(data);
-                this.replies.delete(id);
-            };
+        const resolveFunc = (data: Packet) => {
+            clearTimeout(timer);
+            resolve(data);
+            this.replies.delete(id);
+        };
 
-            // @ts-expect-error
-            this.replies.set(id, { resolve, callable: resolveFunc });
-        });
+        this.replies.set(id, { resolve, callable: resolveFunc });
+
+        return promise;
     }
 
     /**
@@ -118,7 +119,7 @@ export abstract class PacketReceiver {
      * @param originator The original packet to reply to
      * @param myPacket The packet to send
      * @param replyPacketClass The class a possible reply is allowed to be of
-     * @param timeout The ms after which the wait for a reply should time out (Default: {@link REPLY_TIMEOUT})
+     * @param timeout The ms after which the wait for a reply should time out (Default: {@link REPLY_TIMEOUT_MS})
      */
     public replyToPacket<R extends Packet>(
         originator: Packet,
@@ -165,9 +166,12 @@ export abstract class PacketReceiver {
         });
     }
 
-    public async sendPacketAndReply<R extends Packet>(packet: Packet, replyClass: { new (): R }, timeout?: number): Promise<R | null> {
+    /**
+     * @deprecated use `sendPacketAndReply_new`
+     */
+    public async sendPacketAndReply<R extends Packet>(packet: Packet, replyClass: { new (): R }, timeoutMs?: number): Promise<R | null> {
         const uuid = packet.setRandomUUID();
-        const reply = this.scheduleReply<R>(uuid, timeout);
+        const reply = this.scheduleReply(uuid, timeoutMs);
 
         const sent = await this.sendPacket(packet);
         if (sent !== null) return null;
@@ -175,6 +179,34 @@ export abstract class PacketReceiver {
 
         // Only allow packets of the EXACT type the function caller requested
         return response instanceof replyClass ? response : null;
+    }
+
+    public async sendPacketAndReply_new<R extends Packet>(
+        packet: Packet,
+        replyClass: { new (): R } | { new (): R }[],
+        timeoutMs?: number
+    ): Promise<DataErrorFields<R, string, "packet">> {
+        const uuid = packet.setRandomUUID();
+        const promise = this.scheduleReply(uuid, timeoutMs);
+
+        if (this.socket.readyState !== this.socket.OPEN) {
+            return { packet: null, error: "The socket is not open, state: " + this.socket.readyState };
+        }
+
+        const sent = await this.sendPacket(packet);
+        if (sent !== null) return { packet: null, error: "Failed to send the packet" };
+        const reply = await promise;
+
+        if (reply === null) {
+            return { packet: null, error: "Received no reply within the timeout" };
+        }
+
+        const ret = (flag: boolean) => (flag ? { packet: reply as R, error: null } : { packet: null, error: "Received a reply of an invalid type" });
+        if (Array.isArray(replyClass)) {
+            return ret(replyClass.some(($class) => reply instanceof $class));
+        }
+
+        return ret(reply instanceof replyClass);
     }
 
     protected abstract handleSocketClose(event: CloseEventType<typeof this.socket>): void;

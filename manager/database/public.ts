@@ -134,10 +134,17 @@ export async function getAllFilesInSubfolders(path: string): Promise<SubfolderFi
     return arrayRef;
 }
 
-export function listSubfolders(folderId: FolderOrRoot, pagination?: { limit: number; offset: number }) {
+export function listSubfolders(
+    folderId: FolderOrRoot,
+    sortBy?: { field: string; ascending?: boolean },
+    pagination?: { limit: number; offset: number }
+) {
     let selector = supabase.from("folders").select("*");
+    if (sortBy) {
+        selector = selector.order(sortBy.field, { ascending: sortBy.ascending });
+    }
     if (pagination) {
-        // Here, the 2nd parameter is inclusive, unlike most other native JS functions
+        // Here, the 2nd parameter is inclusive, unlike most native JS functions
         selector = selector.range(pagination.offset, pagination.offset + pagination.limit - 1);
     }
     return parsePostgrestResponse<FolderHandle[]>(

@@ -1,6 +1,6 @@
-import { C2SPacket } from "../C2SPacket.js";
 import { patterns } from "../../patterns.js";
 import type { SchemaToType } from "../../validator.js";
+import { S2CPacket } from "../S2CPacket.js";
 
 const id = "folder-status";
 
@@ -20,7 +20,7 @@ const dataStructure = {
  * Retrieves whether the folder at this path exists in addition
  * to a count of subfolders and files to build page counts.
  */
-export class FolderStatusPacket extends C2SPacket {
+export class FolderStatusPacket extends S2CPacket {
     declare protected data: DataType;
     public static readonly ID = id;
 

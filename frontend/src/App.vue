@@ -10,12 +10,10 @@ import { Dialogs } from "./composables/dialog";
 import { appendToRoute, convertRouteToPath, navigateToParentFolder, useCurrentRoute } from "./composables/path";
 import Sidebar from "./components/Sidebar.vue";
 import ThumbnailFileGrid from "./components/listing/ThumbnailFileGrid.vue";
-import { isListingError } from "./composables/listing";
 import { faFolderPlus, faLongArrowUp, faRotateRight } from "@fortawesome/free-solid-svg-icons";
 import { Connection } from "./composables/connection";
 import { PendingAuthenticationState } from "./composables/state";
 
-const listing = globals.listing.active;
 const route = useCurrentRoute();
 const path = computed(() => convertRouteToPath(route.value));
 
@@ -39,8 +37,6 @@ const dropPreview = {
 };
 
 const isConnected = Connection.isConnected;
-
-const listingType = ref<"grid" | "table">("grid");
 </script>
 
 <template>
@@ -63,36 +59,7 @@ const listingType = ref<"grid" | "table">("grid");
                 <span v-else-if="PendingAuthenticationState === 'establishing'">Establishing connection</span>
                 <span v-else-if="PendingAuthenticationState === 'established'">Connected</span>
             </div>
-            <div v-else-if="listing === null" class="grid h-full w-full place-content-center">
-                <p>Loading...</p>
-            </div>
-            <div v-else-if="isListingError(listing)" class="grid h-full w-full place-content-center">
-                <section class="bg-[var(--component-color)] shadow rounded-xl py-2 px-4 grid justify-items-center gap-2">
-                    <h3>An Error Occured</h3>
-                    <span>{{ listing.code }}</span>
-                    <div class="grid md:flex gap-2">
-                        <HighlightButton :icon="faLongArrowUp" styling="default" v-if="route.length">Go Up</HighlightButton>
-                        <HighlightButton :icon="faRotateRight" styling="default" v-if="listing.can_retry">Retry</HighlightButton>
-                        <HighlightButton :icon="faFolderPlus" styling="default" v-if="listing.can_create_folder">Create</HighlightButton>
-                    </div>
-                </section>
-            </div>
-            <div v-else class="grid gap-2" :key="path">
-                <div class="flex justify-between items-end gap-4 flex-wrap">
-                    <h3>Folders</h3>
-                    <ListingTypeChooser :default-value="listingType" @update="(val) => (listingType = val)"></ListingTypeChooser>
-                </div>
-                <FolderGrid
-                    v-if="listingType === 'grid'"
-                    :folder-list="listing.folders"
-                    :show-up="route.length > 0"
-                    @navigate="(name) => appendToRoute([name])"
-                    @navigate-up="navigateToParentFolder"></FolderGrid>
-                <FolderTable v-else :folder-list="listing.folders"></FolderTable>
-                <h3>Files</h3>
-                <ThumbnailFileGrid v-if="listingType === 'grid'" :file-list="listing.files"></ThumbnailFileGrid>
-                <FileTable v-else :file-list="listing.files"></FileTable>
-            </div>
+            <ListingWrapper :path="path" :key="path" v-else></ListingWrapper>
         </main>
         <component v-for="[k, cmp] of Dialogs.iterator.value" :is="cmp" :key="k"></component>
         <UploadDropOverlay
