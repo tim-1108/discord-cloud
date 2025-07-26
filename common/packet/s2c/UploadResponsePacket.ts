@@ -20,7 +20,8 @@ const dataStructure = {
      * found. In such a case, the upload fails and the `rejection_reason`
      * field specifies that cause.
      */
-    rename_target: { type: "string", required: false, pattern: patterns.fileName }
+    rename_target: { type: "string", required: false, pattern: patterns.fileName },
+    upload_id: { type: "string", required: true, pattern: patterns.uuid }
 } as const;
 
 export class UploadResponsePacket extends S2CPacket {

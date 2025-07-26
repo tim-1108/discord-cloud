@@ -1,4 +1,4 @@
-import type { UploadFileHandle } from "./uploads";
+import type { UploadRelativeFileHandle } from "./uploads";
 
 /**
  * Navigates a {@link FileSystemEntry} (folder) object tree to reduce the content
@@ -7,14 +7,14 @@ import type { UploadFileHandle } from "./uploads";
  * If a file is inputted ({@link FileSystemFileEntry}), then only that file is returned
  * @param entry The file system entry received from the drop event
  */
-export async function traverseFileTree(entry: FileSystemEntry): Promise<UploadFileHandle[]> {
-    const files = new Array<UploadFileHandle>();
+export async function traverseFileTree(entry: FileSystemEntry): Promise<UploadRelativeFileHandle[]> {
+    const files = new Array<UploadRelativeFileHandle>();
     if (entryIsFile(entry)) {
         await new Promise((resolve) => {
             entry.file((fileHandle) => {
                 // The fullPath property includes the file name, that has to go!
                 // Every slash - except for the last trailing slash - is retained
-                files.push({ handle: fileHandle, relativePath: entry.fullPath.replace(/\/[^/]*$/, "") || "/" });
+                files.push({ file: fileHandle, relativePath: entry.fullPath.replace(/\/[^/]*$/, "") || "/" });
                 resolve(null);
             });
         });

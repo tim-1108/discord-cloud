@@ -1,13 +1,82 @@
 import type { UUID } from "../../../common";
-import { combinePaths, convertPathToRoute, convertRouteToPath, useCurrentRoute } from "./path";
-import type { UploadStartInfoPacket } from "../../../common/packet/s2c/UploadStartInfoPacket";
+import { attemptRepairFolderOrFileName, combinePaths, convertPathToRoute, convertRouteToPath, useCurrentRoute } from "./path";
 import { logError, logWarn } from "../../../common/logging";
-import { computed, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { getOrCreateCommunicator } from "./authentication";
+import { UploadServicesReleasePacket } from "../../../common/packet/c2s/UploadServicesReleasePacket";
+import { GenericBooleanPacket } from "../../../common/packet/generic/GenericBooleanPacket";
+import { UploadServicesRequestPacket } from "../../../common/packet/c2s/UploadServicesRequestPacket";
+import { UploadServicesPacket } from "../../../common/packet/s2c/UploadServicesPacket";
+import { Dialogs } from "./dialog";
+import type { UploadBookingModifyPacket } from "../../../common/packet/s2c/UploadBookingModifyPacket";
+import { UploadRequestPacket } from "../../../common/packet/c2s/UploadRequestPacket";
+import { patterns } from "../../../common/patterns";
+import { UploadResponsePacket } from "../../../common/packet/s2c/UploadResponsePacket";
+import type { UploadFinishInfoPacket } from "../../../common/packet/s2c/UploadFinishInfoPacket";
 
-export interface UploadFileHandle {
-    handle: File;
+export interface UploadRelativeFileHandle {
+    file: File;
     relativePath: string;
+}
+interface UploadAbsoluteFileHandle {
+    file: File;
+    path: string;
+}
+
+const desiredUploaderCount = ref(10);
+const availableUploaderCount = ref(0);
+// Whether any uploads are desired by the user.
+// If not, we can release our booked services and book them
+// again if needed. The server trusts clients to free up
+// services when not needed.
+const isHandlingUploads = computed(() => activeUploads.size > 0 || queue.length > 0);
+watch(desiredUploaderCount, (value) => {
+    if (value === 0 || !isHandlingUploads.value) return;
+    void bookUploaders(value);
+});
+
+async function bookUploaders(desiredCount: number) {
+    const com = await getOrCreateCommunicator();
+    const reply = await com.sendPacketAndReply_new(
+        new UploadServicesRequestPacket({ desired_amount: desiredUploaderCount.value }),
+        UploadServicesPacket
+    );
+    if (!reply.packet) {
+        Dialogs.alert({ title: "Failed to book upload services", body: "Upload services could not be booked due to: " + reply.error });
+        return;
+    }
+    const { count } = reply.packet.getData();
+    availableUploaderCount.value = count;
+}
+
+watch(availableUploaderCount, async (value, oldValue) => {
+    if (value <= oldValue) return;
+    const delta = value - oldValue;
+    for (let i = 0; i < delta; i++) {
+        await startNextUpload();
+    }
+});
+watch(isHandlingUploads, async (value) => {
+    if (value) {
+        void bookUploaders(desiredUploaderCount.value);
+        return;
+    }
+    const com = await getOrCreateCommunicator();
+    const reply = await com.sendPacketAndReply_new(new UploadServicesReleasePacket({}), GenericBooleanPacket);
+    if (!reply.packet) {
+        throw new Error("Error upon releasing upload services: " + reply.error);
+    }
+    const { success, message } = reply.packet.getData();
+    if (!success) {
+        logError("Release failed due to: " + message);
+    }
+    availableUploaderCount.value = 0;
+});
+
+function handleBookingModification(packet: UploadBookingModifyPacket) {
+    const { effective_change } = packet.getData();
+    if (availableUploaderCount.value === 0) return;
+    availableUploaderCount.value += effective_change;
 }
 
 function streamFromFile(file: File, chunkSize: number) {
@@ -90,61 +159,67 @@ interface ActiveUpload {
      * upload progress on the file.
      */
     progress: number;
+    name: string;
     path: string;
 }
 const activeUploads = reactive(new Map<UUID, ActiveUpload>());
+const queue = reactive(new Array<UploadAbsoluteFileHandle>());
 
-async function submitUpload({ handle, relativePath }: UploadFileHandle): Promise<UUID | null> {
+function submitUpload({ file, relativePath }: UploadRelativeFileHandle): number | null {
     // For now, empty files cannot be accepted
-    if (handle.size === 0) {
+    // They will be uploaded using a special packet
+    if (file.size === 0) {
         return null;
     }
-    const path = convertRouteToPath(useCurrentRoute().value);
-    const absPath = combinePaths(path, relativePath);
-    const c = await getOrCreateCommunicator();
-    const status = await c.sendPacketAndReply(
-        // TODO: allow public to be turned on/off
-        new UploadQueueAddPacket({ name: handle.name, path: absPath, size: handle.size, is_public: true }),
-        UploadQueueingPacket
-    );
-    if (status === null) {
-        return null;
-    }
-    const { queue_position, upload_id } = status.getData();
-    queue.set(upload_id as UUID, { path: absPath, file: handle, queue_position });
-    return upload_id as UUID;
+    const currentPath = convertRouteToPath(useCurrentRoute().value);
+    const absPath = combinePaths(currentPath, relativePath);
+    return queue.push({ file, path: absPath });
 }
 
-function advanceQueue(packet: UploadQueueUpdatePacket) {
-    // TODO: make more efficient by also mapping by queue position?
-    const { decrease_at, decrease_by } = packet.getData();
-    for (const handle of queue.values()) {
-        if (decrease_at > handle.queue_position) {
-            continue;
-        }
-        handle.queue_position -= decrease_by;
-    }
-}
-
-async function startUpload(packet: UploadStartInfoPacket) {
-    const { upload_id, chunk_size, address } = packet.getData();
-    const id = upload_id as UUID;
-    const handle = queue.get(id);
+async function startNextUpload() {
+    const handle = queue.shift();
     if (!handle) {
-        logWarn("Received a start packet for an unknown upload:", packet.getData());
         return;
     }
-    void queue.delete(id);
+
+    const com = await getOrCreateCommunicator();
+    const name = attemptRepairFolderOrFileName(handle.file.name);
+    if (!patterns.fileName.test(name)) {
+        await Dialogs.alert({ body: `Invalid file name: ${handle.file.name}\nAttempted fix: ${name}\nThis did not work either. Sorry!` });
+        return startNextUpload();
+    }
+    const reply = await com.sendPacketAndReply_new(
+        new UploadRequestPacket({ name, path: handle.path, is_public: true, size: handle.file.size }),
+        UploadResponsePacket
+    );
+    if (!reply.packet) {
+        logError(handle);
+        throw new Error("Error on sending a upload request: " + reply.error);
+    }
+    const { accepted, upload_address, chunk_size, rejection_reason, rename_target, upload_id } = reply.packet.getData();
+    if (!accepted) {
+        await Dialogs.alert({ body: `File ${name} at ${handle.path} was not accepted due to: ${rejection_reason ?? "unknown"}` });
+        return startNextUpload();
+    }
+
+    const uploadAddress = upload_address as string;
+
+    if (rename_target) {
+        // TODO: notify user when the file name was changed!
+        //       is already adjusted for display down below
+    }
+
     const streamFn = streamFromFile(handle.file, chunk_size);
     const cc = Math.ceil(handle.file.size / chunk_size);
 
     const au: ActiveUpload = {
         id: upload_id as UUID,
-        targetAddress: address,
+        targetAddress: uploadAddress,
         chunks: cc,
         processed_chunks: 0,
         progress: 0,
         file: handle.file,
+        name: rename_target ?? handle.file.name,
         path: handle.path
     };
     activeUploads.set(upload_id as UUID, au);
@@ -155,7 +230,7 @@ async function startUpload(packet: UploadStartInfoPacket) {
             logError(`Stream reported done despite chunks still remaining`);
             break;
         }
-        const cfg = { uploadId: id, targetAddress: address, chunkIndex: i, dataBuffer: buffer.value };
+        const cfg = { uploadId: au.id, targetAddress: au.targetAddress, chunkIndex: i, dataBuffer: buffer.value };
         const result = await sendChunk(cfg);
         au.processed_chunks++;
         // TODO: Implement retry system, we'll just move on for now
@@ -164,6 +239,21 @@ async function startUpload(packet: UploadStartInfoPacket) {
             continue;
         }
     }
+}
+
+function handleUploadFinish(packet: UploadFinishInfoPacket) {
+    const { success, upload_id, reason } = packet.getData();
+    const handle = activeUploads.get(upload_id as UUID);
+    if (!handle) {
+        logWarn("Received finish packet for unknown upload:", upload_id);
+        return;
+    }
+    activeUploads.delete(upload_id as UUID);
+    if (!success) {
+        logError(`Upload failed due to ${reason ?? "unknown"}`);
+        console.error(`${handle.path} | ${handle.name}`);
+    }
+    // TODO: Notify user if upload failed!
 }
 
 interface SendConfig {
@@ -200,22 +290,14 @@ function sendChunk(cfg: SendConfig) {
     });
 }
 
-interface UploadQueueHandle {
-    path: string;
-    file: File;
-    queue_position: number;
-}
-
-const queue = reactive(new Map<UUID, UploadQueueHandle>());
-
 // === preview section ===
-type PreviewItem = { files: Map<string, UploadFileHandle>; subfolders: Map<string, PreviewItem> };
+type PreviewItem = { files: Map<string, UploadRelativeFileHandle>; subfolders: Map<string, PreviewItem> };
 function createPreviewItem(): PreviewItem {
     return { files: new Map(), subfolders: new Map() };
 }
 let previews = ref(createPreviewItem());
 const previewTotal = ref(0);
-function addPreviews(list: UploadFileHandle[]): void {
+function addPreviews(list: UploadRelativeFileHandle[]): void {
     for (const h of list) {
         const r = convertPathToRoute(h.relativePath);
         let parent = previews.value;
@@ -231,10 +313,10 @@ function addPreviews(list: UploadFileHandle[]): void {
         // This file will not be added
         // TODO: Should we overwrite it instead?
         //       Ask for user confirmation Promise?
-        if (parent.files.has(h.handle.name)) {
+        if (parent.files.has(h.file.name)) {
             continue;
         }
-        parent.files.set(h.handle.name, h);
+        parent.files.set(h.file.name, h);
         previewTotal.value++;
     }
 }
@@ -254,7 +336,7 @@ function getPreviewsForRoute(route: string[]): PreviewItem | null {
 
 function getAllPreviewsAndReset() {
     // We trust our count variable here
-    const a = new Array<UploadFileHandle>(previewTotal.value);
+    const a = new Array<UploadRelativeFileHandle>(previewTotal.value);
     if (!previewTotal.value) {
         return a;
     }
@@ -285,7 +367,7 @@ function resetPreviews() {
 
 export const Uploads = {
     submit: submitUpload,
-    start: startUpload,
+    start: startNextUpload,
     active: activeUploads,
     preview: {
         add: addPreviews,
@@ -294,8 +376,12 @@ export const Uploads = {
         count: previewTotal,
         reset: resetPreviews
     },
-    queue: {
-        advance: advanceQueue,
-        count: computed(() => queue.size)
+    booking: {
+        desired: desiredUploaderCount,
+        available: availableUploaderCount
+    },
+    packets: {
+        bookingModify: handleBookingModification,
+        uploadFinish: handleUploadFinish
     }
 } as const;

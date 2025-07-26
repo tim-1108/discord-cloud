@@ -9,7 +9,6 @@ import { ClientList } from "./client/list.js";
 import { ServiceRegistry } from "./services/list.js";
 import { Database } from "./database/index.js";
 import { ROOT_FOLDER_ID } from "./database/core.js";
-import { UploadStartInfoPacket } from "../common/packet/s2c/UploadStartInfoPacket.js";
 import type { FileHandle } from "../common/supabase.js";
 import { Authentication } from "./authentication.js";
 import type { UploadServicesRequestPacket } from "../common/packet/c2s/UploadServicesRequestPacket.js";
@@ -162,6 +161,7 @@ async function requestUploadStart(client: Client, packet: UploadRequestPacket) {
 
     const fail = (reason?: string) => {
         const packet = new UploadResponsePacket({
+            upload_id: crypto.randomUUID() /* utterly pointless */,
             accepted: false,
             chunk_size: Constants.chunkSize,
             name: name_doNotUseMe,
@@ -213,8 +213,10 @@ async function requestUploadStart(client: Client, packet: UploadRequestPacket) {
         return;
     }
 
+    const uuid = crypto.randomUUID();
+
     const metadata: UploadMetadata = {
-        upload_id: crypto.randomUUID(),
+        upload_id: uuid,
         chunk_size: Constants.chunkSize,
         overwrite_target: overwriteFileId,
         overwrite_user_id: overwriteUserId,
@@ -230,6 +232,7 @@ async function requestUploadStart(client: Client, packet: UploadRequestPacket) {
     client.replyToPacket(
         packet,
         new UploadResponsePacket({
+            upload_id: uuid,
             upload_address: service.getAddress(),
             rename_target: renameTarget,
             accepted: request.data === true,

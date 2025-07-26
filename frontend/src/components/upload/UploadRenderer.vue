@@ -1,13 +1,13 @@
 <script setup lang="ts">
 import { convertPathToRoute, convertRouteToPath } from "@/composables/path";
-import type { UploadFileHandle } from "@/composables/uploads";
+import type { UploadRelativeFileHandle } from "@/composables/uploads";
 import { computed, onMounted, ref, watch } from "vue";
 import SubfolderList from "../SubfolderList.vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { getIconForFileType } from "@/composables/icons";
 
-const { fileList: files } = defineProps<{ fileList: UploadFileHandle[] }>();
-const emit = defineEmits<{ removeFile: [handle: UploadFileHandle]; removeFolder: [relativePath: string]; clear: [] }>();
+const { fileList: files } = defineProps<{ fileList: UploadRelativeFileHandle[] }>();
+const emit = defineEmits<{ removeFile: [handle: UploadRelativeFileHandle]; removeFolder: [relativePath: string]; clear: [] }>();
 
 type FileTreeEntry = { files: Map<string, File>; subfolders: string[]; subfolder_map: Map<string, FileTreeEntry> };
 const createEmptyFileTreeEntry = () => ({ files: new Map(), subfolders: [], subfolder_map: new Map() });
@@ -37,10 +37,10 @@ function buildFileTree() {
     const pathMap = new Map<string, File[]>();
     files.forEach((handle) => {
         if (!pathMap.has(handle.relativePath)) {
-            pathMap.set(handle.relativePath, [handle.handle]);
+            pathMap.set(handle.relativePath, [handle.file]);
             return handle;
         }
-        pathMap.get(handle.relativePath)!.push(handle.handle);
+        pathMap.get(handle.relativePath)!.push(handle.file);
     });
     // These could be sorted, this would need other optimizations to be useful.
     const routes = Array.from(pathMap.keys()).map((path) => ({ path, route: convertPathToRoute(path) }));

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Uploads, type UploadFileHandle } from "@/composables/uploads";
+import { Uploads, type UploadRelativeFileHandle } from "@/composables/uploads";
 import BaseDialog from "./BaseDialog.vue";
 import PathRenderer from "../PathRenderer.vue";
 import StyledButton from "../basic/StyledButton.vue";
@@ -16,7 +16,7 @@ import { faPlus } from "@fortawesome/free-solid-svg-icons";
 const isDropping = ref(false);
 const isLocked = ref(false);
 
-function addFilesViaInput(list: UploadFileHandle[]) {
+function addFilesViaInput(list: UploadRelativeFileHandle[]) {
     Uploads.preview.add(list);
 }
 

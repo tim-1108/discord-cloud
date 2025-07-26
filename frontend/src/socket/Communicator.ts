@@ -2,14 +2,14 @@ import { PacketReceiver } from "../../../common/packet/PacketReceiver.js";
 import { parsePacket } from "../../../common/packet/parser.js";
 import { getBrowserPacketList } from "./packets.js";
 import PacketType from "../../../common/packet/PacketType.js";
-import { UploadQueueUpdatePacket } from "../../../common/packet/s2c/UploadQueueUpdatePacket.js";
 import { Uploads } from "@/composables/uploads.js";
-import { UploadStartInfoPacket } from "../../../common/packet/s2c/UploadStartInfoPacket.js";
 import { FileModifyPacket } from "../../../common/packet/s2c/FileModifyPacket.js";
 import { logWarn } from "../../../common/logging.js";
 import { Dialogs } from "@/composables/dialog.js";
 import { Connection } from "@/composables/connection.js";
 import { PendingAuthenticationState } from "@/composables/state.js";
+import { UploadBookingModifyPacket } from "../../../common/packet/s2c/UploadBookingModifyPacket.js";
+import { UploadFinishInfoPacket } from "../../../common/packet/s2c/UploadFinishInfoPacket.js";
 
 /**
  * The class that communicates with the manager using a web socket.
@@ -40,13 +40,11 @@ export class Communicator extends PacketReceiver {
             return;
         }
 
-        if (packet instanceof UploadQueueUpdatePacket) {
-            return Uploads.queue.advance(packet);
-        }
-        if (packet instanceof UploadStartInfoPacket) {
-            return void Uploads.start(packet);
-        }
-        if (packet instanceof FileModifyPacket) {
+        if (packet instanceof UploadBookingModifyPacket) {
+            Uploads.packets.bookingModify(packet);
+        } else if (packet instanceof UploadFinishInfoPacket) {
+            Uploads.packets.uploadFinish(packet);
+        } else if (packet instanceof FileModifyPacket) {
             //return listingFileModify(packet);
         }
     }

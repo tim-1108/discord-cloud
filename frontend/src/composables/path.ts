@@ -147,7 +147,7 @@ const negatedSet = getNegatedCharacterPattern();
 const maxmiums = getNamingMaximumLengths();
 const doubleDotsPattern = /\.{2,}/g;
 const emptyStringTag = "?";
-function attemptRepairFolderOrFileName(name: string) {
+export function attemptRepairFolderOrFileName(name: string) {
     name = name.replace(doubleDotsPattern, "").replace(negatedSet, emptyStringTag).substring(0, maxmiums.title);
     name ||= emptyStringTag;
     return name.trim();

@@ -2,7 +2,7 @@
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import FileDropper from "../upload/FileDropper.vue";
-import { Uploads, type UploadFileHandle } from "@/composables/uploads";
+import { Uploads, type UploadRelativeFileHandle } from "@/composables/uploads";
 import { Dialogs } from "@/composables/dialog";
 import { nextTick, ref } from "vue";
 
@@ -10,7 +10,7 @@ const emit = defineEmits<{ hide: [] }>();
 defineProps<{ subtitle: string }>();
 const isProcessing = ref(false);
 
-async function addFiles(list: UploadFileHandle[]) {
+async function addFiles(list: UploadRelativeFileHandle[]) {
     isProcessing.value = true;
     await nextTick();
     Uploads.preview.add(list);

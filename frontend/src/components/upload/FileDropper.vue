@@ -1,12 +1,12 @@
 <script setup lang="ts">
 import { traverseFileTree } from "@/composables/filesystem";
-import type { UploadFileHandle } from "@/composables/uploads";
+import type { UploadRelativeFileHandle } from "@/composables/uploads";
 import { useTemplateRef } from "vue";
 
 defineProps<{ disabled?: boolean; hidden?: boolean }>();
 
 const emit = defineEmits<{
-    add: [files: UploadFileHandle[]];
+    add: [files: UploadRelativeFileHandle[]];
     preprocessing: [];
 }>();
 
