@@ -1,7 +1,6 @@
 import { type CloseEvent, type MessageEvent, WebSocket } from "ws";
 import type { UUID } from "../../common/index.js";
 import { parsePacket } from "../../common/packet/parser.js";
-import { UploadQueueAddPacket } from "../../common/packet/c2s/UploadQueueAddPacket.js";
 import { PacketReceiver } from "../../common/packet/PacketReceiver.js";
 import { PingServicesPacket } from "../../common/packet/c2s/PingServicesPacket.js";
 import { pingServices } from "../pinging.js";
@@ -20,6 +19,9 @@ import { RenameFolderPacket } from "../../common/packet/c2s/RenameFolderPacket.j
 import { RenameFilePacket } from "../../common/packet/c2s/RenameFilePacket.js";
 import { ClientList } from "./list.js";
 import { FolderStatusRequestPacket } from "../../common/packet/c2s/FolderStatusRequestPacket.js";
+import { UploadRequestPacket } from "../../common/packet/c2s/UploadRequestPacket.js";
+import { UploadServicesRequestPacket } from "../../common/packet/c2s/UploadServicesRequestPacket.js";
+import { UploadServicesReleasePacket } from "../../common/packet/c2s/UploadServicesReleasePacket.js";
 
 export class Client extends PacketReceiver {
     private readonly uuid: UUID;
@@ -47,7 +49,7 @@ export class Client extends PacketReceiver {
     //  to close any in-progress uploads
     protected handleSocketClose(event: CloseEvent) {
         ClientList.unregister(this);
-        const clearedUploads = Uploads.clear.client(this.uuid);
+        const clearedUploads = Uploads.handlers.client.disconnect(this);
         console.info(`[Client.disconnect] ${this.uuid} | Removed ${clearedUploads} queued upload(s)`);
     }
 
@@ -56,8 +58,8 @@ export class Client extends PacketReceiver {
         if (!packet) return;
         const hasResolved = this.resolveReplies(packet);
 
-        if (packet instanceof UploadQueueAddPacket) {
-            Uploads.enqueue(this, packet);
+        if (packet instanceof UploadRequestPacket) {
+            void Uploads.request(this, packet);
         } else if (packet instanceof PingServicesPacket) {
             pingServices();
         } else if (packet instanceof ListRequestPacket) {
@@ -76,6 +78,10 @@ export class Client extends PacketReceiver {
             void ActionClientOperations.renameFolder(this, packet);
         } else if (packet instanceof RenameFilePacket) {
             void ActionClientOperations.renameFile(this, packet);
+        } else if (packet instanceof UploadServicesRequestPacket) {
+            void Uploads.booking.request(this, packet);
+        } else if (packet instanceof UploadServicesReleasePacket) {
+            void Uploads.booking.release(this, packet);
         }
     }
 }

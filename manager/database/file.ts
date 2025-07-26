@@ -9,6 +9,7 @@ import { ROOT_FOLDER_ID, routeToPath, supabase, type FolderOrRoot } from "./core
 import { parsePostgrestResponse } from "./helper.js";
 import { Database } from "./index.js";
 import { patterns } from "../../common/patterns.js";
+import { Locks } from "../lock.js";
 
 /**
  * Maps file name to a handle.
@@ -213,7 +214,7 @@ function getFileHandleId_Database(id: number) {
  * This function takes the maximum file length into account. If a fitting file name cannot
  * be found, `null` is returned. If successful, the new name is returned.
  */
-export async function findReplacementFileName(name: string, folder: FolderOrRoot): Promise<string | null> {
+export async function findReplacementFileName(name: string, folder: FolderOrRoot, folderPath: string): Promise<string | null> {
     let handle: FileHandle | null;
     let i = 1;
     // After a certain point, looking up file names for an infinite time
@@ -230,9 +231,12 @@ export async function findReplacementFileName(name: string, folder: FolderOrRoot
         }
         // Of course, this lookup could fail for other reasons (network, rate limit, whatever)
         // But for now, we will assume that if this fails, the file is non-existent
-        // (another motivation to implement win32's GetLastError or just another return value)
         handle = await Database.file.get(folder, result);
-        if (handle === null) {
+        // If the file is locked, that might mean that an upload for the
+        // same name is currently in progress. In that case, we have to
+        // continue with the next possible file name.
+        const isLocked = Locks.file.status(folderPath, result);
+        if (handle === null && !isLocked) {
             return result;
         }
         if (i === LIMIT) {

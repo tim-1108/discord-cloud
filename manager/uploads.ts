@@ -1,13 +1,10 @@
-import type { UploadQueueAddPacket } from "../common/packet/c2s/UploadQueueAddPacket.js";
 import { Client } from "./client/Client.js";
 import type { UploadMetadata } from "../common/uploads.js";
 import type { UUID } from "../common";
-import { UploadQueueUpdatePacket } from "../common/packet/s2c/UploadQueueUpdatePacket.js";
-import { UploadQueueingPacket } from "../common/packet/s2c/UploadQueueingPacket.js";
 import { UploadFinishInfoPacket } from "../common/packet/s2c/UploadFinishInfoPacket.js";
 import type { UploadFinishPacket } from "../common/packet/u2s/UploadFinishPacket.js";
 import { ThumbnailService } from "./services/ThumbnailService.js";
-import { logDebug } from "../common/logging.js";
+import { logDebug, logError, logWarn } from "../common/logging.js";
 import { ClientList } from "./client/list.js";
 import { ServiceRegistry } from "./services/list.js";
 import { Database } from "./database/index.js";
@@ -15,10 +12,16 @@ import { ROOT_FOLDER_ID } from "./database/core.js";
 import { UploadStartInfoPacket } from "../common/packet/s2c/UploadStartInfoPacket.js";
 import type { FileHandle } from "../common/supabase.js";
 import { Authentication } from "./authentication.js";
+import type { UploadServicesRequestPacket } from "../common/packet/c2s/UploadServicesRequestPacket.js";
+import { UploadServicesPacket } from "../common/packet/s2c/UploadServicesPacket.js";
+import type { UploadService } from "./services/UploadService.js";
+import type { UploadRequestPacket } from "../common/packet/c2s/UploadRequestPacket.js";
+import { Locks } from "./lock.js";
+import { UploadResponsePacket } from "../common/packet/s2c/UploadResponsePacket.js";
+import { UploadBookingModifyPacket } from "../common/packet/s2c/UploadBookingModifyPacket.js";
+import type { UploadServicesReleasePacket } from "../common/packet/c2s/UploadServicesReleasePacket.js";
+import { GenericBooleanPacket } from "../common/packet/generic/GenericBooleanPacket.js";
 
-// With the current design, we keep no list of uploads currently in process
-
-const uploadQueue = new Array<UploadMetadata>();
 const Constants = {
     /**
      * Discord currently allows 10MB uploads per message-
@@ -33,154 +36,278 @@ const Constants = {
 };
 
 export const Uploads = {
-    enqueue: performEnqueueUploadOperation,
-    pushToServices,
-    clear: {
-        indices: removeIndicesFromQueue,
-        client: removeClientItemsFromQueue
-    },
+    request: requestUploadStart,
     fail: failUpload,
     finish: finishUpload,
-    chunkSize: () => Constants.chunkSize
+    chunkSize: () => Constants.chunkSize,
+    handlers: {
+        client: {
+            disconnect: handleClientDisconnect
+        },
+        service: {
+            initOrRelease: handleServiceInitOrRelease,
+            disconnect: handleServiceDisconnect
+        }
+    },
+    booking: {
+        request: requestUploadServices,
+        release: handleClientRelease
+    }
 } as const;
 
-async function performEnqueueUploadOperation(client: Client, packet: UploadQueueAddPacket) {
-    const { name, path, size, is_public } = packet.getData();
+type BookingDetails = {
+    desired_amount: number;
+    current_amount: number;
+};
+const bookings = new Map<UUID, BookingDetails>();
+function getOrWriteBooking(client: Client) {
+    const value = bookings.get(client.getUUID());
+    if (value) {
+        return value;
+    }
+    const $value: BookingDetails = { desired_amount: 0, current_amount: 0 };
+    bookings.set(client.getUUID(), $value);
+    return $value;
+}
 
-    const existingFile = await Database.file.getWithPath(name, path);
-    let userId: number | null = null;
-    if (existingFile !== null) {
-        // There may be an infinite number of uploads trying to overwrite a file
-        // (they will be processed one after the other)
-        // That poses no risk as they just UPDATE the db entry
+async function requestUploadServices(client: Client, packet: UploadServicesRequestPacket) {
+    // When a user has already booked uploaders, we only need to assign the
+    // differenc between the values.
+    // This packet only allows values greater than 0, so the user may never
+    // "book" zero uploaders.
+    const { desired_amount } = packet.getData();
+    console.log(desired_amount);
 
-        // TODO: ask user if they really wish to overwrite?
-        //       only maybe though.
-        //       For that, implement another packet sent to the client asking
-        //       If they do not respond, assuming cancelling?
+    const reply = (count: number) => void client.replyToPacket(packet, new UploadServicesPacket({ count }));
 
-        const ownership = await Authentication.permissions.ownership(client.getUserId(), existingFile);
-        // 1) Public files may be overwritten by anyone. The owner is kept though.
-        // 2) If the user is only receiving the file via a share, they may only
-        //    overwrite it when can_write is true. The owner is kept as well.
-        // TODO: implement this same check when actually writing to db?
-        //       the owner might have changed permissions since then (although unlikely)
-        if (ownership === null || ownership.status === "restricted" || (ownership.status === "shared" && !ownership.share.can_write)) {
-            return;
+    let needed = desired_amount;
+    const ab = bookings.get(client.getUUID());
+    if (ab) {
+        const delta = desired_amount - ab.desired_amount;
+        // Nothing has actually changed about the booking.
+        // Also, we do not try to book other services as that
+        // would be pointless right now (they are automatically)
+        if (delta === 0) {
+            return reply(ab.current_amount);
         }
-
-        userId = existingFile.owner;
+        // user actually wants to reduce their amount
+        if (delta < 0) {
+            // no modification needed then (current amount does not need to change)
+            if (ab.current_amount <= desired_amount) {
+                ab.desired_amount = desired_amount;
+                reply(ab.current_amount);
+                return;
+            }
+            // now we actually need to free uploaders
+            const count = ab.current_amount - desired_amount;
+            // note that we do not look for just idle services!
+            // if the user submits such a packet while their uploads are
+            // running, we will force stop them.
+            const services = ServiceRegistry.random.multiple("upload", count, (s) => s.isBookedForClient(client));
+            if (!services) {
+                throw new RangeError(
+                    "Incorrect value stored in current_amount, not as many uploaders are booked: " +
+                        ab.current_amount +
+                        " | new_desired: " +
+                        desired_amount +
+                        " | stored_desired: " +
+                        ab.desired_amount
+                );
+            }
+            for (const s of services) {
+                s.clearBooking();
+            }
+            ab.desired_amount = desired_amount;
+            ab.current_amount = desired_amount;
+            return reply(desired_amount);
+        }
+        // Now, the user wants to add to their current amount.
+        // For determining this amount, we know that if the
+        // current_amount does not match the previously desired amount,
+        // there are no other services free that we can book and we
+        // need not bother. If a service should then become free,
+        // the corresponding handler function will deal with that
+        // and assign it to a random client that needs it.
+        if (ab.current_amount !== ab.desired_amount) {
+            ab.desired_amount = desired_amount;
+            return reply(ab.current_amount);
+        }
+        // the amount of services we need to book now to fit the
+        // count requested by the client
+        needed = desired_amount - ab.desired_amount;
     }
 
-    // The only place where we first assign the id for the upload
-    // This is used everywhere later on!
-    const uploadUUID = crypto.randomUUID();
-    const chunkSize = Math.min(Constants.chunkSize, size);
+    const free = ServiceRegistry.count("upload", (service) => !service.isBooked());
+    const count = Math.min(needed, free.idle);
+    if (free.idle === 0) {
+        // here, we should not write the "needed" variable, instead
+        // always the full amount of services desired
+        getOrWriteBooking(client).desired_amount = desired_amount;
+        return reply(0);
+    }
+    const services = ServiceRegistry.random.multiple("upload", count, (service) => !service.isBooked());
+    if (services === null) {
+        throw new RangeError("Expected to get a certain amount of non-booked uploaders, but received less");
+    }
+    for (const s of services) {
+        s.bookForClient(client);
+    }
+    const b: BookingDetails = { desired_amount, current_amount: count };
+    bookings.set(client.getUUID(), b);
+    reply(count);
+}
 
-    const item = {
-        upload_id: uploadUUID,
-        name,
-        path,
-        size,
-        chunk_size: chunkSize
+async function requestUploadStart(client: Client, packet: UploadRequestPacket) {
+    const { name: name_doNotUseMe, path, size, is_public, do_overwrite } = packet.getData();
+
+    const fail = (reason?: string) => {
+        const packet = new UploadResponsePacket({
+            accepted: false,
+            chunk_size: Constants.chunkSize,
+            name: name_doNotUseMe,
+            path,
+            rejection_reason: reason
+        });
+        client.sendPacket(packet);
     };
 
-    const pos =
-        uploadQueue.push({
-            ...item,
-            client: client.getUUID(),
-            overwrite_target: existingFile?.id ?? null,
-            overwrite_user_id: userId,
-            is_public
-        }) - 1;
-    const pkt = new UploadQueueingPacket({ ...item, queue_position: pos });
-    client.replyToPacket(packet, pkt);
-    void pushToServices(true);
+    const existingFile = await Database.file.getWithPath(name_doNotUseMe, path);
+
+    const isLocked = Locks.file.status(path, name_doNotUseMe);
+
+    let targetName = name_doNotUseMe;
+    let overwriteFileId: number | null = null;
+    let overwriteUserId: number | null = null;
+    existing: if (existingFile !== null) {
+        if (do_overwrite) {
+            if (isLocked) {
+                fail("File is locked");
+                return;
+            }
+            const ownership = await Authentication.permissions.ownership(client.getUserId(), existingFile);
+            if (!Authentication.permissions.canWriteFile(ownership)) {
+                fail("You cannot overwrite this file");
+                return;
+            }
+            overwriteFileId = existingFile.id;
+            overwriteUserId = existingFile.owner;
+            break existing;
+        }
+        if (!isLocked) Locks.file.lock(path, name_doNotUseMe);
+        const attempt = await Database.file.findReplacementName(name_doNotUseMe, existingFile.folder ?? "root", path);
+        if (attempt === null) {
+            // Only if it was previously unlocked, we unlock it again!
+            if (!isLocked) Locks.file.unlock(path, name_doNotUseMe);
+            fail("No possible replacement file name found");
+            return;
+        }
+        targetName = attempt;
+    }
+
+    Locks.file.lock(path, targetName);
+
+    const service = ServiceRegistry.random.predicated("upload", (s) => !s.isBusy() && s.isBookedForClient(client));
+    if (!service) {
+        fail("No available service found. Have you booked any or are they still busy?");
+        Locks.file.unlock(path, targetName);
+        return;
+    }
+
+    const metadata: UploadMetadata = {
+        upload_id: crypto.randomUUID(),
+        chunk_size: Constants.chunkSize,
+        overwrite_target: overwriteFileId,
+        overwrite_user_id: overwriteUserId,
+        client: client.getUUID(),
+        name: targetName,
+        is_public,
+        size,
+        path
+    };
+
+    const request = await service.requestUploadStart(metadata);
+    const renameTarget = targetName !== name_doNotUseMe ? targetName : undefined;
+    client.replyToPacket(
+        packet,
+        new UploadResponsePacket({
+            upload_address: service.getAddress(),
+            rename_target: renameTarget,
+            accepted: request.data === true,
+            rejection_reason: request.error ?? undefined,
+            chunk_size: Constants.chunkSize,
+            name: targetName,
+            path
+        })
+    );
 }
 
-async function pushToServices(isFromQueueAdd?: boolean): Promise<void> {
-    // How many uploads have been submitted in this cycle
-    let c = 0;
-
-    while (uploadQueue.length > 0) {
-        const s = ServiceRegistry.random.idle("upload");
-        // We are done for now, there is no other available uploader
-        if (!s) break;
-
-        const meta = uploadQueue.shift();
-        // The queue just happens to be empty
-        if (!meta) break;
-
-        const status = await s.requestUploadStart(meta);
-        // Now, this really should only happen in weird circumstances
-        if (status !== null) {
-            // Can we even send a upload fail packet when nothing has even happend yet?
-            failUpload(meta, status);
-            continue;
+function handleServiceDisconnect(bookedClient?: UUID) {
+    client_cond: if (bookedClient) {
+        const client = ClientList.get(bookedClient);
+        if (!client) break client_cond;
+        const booking = bookings.get(client.getUUID());
+        if (!booking) {
+            throw new Error("No booking entry defined for client that had a service disconnect");
         }
-        const client = ClientList.get(meta.client);
-        if (!client) {
-            failUpload(meta, "Client disconnected");
-            continue;
-        }
-
-        const { chunk_size, upload_id } = meta;
-        client.sendPacket(new UploadStartInfoPacket({ chunk_size, upload_id, address: s.getAddress() }));
-        c++;
-    }
-
-    logDebug("Pushed", c, "jobs to upload services");
-
-    // In the queue add process, nothing should change, so nobody needs to be notified.
-    if (isFromQueueAdd || c === 0) return;
-    pushQueueUpdateToClients(0, c);
-}
-
-function pushQueueUpdateToClients(index: number, count: number) {
-    // We only send the packet to all those who actually need to know
-    const clients = new Set<UUID>();
-    for (const item of uploadQueue) {
-        clients.add(item.client);
-    }
-    for (const id of clients) {
-        const client = ClientList.get(id);
-        if (!client) {
-            // Only possible to reach whenever a client disconnects and their items are
-            // removed from end to front. Thus, these will still be in the array.
-            continue;
-        }
-        client.sendPacket(new UploadQueueUpdatePacket({ decrease_at: index, decrease_by: count }));
+        booking.current_amount--;
+        client.sendPacket(new UploadBookingModifyPacket({ effective_change: -1 }));
     }
 }
 
-function removeClientItemsFromQueue(clientId: UUID) {
-    // TODO: Optimize removal by finding regions that are of user
-    //       (Don't send too many packets to other clients)
-    let count = 0;
-    for (let i = uploadQueue.length - 1; i >= 0; i--) {
-        const item = uploadQueue[i];
-        if (item.client !== clientId) {
-            continue;
-        }
-        uploadQueue.splice(i, 1);
-        pushQueueUpdateToClients(i, 1);
-        count++;
+function handleClientDisconnect(client: Client) {
+    const booking = bookings.get(client.getUUID());
+    if (!booking) return;
+    const services = ServiceRegistry.random.multiple("upload", booking.current_amount, (s) => s.isBookedForClient(client));
+    if (!services) {
+        throw new Error("current_amount incorrect upon client disconnect");
     }
-    return count;
+    services.forEach((s) => {
+        s.clearBooking();
+        s.abortUpload();
+    });
 }
 
 /**
- * Takes in an array of indices from the upload queue and removes them from that list.
- * Indices can be inputted in any order.
- * @param indices
+ * This function attempts to book the service that just connected
+ * to a client that has a `desired_amount` that is greater than its
+ * `current_amount`. The client is notified of that change and can
+ * then proceed to add another active upload.
  */
-function removeIndicesFromQueue(indices: number[]) {
-    // The largest indices have to come first
-    // Otherwise, we may remove early indices first, causing the others to be offset
-    indices = indices.sort((a, b) => b - a);
-    for (const index of indices) {
-        uploadQueue.splice(index, 1);
+function handleServiceInitOrRelease(service: UploadService) {
+    const clients = Array.from(bookings.entries()).filter(([_, b]) => b.current_amount < b.desired_amount);
+    // Great, we need to do nothing, all clients
+    // are fully booked up!
+    if (!clients.length) {
+        return;
     }
+    const index = Math.floor(Math.random() * clients.length);
+    const [uuid, booking] = clients[index];
+    const client = ClientList.get(uuid);
+    if (!client) {
+        // yeah, we'll just fail here.
+        // This should not happen as whenever a client disconnects, their
+        // bookings are also instantly removed and their services redistributed
+        logError("Invalid client listed in bookings registry", uuid);
+        return;
+    }
+    booking.current_amount++;
+    service.bookForClient(client);
+    client.sendPacket(new UploadBookingModifyPacket({ effective_change: 1 }));
+}
+
+function handleClientRelease(client: Client, packet: UploadServicesReleasePacket) {
+    const booking = bookings.get(client.getUUID());
+    if (!booking) {
+        client.replyToPacket(packet, new GenericBooleanPacket({ success: false, message: "No booking recorded for this client" }));
+        return;
+    }
+    const clients = ServiceRegistry.random.multiple("upload", booking.current_amount, (s) => s.isBookedForClient(client));
+    if (!clients) throw new Error("current_amount of booking is incorrect: " + booking.current_amount);
+    clients.forEach((s) => {
+        s.clearBooking();
+        s.abortUpload();
+    });
+    client.replyToPacket(packet, new GenericBooleanPacket({ success: true }));
 }
 
 async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket) {
@@ -190,6 +317,7 @@ async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket
     logDebug("Finished upload for", metadata);
 
     const data = packet.getData();
+    Locks.file.unlock(metadata.path, metadata.name);
 
     // TODO: Make channel required
     if (typeof data.hash !== "string" || typeof data.type !== "string" || typeof data.channel !== "string") {
@@ -228,8 +356,8 @@ async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket
         owner: user.id
     };
 
-    void client.sendPacket(new UploadFinishInfoPacket({ success: true, upload_id: metadata.upload_id, reason: undefined }));
-    void pushToServices();
+    // The client is responsible for pushing a new upload once this has finished
+    void client.sendPacket(new UploadFinishInfoPacket({ success: true, upload_id: metadata.upload_id }));
 
     let $handle: FileHandle | null;
     if (metadata.overwrite_target !== null) {
@@ -260,8 +388,10 @@ async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket
 
 function failUpload(metadata: UploadMetadata, reason?: string) {
     const client = ClientList.get(metadata.client);
+    Locks.file.unlock(metadata.path, metadata.name);
     if (!client) return;
     logDebug("Failed upload for", metadata);
+    // The client is responsible for pushing a new upload once this has failed
+    // (depending on whether the service disconnected, that is communicated in serviceDisconnect)
     void client.sendPacket(new UploadFinishInfoPacket({ success: false, upload_id: metadata.upload_id, reason }));
-    void pushToServices();
 }

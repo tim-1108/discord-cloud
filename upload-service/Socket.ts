@@ -4,10 +4,10 @@ import { parsePacket } from "../common/packet/parser.js";
 import { UploadStartPacket } from "../common/packet/s2u/UploadStartPacket.js";
 import { setPendingUpload } from "./state.js";
 import type { UUID } from "../common";
-import { UploadReadyPacket } from "../common/packet/u2s/UploadReadyPacket.js";
 import { getEnvironmentVariables } from "../common/environment.js";
 import { getServersidePacketList } from "../common/packet/reader.js";
 import PacketType from "../common/packet/PacketType.js";
+import { GenericBooleanPacket } from "../common/packet/generic/GenericBooleanPacket.js";
 
 export class Socket extends PacketReceiver {
     public constructor() {
@@ -39,8 +39,8 @@ export class Socket extends PacketReceiver {
         if (packet instanceof UploadStartPacket) {
             const { upload_id, client, ...data } = packet.getData();
             const chunks = Math.ceil(data.size / data.chunk_size);
-            const accepted = setPendingUpload({ ...data, upload_id: upload_id as UUID, client: client as UUID /* not present here */ }, chunks);
-            this.replyToPacket(packet, new UploadReadyPacket({ accepted }));
+            const success = setPendingUpload({ ...data, upload_id: upload_id as UUID, client: client as UUID /* not present here */ }, chunks);
+            this.replyToPacket(packet, new GenericBooleanPacket({ success }));
         }
     }
 }

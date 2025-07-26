@@ -1,4 +1,4 @@
-import crypto, { type BinaryLike } from "node:crypto";
+import crypto, { getRandomValues, type BinaryLike } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { getEnvironmentVariables } from "./environment.js";
 import { logDebug } from "./logging.js";
@@ -69,4 +69,19 @@ export function createHashFromFile(path: string) {
         readStream.pipe(hash);
         readStream.on("error", () => resolve(null));
     });
+}
+
+type GetRandomValuesTypedArray =
+    | typeof Int8Array
+    | typeof Uint8Array
+    | typeof Uint8ClampedArray
+    | typeof Int16Array
+    | typeof Uint16Array
+    | typeof Int32Array
+    | typeof Uint32Array;
+export function getRandomNumber(type: GetRandomValuesTypedArray): number {
+    // TODO: also support BigInt64Array and BigUint64Array
+    const array = new type(1);
+    crypto.getRandomValues(array);
+    return array[0];
 }

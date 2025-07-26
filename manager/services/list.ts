@@ -68,14 +68,21 @@ function unregisterService(inst: Service) {
 
 type Predicate<N extends ServiceName> = (value: InstanceType<ServiceClassMap[N]>, index: number) => boolean;
 
-function getRandomService<N extends ServiceName>(name: N, predicate?: Predicate<N>): InstanceType<ServiceClassMap[N]> | null {
+/**
+ * A util function for `getRandomService` and `getMultipleRandomServices`, as
+ * both require the same list of services matching an optional predicate.
+ */
+function getPredicatedList<N extends ServiceName>(name: N, predicate?: Predicate<N>): InstanceType<ServiceClassMap[N]>[] {
     type S = InstanceType<ServiceClassMap[N]>;
     const set = activeServices.get(name) as Set<S> | undefined;
     if (!set) {
-        return null;
+        return [];
     }
+    return predicate ? set.values().filter(predicate).toArray() : Array.from(set);
+}
 
-    const list = predicate ? set.values().filter(predicate).toArray() : Array.from(set);
+function getRandomService<N extends ServiceName>(name: N, predicate?: Predicate<N>): InstanceType<ServiceClassMap[N]> | null {
+    const list = getPredicatedList(name, predicate);
     if (!list.length) {
         return null;
     }
@@ -92,15 +99,44 @@ function getRandomService<N extends ServiceName>(name: N, predicate?: Predicate<
     return list[index];
 }
 
+/**
+ * If this function cannot fulfill `count`, it will return `null` instead of the array.
+ */
+function getMultipleRandomServices<N extends ServiceName>(
+    name: N,
+    count: number,
+    predicate?: Predicate<N>
+): InstanceType<ServiceClassMap[N]>[] | null {
+    const list = getPredicatedList(name, predicate);
+    if (count < 1 || list.length < count) {
+        return null;
+    }
+    // for now, only return the first entries of the list (no randommmm)
+    return list.slice(0, count);
+}
+
 function getRandomIdleService<N extends ServiceName>(name: N) {
     return getRandomService(name, (value) => !value.isBusy());
 }
 
-function getServiceCount(name: ServiceName) {
+function getServiceCount<N extends ServiceName>(name: N, predicate?: Predicate<N>) {
     const set = activeServices.get(name);
     if (!set) {
         return { total: 0, idle: 0 };
     }
+
+    if (predicate) {
+        let i = 0;
+        let c = 0;
+        for (const service of set) {
+            const flag = predicate(service as InstanceType<ServiceClassMap[N]>, i);
+            if (flag) c++;
+            i++;
+        }
+        // the field is named "idle" here to keep it in line with the rest of the function
+        return { total: i, idle: c };
+    }
+
     const filtered = set
         .values()
         .filter((value) => !value.isBusy())
@@ -118,7 +154,8 @@ export const ServiceRegistry = {
     random: {
         predicated: getRandomService,
         all: (name: ServiceName) => getRandomService(name),
-        idle: getRandomIdleService
+        idle: getRandomIdleService,
+        multiple: getMultipleRandomServices
     },
     count: getServiceCount,
     classForName: getServiceClassForName

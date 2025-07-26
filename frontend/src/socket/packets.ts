@@ -1,11 +1,8 @@
 import type { PacketTypeMap, PacketWithID } from "../../../common/packet/definitions.js";
 import { ListRequestPacket } from "../../../common/packet/c2s/ListRequestPacket.js";
 import { PingServicesPacket } from "../../../common/packet/c2s/PingServicesPacket.js";
-import { UploadQueueAddPacket } from "../../../common/packet/c2s/UploadQueueAddPacket.js";
 import { ListPacket } from "../../../common/packet/s2c/ListPacket.js";
 import { UploadFinishInfoPacket } from "../../../common/packet/s2c/UploadFinishInfoPacket.js";
-import { UploadQueueingPacket } from "../../../common/packet/s2c/UploadQueueingPacket.js";
-import { UploadQueueUpdatePacket } from "../../../common/packet/s2c/UploadQueueUpdatePacket.js";
 import { UploadStartInfoPacket } from "../../../common/packet/s2c/UploadStartInfoPacket.js";
 import { GenericBooleanPacket } from "../../../common/packet/generic/GenericBooleanPacket.js";
 import PacketType from "../../../common/packet/PacketType.js";
@@ -21,34 +18,44 @@ import { ThumbnailRequestPacket } from "../../../common/packet/c2s/ThumbnailRequ
 import { FolderStatusPacket } from "../../../common/packet/s2c/FolderStatusPacket.js";
 import { ListFilesPacket } from "../../../common/packet/s2c/ListFilesPacket.js";
 import { ListFoldersPacket } from "../../../common/packet/s2c/ListFoldersPacket.js";
+import { GenericPrimitivesPacket } from "../../../common/packet/generic/GenericPrimitivesPacket.js";
+import { UploadRequestPacket } from "../../../common/packet/c2s/UploadRequestPacket.js";
+import { UploadServicesReleasePacket } from "../../../common/packet/c2s/UploadServicesReleasePacket.js";
+import { UploadServicesRequestPacket } from "../../../common/packet/c2s/UploadServicesRequestPacket.js";
+import { UploadBookingModifyPacket } from "../../../common/packet/s2c/UploadBookingModifyPacket.js";
+import { UploadResponsePacket } from "../../../common/packet/s2c/UploadResponsePacket.js";
+import { UploadServicesPacket } from "../../../common/packet/s2c/UploadServicesPacket.js";
 
 // As we cannot just scan directories, this requires manual registering
 
 const clientboundPackets: PacketWithID<PacketTypeMap[PacketType.Server2Client]>[] = [
     ListPacket,
     UploadFinishInfoPacket,
-    UploadQueueingPacket,
-    UploadQueueUpdatePacket,
     UploadStartInfoPacket,
     FileModifyPacket,
     FolderModifyPacket,
     FolderStatusPacket,
     ListFilesPacket,
-    ListFoldersPacket
+    ListFoldersPacket,
+    UploadBookingModifyPacket,
+    UploadResponsePacket,
+    UploadServicesPacket
 ];
 const serverboundPackets: PacketWithID<PacketTypeMap[PacketType.Client2Server]>[] = [
     ListRequestPacket,
     PingServicesPacket,
-    UploadQueueAddPacket,
     DeleteFilePacket,
     DeleteFolderPacket,
     MoveFilesPacket,
     CreateFolderPacket,
     RenameFolderPacket,
     RenameFilePacket,
-    ThumbnailRequestPacket
+    ThumbnailRequestPacket,
+    UploadRequestPacket,
+    UploadServicesReleasePacket,
+    UploadServicesRequestPacket
 ];
-const genericPackets: PacketWithID<PacketTypeMap[PacketType.Generic]>[] = [GenericBooleanPacket];
+const genericPackets: PacketWithID<PacketTypeMap[PacketType.Generic]>[] = [GenericBooleanPacket, GenericPrimitivesPacket];
 
 export function getBrowserPacketList<T extends PacketType>(type: T): PacketWithID<PacketTypeMap[T]>[] {
     if (type === PacketType.Client2Server) {

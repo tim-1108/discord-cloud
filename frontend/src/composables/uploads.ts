@@ -1,8 +1,5 @@
-import { UploadQueueAddPacket } from "../../../common/packet/c2s/UploadQueueAddPacket";
 import type { UUID } from "../../../common";
 import { combinePaths, convertPathToRoute, convertRouteToPath, useCurrentRoute } from "./path";
-import { UploadQueueingPacket } from "../../../common/packet/s2c/UploadQueueingPacket";
-import type { UploadQueueUpdatePacket } from "../../../common/packet/s2c/UploadQueueUpdatePacket";
 import type { UploadStartInfoPacket } from "../../../common/packet/s2c/UploadStartInfoPacket";
 import { logError, logWarn } from "../../../common/logging";
 import { computed, reactive, ref } from "vue";

@@ -26,14 +26,14 @@
     "dependencies": {
         "@fortawesome/fontawesome-svg-core": "^6.7.2",
         "@fortawesome/free-solid-svg-icons": "^6.7.2",
-        "@fortawesome/vue-fontawesome": "^3.0.8",
-        "@supabase/supabase-js": "^2.52.0",
+        "@fortawesome/vue-fontawesome": "^3.1.1",
+        "@supabase/supabase-js": "^2.52.1",
         "@tailwindcss/vite": "^4.1.11",
         "@vitejs/plugin-vue": "^5.2.4",
         "@vueuse/components": "^13.5.0",
         "@vueuse/core": "^13.5.0",
         "archiver": "^7.0.1",
-        "axios": "^1.10.0",
+        "axios": "^1.11.0",
         "destr": "^2.0.5",
         "dotenv": "^16.6.1",
         "express": "^4.21.2",
@@ -47,7 +47,7 @@
         "tailwindcss": "^4.1.11",
         "unplugin-vue-components": "^28.8.0",
         "vite-plugin-vue-devtools": "^7.7.7",
-        "vue": "^3.5.17",
+        "vue": "^3.5.18",
         "ws": "^8.18.3"
     }
 }
