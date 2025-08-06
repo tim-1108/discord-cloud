@@ -75,7 +75,6 @@ async function requestUploadServices(client: Client, packet: UploadServicesReque
     // This packet only allows values greater than 0, so the user may never
     // "book" zero uploaders.
     const { desired_amount } = packet.getData();
-    console.log(desired_amount);
 
     const reply = (count: number) => void client.replyToPacket(packet, new UploadServicesPacket({ count }));
 
@@ -113,9 +112,7 @@ async function requestUploadServices(client: Client, packet: UploadServicesReque
                         ab.desired_amount
                 );
             }
-            for (const s of services) {
-                s.clearBooking();
-            }
+            services.forEach(internal_serviceReleaseAndRedistribution);
             ab.desired_amount = desired_amount;
             ab.current_amount = desired_amount;
             return reply(desired_amount);
@@ -260,14 +257,22 @@ function handleServiceDisconnect(bookedClient?: UUID) {
 function handleClientDisconnect(client: Client) {
     const booking = bookings.get(client.getUUID());
     if (!booking) return;
+    bookings.delete(client.getUUID());
     const services = ServiceRegistry.random.multiple("upload", booking.current_amount, (s) => s.isBookedForClient(client));
     if (!services) {
         throw new Error("current_amount incorrect upon client disconnect");
     }
-    services.forEach((s) => {
-        s.clearBooking();
-        s.abortUpload();
-    });
+    services.forEach(internal_serviceReleaseAndRedistribution);
+}
+
+async function internal_serviceReleaseAndRedistribution(s: UploadService) {
+    s.clearBooking();
+    // TODO: once this function actually does something, get the return
+    //       value to check whether the running upload has actually been
+    //       cancelled. If that did not work, we could kill the socket.
+    //       That would cause the service to have to reconnect.
+    await s.abortUpload();
+    Uploads.handlers.service.initOrRelease(s);
 }
 
 /**
@@ -304,12 +309,9 @@ function handleClientRelease(client: Client, packet: UploadServicesReleasePacket
         client.replyToPacket(packet, new GenericBooleanPacket({ success: false, message: "No booking recorded for this client" }));
         return;
     }
-    const clients = ServiceRegistry.random.multiple("upload", booking.current_amount, (s) => s.isBookedForClient(client));
-    if (!clients) throw new Error("current_amount of booking is incorrect: " + booking.current_amount);
-    clients.forEach((s) => {
-        s.clearBooking();
-        s.abortUpload();
-    });
+    const services = ServiceRegistry.random.multiple("upload", booking.current_amount, (s) => s.isBookedForClient(client));
+    if (!services) throw new Error("current_amount of booking is incorrect: " + booking.current_amount);
+    services.forEach(internal_serviceReleaseAndRedistribution);
     client.replyToPacket(packet, new GenericBooleanPacket({ success: true }));
 }
 

@@ -22,6 +22,7 @@ import { FolderStatusRequestPacket } from "../../common/packet/c2s/FolderStatusR
 import { UploadRequestPacket } from "../../common/packet/c2s/UploadRequestPacket.js";
 import { UploadServicesRequestPacket } from "../../common/packet/c2s/UploadServicesRequestPacket.js";
 import { UploadServicesReleasePacket } from "../../common/packet/c2s/UploadServicesReleasePacket.js";
+import { logInfo } from "../../common/logging.js";
 
 export class Client extends PacketReceiver {
     private readonly uuid: UUID;
@@ -49,8 +50,8 @@ export class Client extends PacketReceiver {
     //  to close any in-progress uploads
     protected handleSocketClose(event: CloseEvent) {
         ClientList.unregister(this);
-        const clearedUploads = Uploads.handlers.client.disconnect(this);
-        console.info(`[Client.disconnect] ${this.uuid} | Removed ${clearedUploads} queued upload(s)`);
+        Uploads.handlers.client.disconnect(this);
+        logInfo(`Client disconnect: ${this.uuid}`);
     }
 
     protected handleSocketMessage(event: MessageEvent) {

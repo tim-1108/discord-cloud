@@ -10,8 +10,7 @@ export async function parsePostgrestResponse<K, B extends PostgrestBuilder<K> = 
     //       Think of GetLastError in win32? However, that might have issues with async stuff
 
     // This just helps debugging, might prove annoying
-    // @ts-expect-error
-    if (error) logDebug("[Postgrest error]", error, request.url.href);
+    //if (error) logDebug("[Postgrest error]", error, request.url.href);
     return error ? null : data;
 }
 

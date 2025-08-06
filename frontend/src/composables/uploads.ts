@@ -1,7 +1,7 @@
 import type { UUID } from "../../../common";
 import { attemptRepairFolderOrFileName, combinePaths, convertPathToRoute, convertRouteToPath, useCurrentRoute } from "./path";
 import { logError, logWarn } from "../../../common/logging";
-import { computed, reactive, ref, watch } from "vue";
+import { computed, reactive, ref, watch, type Ref } from "vue";
 import { getOrCreateCommunicator } from "./authentication";
 import { UploadServicesReleasePacket } from "../../../common/packet/c2s/UploadServicesReleasePacket";
 import { GenericBooleanPacket } from "../../../common/packet/generic/GenericBooleanPacket";
@@ -23,24 +23,22 @@ interface UploadAbsoluteFileHandle {
     path: string;
 }
 
+const activeUploads = reactive(new Map<UUID, ActiveUpload>());
+const queue = reactive(new Array<UploadAbsoluteFileHandle>());
+
 const desiredUploaderCount = ref(10);
 const availableUploaderCount = ref(0);
-// Whether any uploads are desired by the user.
-// If not, we can release our booked services and book them
-// again if needed. The server trusts clients to free up
-// services when not needed.
-const isHandlingUploads = computed(() => activeUploads.size > 0 || queue.length > 0);
 watch(desiredUploaderCount, (value) => {
-    if (value === 0 || !isHandlingUploads.value) return;
+    // If we are not activly handling any uploads, we do not need
+    // to book the uploaders the user desires to have when they change the count.
+    const isHandlingUploads = queue.length > 0 || activeUploads.size > 0;
+    if (value === 0 || isHandlingUploads) return;
     void bookUploaders(value);
 });
 
-async function bookUploaders(desiredCount: number) {
+async function bookUploaders(desiredAmount: number) {
     const com = await getOrCreateCommunicator();
-    const reply = await com.sendPacketAndReply_new(
-        new UploadServicesRequestPacket({ desired_amount: desiredUploaderCount.value }),
-        UploadServicesPacket
-    );
+    const reply = await com.sendPacketAndReply_new(new UploadServicesRequestPacket({ desired_amount: desiredAmount }), UploadServicesPacket);
     if (!reply.packet) {
         Dialogs.alert({ title: "Failed to book upload services", body: "Upload services could not be booked due to: " + reply.error });
         return;
@@ -56,11 +54,9 @@ watch(availableUploaderCount, async (value, oldValue) => {
         await startNextUpload();
     }
 });
-watch(isHandlingUploads, async (value) => {
-    if (value) {
-        void bookUploaders(desiredUploaderCount.value);
-        return;
-    }
+
+async function trigger_servicesRelease() {
+    if (queue.length || activeUploads.size) return;
     const com = await getOrCreateCommunicator();
     const reply = await com.sendPacketAndReply_new(new UploadServicesReleasePacket({}), GenericBooleanPacket);
     if (!reply.packet) {
@@ -71,11 +67,19 @@ watch(isHandlingUploads, async (value) => {
         logError("Release failed due to: " + message);
     }
     availableUploaderCount.value = 0;
-});
+}
 
 function handleBookingModification(packet: UploadBookingModifyPacket) {
     const { effective_change } = packet.getData();
-    if (availableUploaderCount.value === 0) return;
+    if (availableUploaderCount.value + effective_change < 0) {
+        logError(
+            "Received an invalid effective change that would result in a negative value. eff:",
+            effective_change,
+            " | current:",
+            availableUploaderCount.value
+        );
+        return;
+    }
     availableUploaderCount.value += effective_change;
 }
 
@@ -149,21 +153,27 @@ function streamFromFile(file: File, chunkSize: number) {
 }
 
 interface ActiveUpload {
-    targetAddress: string;
+    target_address: string;
     file: File;
     id: UUID;
     chunks: number;
-    processed_chunks: number;
+    processed_chunks: Ref<number>;
     /**
      * A value ranging from 0 to 1 describing the total
      * upload progress on the file.
      */
-    progress: number;
+    progress: Ref<number>;
     name: string;
     path: string;
+    /**
+     * Used to calculate the speed of the upload
+     */
+    start_timestamp: number;
+    /**
+     * Upload speed in bytes/sec
+     */
+    speed: Ref<number>;
 }
-const activeUploads = reactive(new Map<UUID, ActiveUpload>());
-const queue = reactive(new Array<UploadAbsoluteFileHandle>());
 
 function submitUpload({ file, relativePath }: UploadRelativeFileHandle): number | null {
     // For now, empty files cannot be accepted
@@ -173,6 +183,12 @@ function submitUpload({ file, relativePath }: UploadRelativeFileHandle): number 
     }
     const currentPath = convertRouteToPath(useCurrentRoute().value);
     const absPath = combinePaths(currentPath, relativePath);
+
+    // Thus only triggered if this is the first upload we are doing again
+    if (!queue.length && !activeUploads.size) {
+        bookUploaders(desiredUploaderCount.value);
+    }
+
     return queue.push({ file, path: absPath });
 }
 
@@ -214,15 +230,27 @@ async function startNextUpload() {
 
     const au: ActiveUpload = {
         id: upload_id as UUID,
-        targetAddress: uploadAddress,
+        target_address: uploadAddress,
         chunks: cc,
-        processed_chunks: 0,
-        progress: 0,
+        processed_chunks: ref(0),
+        /**
+         * The amount of bytes already sent
+         */
+        progress: ref(0),
         file: handle.file,
         name: rename_target ?? handle.file.name,
-        path: handle.path
+        path: handle.path,
+        start_timestamp: performance.now(),
+        speed: ref(0)
     };
     activeUploads.set(upload_id as UUID, au);
+
+    let lastProgress = 0;
+    const $i = setInterval(() => {
+        const delta = au.progress.value - lastProgress;
+        lastProgress = au.progress.value;
+        au.speed.value = delta / 0.5;
+    }, 500);
 
     for (let i = 0; i < cc; i++) {
         const buffer = await streamFn();
@@ -230,15 +258,17 @@ async function startNextUpload() {
             logError(`Stream reported done despite chunks still remaining`);
             break;
         }
-        const cfg = { uploadId: au.id, targetAddress: au.targetAddress, chunkIndex: i, dataBuffer: buffer.value };
-        const result = await sendChunk(cfg);
-        au.processed_chunks++;
+        const cfg = { uploadId: au.id, targetAddress: au.target_address, chunkIndex: i, dataBuffer: buffer.value };
+        const result = await sendChunk(cfg, au);
+        au.processed_chunks.value++;
         // TODO: Implement retry system, we'll just move on for now
         if (!result) {
             logError("Failed to upload chunk", i, "for upload", handle);
             continue;
         }
     }
+
+    clearInterval($i);
 }
 
 function handleUploadFinish(packet: UploadFinishInfoPacket) {
@@ -254,6 +284,8 @@ function handleUploadFinish(packet: UploadFinishInfoPacket) {
         console.error(`${handle.path} | ${handle.name}`);
     }
     // TODO: Notify user if upload failed!
+    void startNextUpload();
+    trigger_servicesRelease();
 }
 
 interface SendConfig {
@@ -262,7 +294,7 @@ interface SendConfig {
     chunkIndex: number;
     dataBuffer: Uint8Array<ArrayBuffer>;
 }
-function sendChunk(cfg: SendConfig) {
+function sendChunk(cfg: SendConfig, handle: ActiveUpload) {
     return new Promise<boolean>((resolve) => {
         const form = new FormData();
         form.append("id", cfg.uploadId);
@@ -271,8 +303,14 @@ function sendChunk(cfg: SendConfig) {
 
         const xhr = new XMLHttpRequest();
         xhr.open("POST", cfg.targetAddress);
-        // TODO: speed measurement and progress indicator
-        xhr.upload.addEventListener("progress", ({ loaded, total, lengthComputable }) => {});
+        let loaded_lastValue = 0;
+        xhr.upload.addEventListener("progress", ({ loaded, lengthComputable }) => {
+            if (!lengthComputable) return;
+            const deltaBytes = loaded - loaded_lastValue;
+            loaded_lastValue = loaded;
+            handle.progress.value += deltaBytes;
+            console.log(deltaBytes, handle.progress.value);
+        });
 
         xhr.onload = () => {
             resolve(xhr.status === 200);
@@ -369,6 +407,7 @@ export const Uploads = {
     submit: submitUpload,
     start: startNextUpload,
     active: activeUploads,
+    queue: queue,
     preview: {
         add: addPreviews,
         getForRoute: getPreviewsForRoute,
@@ -385,3 +424,6 @@ export const Uploads = {
         uploadFinish: handleUploadFinish
     }
 } as const;
+
+// @ts-expect-error
+globalThis.Uploads = Uploads;

@@ -59,8 +59,8 @@ type DataMap = Map<
 >;
 const data: DataMap = new Map([["busy", false]]);
 
-export function setPendingUpload(metadata: ServiceUploadMetadata, chunks: number) {
-    if (isBusy()) return false;
+export function setPendingUpload(metadata: ServiceUploadMetadata, chunks: number): string | null {
+    if (isBusy()) return "Service is busy";
     markBusy();
     data.set("upload", {
         metadata,
@@ -76,5 +76,5 @@ export function setPendingUpload(metadata: ServiceUploadMetadata, chunks: number
     console.log("[Upload] Started!", data);
     void startWatchingTimeout(chunks);
 
-    return true;
+    return null;
 }

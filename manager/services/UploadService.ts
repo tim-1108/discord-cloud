@@ -99,6 +99,7 @@ export class UploadService extends Service {
      */
     public async requestUploadStart(metadata: UploadMetadata): Promise<DataErrorFields<boolean>> {
         const { overwrite_target, overwrite_user_id, is_public, ...rest } = metadata;
+        this.markBusy();
         const result = await this.sendPacketAndReply_new(new UploadStartPacket(rest), GenericBooleanPacket);
         if (!result.packet) {
             this.markNotBusy();

@@ -3,7 +3,6 @@ import { ListRequestPacket } from "../../../common/packet/c2s/ListRequestPacket.
 import { PingServicesPacket } from "../../../common/packet/c2s/PingServicesPacket.js";
 import { ListPacket } from "../../../common/packet/s2c/ListPacket.js";
 import { UploadFinishInfoPacket } from "../../../common/packet/s2c/UploadFinishInfoPacket.js";
-import { UploadStartInfoPacket } from "../../../common/packet/s2c/UploadStartInfoPacket.js";
 import { GenericBooleanPacket } from "../../../common/packet/generic/GenericBooleanPacket.js";
 import PacketType from "../../../common/packet/PacketType.js";
 import { FileModifyPacket } from "../../../common/packet/s2c/FileModifyPacket.js";
@@ -31,7 +30,6 @@ import { UploadServicesPacket } from "../../../common/packet/s2c/UploadServicesP
 const clientboundPackets: PacketWithID<PacketTypeMap[PacketType.Server2Client]>[] = [
     ListPacket,
     UploadFinishInfoPacket,
-    UploadStartInfoPacket,
     FileModifyPacket,
     FolderModifyPacket,
     FolderStatusPacket,

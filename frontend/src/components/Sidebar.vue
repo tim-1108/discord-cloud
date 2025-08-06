@@ -8,10 +8,10 @@ import { computed } from "vue";
 
 function logOff() {
     clearAuthentication();
-    location.reload();
+    window.location.reload();
 }
 
-const uploadCount = computed(() => Uploads.queue.count.value + Uploads.active.size);
+const uploadCount = computed(() => Uploads.queue.length + Uploads.active.size);
 </script>
 
 <template>
