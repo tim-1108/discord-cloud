@@ -112,9 +112,9 @@ async function requestUploadServices(client: Client, packet: UploadServicesReque
                         ab.desired_amount
                 );
             }
-            services.forEach(internal_serviceReleaseAndRedistribution);
             ab.desired_amount = desired_amount;
             ab.current_amount = desired_amount;
+            services.forEach(internal_serviceReleaseAndRedistribution);
             return reply(desired_amount);
         }
         // Now, the user wants to add to their current amount.
