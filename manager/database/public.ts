@@ -138,7 +138,7 @@ export function listSubfolders(
     folderId: FolderOrRoot,
     sortBy?: { field: string; ascending?: boolean },
     pagination?: { limit: number; offset: number }
-) {
+): Promise<FolderHandle[] | null> {
     let selector = supabase.from("folders").select("*");
     if (sortBy) {
         selector = selector.order(sortBy.field, { ascending: sortBy.ascending });

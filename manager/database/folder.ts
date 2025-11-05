@@ -1,4 +1,6 @@
 import type { FolderModifyAction } from "../../common/client.js";
+import type { DataErrorFields } from "../../common/index.js";
+import { logError } from "../../common/logging.js";
 import { FolderModifyPacket } from "../../common/packet/s2c/FolderModifyPacket.js";
 import { patterns } from "../../common/patterns.js";
 import type { FolderHandle } from "../../common/supabase.js";
@@ -105,9 +107,77 @@ export function deleteFolder_Recursive() {
     throw new Error("Not implemented");
 }
 
-export async function mergeFolders(a: number, b: number) {
-    const fa = await Database.folder.getById(a);
-    const fb = await Database.folder.getById(b);
+/**
+ * Folder a is merged into folder b.
+ */
+export async function mergeFolders_Recursive(a: number, b: number, targetParentPath?: string): Promise<DataErrorFields<true>> {
+    const target = await Database.folder.getById(b);
+    if (!target) {
+        return { error: "", data: null };
+    }
+
+    let path: string;
+    if (!targetParentPath) {
+        const route = await Database.folder.resolveRouteById(b);
+        if (route === null) {
+            return { data: null, error: "Failed to build path" };
+        }
+        path = routeToPath(route);
+    } else {
+        // Is this sort of appending different?
+        path = `${targetParentPath}/${target.name}`;
+    }
+
+    const subfoldersA = await Database.folder.listing.subfolders(a);
+    const subfoldersB = await Database.folder.listing.subfolders(b);
+    // This does not mean that no subfolders exist, that would be returned
+    // as an empty array, rather, an error occured whilst fetching
+    if (subfoldersA === null || subfoldersB === null) {
+        logError(`Failed to retrieve subfolder list for folders ${a}`);
+        return { data: null, error: "Failed to retrieve subfolder list" };
+    }
+
+    const [matches, free] = subfoldersA.reduce(
+        ([matches, free], a) => {
+            // If the subfolder does not exist in the target, we can easily just
+            // move over the entire folder without merging. Those are the "free".
+            const b = subfoldersB.find((b) => b.name === a.name);
+            if (b) {
+                matches.set(a, b);
+            } else {
+                free.push(a);
+            }
+            return [matches, free];
+        },
+        [new Map<FolderHandle, FolderHandle>(), new Array<FolderHandle>()]
+    );
+
+    for (const [sa, sb] of matches) {
+        // At the end, this subfolder is dropped after all subfolders and files
+        // have been moved over/merged into the target subfolder of b.
+        const result = await mergeFolders_Recursive(sa.id, sb.id);
+    }
+
+    for (const s of free) {
+    }
+
+    // Now, finally, all files can be ported over
+    const files = await Database.folder.listing.files(a);
+    if (files === null) {
+        return { error: "", data: null };
+    }
+    // If true, indicates that some things have gone wrong in
+    // the merging process. Thus, folder a will not be dropped.
+    let flag_isIncomplete = false;
+    for (const file of files) {
+        let targetName = file.name;
+        const exists = await Database.file.get(b, file.name);
+        if (exists) {
+            const $name = await Database.file.findReplacementName(file.name, b, path);
+        }
+    }
+
+    return { data: true, error: null };
 }
 
 async function broadcastToClients(action: FolderModifyAction, handle: FolderHandle, renameOrigin?: string) {

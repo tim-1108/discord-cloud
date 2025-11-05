@@ -45,7 +45,6 @@ export class ThumbnailService extends Service {
      */
     private static queue = new Map<number, ThumbnailGenerationData>();
     public static enqueueFile(id: number, data: ThumbnailGenerationData) {
-        logDebug("Queuing thumbnail to be geenerated for", id, data);
         if (!GenThumbnailPacket.prototype.isValidData({ id, ...data })) {
             logWarn("Tried adding invalid data to the thumbnail queue", id, data);
             return;

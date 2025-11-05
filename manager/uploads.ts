@@ -20,6 +20,7 @@ import { UploadResponsePacket } from "../common/packet/s2c/UploadResponsePacket.
 import { UploadBookingModifyPacket } from "../common/packet/s2c/UploadBookingModifyPacket.js";
 import type { UploadServicesReleasePacket } from "../common/packet/c2s/UploadServicesReleasePacket.js";
 import { GenericBooleanPacket } from "../common/packet/generic/GenericBooleanPacket.js";
+import { pingServices } from "./pinging.js";
 
 const Constants = {
     /**
@@ -70,6 +71,7 @@ function getOrWriteBooking(client: Client) {
 }
 
 async function requestUploadServices(client: Client, packet: UploadServicesRequestPacket) {
+    pingServices();
     // When a user has already booked uploaders, we only need to assign the
     // differenc between the values.
     // This packet only allows values greater than 0, so the user may never
@@ -225,6 +227,10 @@ async function requestUploadStart(client: Client, packet: UploadRequestPacket) {
     };
 
     const request = await service.requestUploadStart(metadata);
+    if (!request.data /* false or null */) {
+        fail(request.error ?? "An unknown error whilst prompting upload service");
+        return;
+    }
     const renameTarget = targetName !== name_doNotUseMe ? targetName : undefined;
     client.replyToPacket(
         packet,
@@ -257,6 +263,7 @@ function handleServiceDisconnect(bookedClient?: UUID) {
 function handleClientDisconnect(client: Client) {
     const booking = bookings.get(client.getUUID());
     if (!booking) return;
+    // here, there is of course no need to decrement current_amount
     bookings.delete(client.getUUID());
     const services = ServiceRegistry.random.multiple("upload", booking.current_amount, (s) => s.isBookedForClient(client));
     if (!services) {
@@ -309,9 +316,12 @@ function handleClientRelease(client: Client, packet: UploadServicesReleasePacket
         client.replyToPacket(packet, new GenericBooleanPacket({ success: false, message: "No booking recorded for this client" }));
         return;
     }
-    const services = ServiceRegistry.random.multiple("upload", booking.current_amount, (s) => s.isBookedForClient(client));
-    if (!services) throw new Error("current_amount of booking is incorrect: " + booking.current_amount);
+    const services = ServiceRegistry.predicatedList("upload", (s) => s.isBookedForClient(client));
+    if (services.length !== booking.current_amount) {
+        logError(`Invalid current_amount set in booking for ${client.getUUID()}`, booking, services.length);
+    }
     services.forEach(internal_serviceReleaseAndRedistribution);
+    bookings.delete(client.getUUID());
     client.replyToPacket(packet, new GenericBooleanPacket({ success: true }));
 }
 
@@ -319,7 +329,7 @@ async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket
     const client = ClientList.get(metadata.client);
     if (!client) return;
 
-    logDebug("Finished upload for", metadata);
+    logDebug("Finished upload for", metadata.path, metadata.name);
 
     const data = packet.getData();
     Locks.file.unlock(metadata.path, metadata.name);
@@ -395,7 +405,7 @@ function failUpload(metadata: UploadMetadata, reason?: string) {
     const client = ClientList.get(metadata.client);
     Locks.file.unlock(metadata.path, metadata.name);
     if (!client) return;
-    logDebug("Failed upload for", metadata);
+    logDebug("Failed upload for", metadata.path, metadata.name);
     // The client is responsible for pushing a new upload once this has failed
     // (depending on whether the service disconnected, that is communicated in serviceDisconnect)
     void client.sendPacket(new UploadFinishInfoPacket({ success: false, upload_id: metadata.upload_id, reason }));

@@ -1,8 +1,8 @@
 import { type PostgrestBuilder, type PostgrestFilterBuilder } from "@supabase/postgrest-js";
 import { type FolderOrRoot, ROOT_FOLDER_ID } from "./core.js";
-import { logDebug } from "../../common/logging.js";
+import type { GenericSchema } from "@supabase/supabase-js/dist/module/lib/types.js";
 
-export async function parsePostgrestResponse<K, B extends PostgrestBuilder<K> = PostgrestBuilder<K>>(request: B) {
+export async function parsePostgrestResponse<K, B extends PostgrestBuilder<any, K> = PostgrestBuilder<any, K>>(request: B) {
     const { data, error } = await request;
 
     // Postgrest errors are documented at https://postgrest.org/en/latest/references/errors.html
@@ -17,7 +17,7 @@ export async function parsePostgrestResponse<K, B extends PostgrestBuilder<K> = 
 type Primitive = string | number | boolean | bigint;
 
 export function nullOrTypeSelection<T extends Primitive, Row extends Record<string, unknown>, Result = any, RelationName = any, Relationships = any>(
-    builder: PostgrestFilterBuilder<any, Row, Result, RelationName, Relationships>,
+    builder: PostgrestFilterBuilder<any, GenericSchema, Row, Result, RelationName, Relationships>,
     field: string & keyof Row,
     input: T | null
 ) {

@@ -157,6 +157,7 @@ export const ServiceRegistry = {
         idle: getRandomIdleService,
         multiple: getMultipleRandomServices
     },
+    predicatedList: getPredicatedList,
     count: getServiceCount,
     classForName: getServiceClassForName
 } as const;

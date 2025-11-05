@@ -24,6 +24,11 @@ export function pingServices() {
             console.warn(`[Ping] Cannot ping service ${service}`);
             continue;
         }
+        const obj = URL.parse(url);
+        if (!obj) {
+            continue;
+        }
+        obj.pathname = `/${Math.random()}`;
         void fetch(url).catch((error) => {
             console.warn(`[Ping] Failed to send ping to ${url} due to`, error);
         });

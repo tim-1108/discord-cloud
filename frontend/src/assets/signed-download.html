@@ -1,0 +1,142 @@
+<!doctype html>
+<html>
+    <head>
+        <style>
+            @import url("https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400..900;1,400..900&display=swap");
+            @import url("https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100..900;1,100..900&display=swap");
+            * {
+                text-align: center;
+                font-family: "Roboto", sans-serif;
+            }
+            h1 {
+                font-family: "Playfair Display", serif;
+                text-align: center;
+                font-size: 2rem;
+                line-height: 2rem;
+                margin: 0;
+            }
+            body {
+                display: grid;
+                place-content: center;
+                height: 100vh;
+                width: 100%;
+                margin: 0;
+                gap: 2rem;
+            }
+            section {
+                background-color: #e9eef6;
+                border-radius: 1rem;
+                padding: 1.5rem 2rem;
+                display: grid;
+            }
+            button {
+                border-radius: 999px;
+                color: white;
+                width: fit-content;
+                justify-self: center;
+                border: none;
+                padding: 8px 16px;
+                font-size: 1.25rem;
+            }
+            button[data-hidden] {
+                display: none;
+            }
+            #waiting {
+                background-color: gray;
+                cursor: not-allowed;
+            }
+            #ready {
+                background-color: #4e58e1;
+                cursor: pointer;
+            }
+            .highlight {
+                background-color: gray;
+                border-radius: 1rem;
+                justify-self: center;
+                padding: 4px 8px;
+                color: white;
+            }
+        </style>
+    </head>
+    <body>
+        <section>
+            <h1>Please Wait</h1>
+            <p id="status">The server is starting up and<br />your download is being prepared.<br />This might take some time.</p>
+            <p id="metadata">Retrieving metadata...</p>
+            <button id="waiting">Waiting</button>
+            <button id="ready" data-hidden>Download</button>
+        </section>
+        <section id="target"></section>
+        <script defer async>
+            const FILE_SIZE_IDENTIFIERS = ["TB", "GB", "MB", "KB", "B"];
+            const FILE_MULTIPLIER = 1024;
+            function parseFileSize(size) {
+                for (let i = FILE_SIZE_IDENTIFIERS.length - 1; i >= 0; i--) {
+                    const divider = Math.pow(FILE_MULTIPLIER, FILE_SIZE_IDENTIFIERS.length - i - 1);
+                    if (size / divider > FILE_MULTIPLIER) continue;
+                    return (size / divider).toFixed(1) + " " + FILE_SIZE_IDENTIFIERS[i];
+                }
+            }
+
+            const url = new URL(window.location.href);
+            const targetB64 = url.searchParams.get("target");
+            const target = atob(targetB64);
+            const q = url.searchParams.get("q");
+
+            document.querySelector("#target").innerHTML = `<span class="highlight">File Source</span><a href="${target}">${target}</a>`;
+
+            async function isOnline() {
+                const url = new URL(target);
+                url.pathname = "/health";
+                try {
+                    const response = await fetch(url);
+                    return response.ok;
+                } catch {
+                    return false;
+                }
+            }
+
+            const result = new URL(target);
+            result.pathname = "/signed-download";
+            result.searchParams.append("q", q);
+
+            async function getFileMetadata() {
+                try {
+                    const url = new URL(target);
+                    url.pathname = "/signed-download-metadata";
+                    url.searchParams.append("q", q);
+                    const response = await fetch(url);
+                    if (!response.ok) {
+                        return null;
+                    }
+                    return response.json();
+                } catch {
+                    return null;
+                }
+            }
+
+            const interval = setInterval(async () => {
+                const flag = await isOnline();
+                if (flag) {
+                    clearInterval(interval);
+                    document.querySelector("#ready")?.removeAttribute("data-hidden");
+                    document.querySelector("#waiting")?.setAttribute("data-hidden", "");
+                    document.querySelector("h1").innerHTML = "All good to go!";
+                    document.querySelector("#status").innerHTML = "Your download is ready";
+
+                    const metadata = await getFileMetadata();
+                    const mEl = document.querySelector("#metadata");
+                    if (metadata === null) {
+                        mEl.innerHTML = "Failed to retrieve metadata about the file.<br>This might mean that the file does not exist.";
+                    } else {
+                        mEl.innerHTML = `<span class="highlight">${metadata.name}</span> at <span class="highlight">${metadata.path}</span><br><br>Size: ${parseFileSize(metadata.size)}`;
+                    }
+
+                    document.querySelector("#ready").addEventListener("click", () => {
+                        window.open(result, "_blank");
+                    });
+                }
+            }, 2000);
+        </script>
+    </body>
+</html>
