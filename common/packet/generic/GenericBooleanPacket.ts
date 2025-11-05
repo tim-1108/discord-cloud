@@ -5,7 +5,7 @@ const id = "boolean";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
-    success: { type: "boolean", required: false },
+    success: { type: "boolean", required: true },
     message: { type: "string", required: false }
 } as const;
 
