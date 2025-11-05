@@ -15,8 +15,12 @@ import { formatJSON } from "../common/useless.js";
 import { Discord } from "../common/discord_new.js";
 import type { DataErrorFields } from "../common/index.js";
 import { combineHashes } from "./utils.js";
+import { initNetwork } from "./network.js";
+import { loadPackets } from "../common/packet/reader.js";
 
 const env = getEnvironmentVariables("upload-service");
+await loadPackets();
+initNetwork();
 
 /**
  * The metadata that the upload service knows about

@@ -5,10 +5,14 @@ import { patterns } from "../common/patterns.js";
 import { Upload, type Data } from "./index.js";
 import { getChunkSizeAtIndex } from "./utils.js";
 import { logError, logInfo } from "../common/logging.js";
+import { getEnvironmentVariables } from "../common/environment.js";
 
-export function initNetwork() {}
-
+const env = getEnvironmentVariables("upload-service");
 const app = express();
+
+export function initNetwork() {
+    app.listen(parseInt(env.PORT), () => logInfo(`HTTP open on port ${env.PORT}`));
+}
 
 app.use(async (req, res, next) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
