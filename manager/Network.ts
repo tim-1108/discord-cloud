@@ -97,7 +97,6 @@ export class Network {
      */
     private async verifyAndGetSocketParams(request: IncomingMessage): Promise<SocketParams | null> {
         const { SERVICE_PASSWORD } = getEnvironmentVariables("manager");
-        logDebug("Verifying socket:", request.url);
         if (!this.ready || !request.url) {
             return null;
         }
@@ -146,6 +145,7 @@ export class Network {
         if (params === null) {
             // The duplex is our socket, just not yet initialized as a WebSocket instance
             duplex.destroy();
+            logError("Rejected socket:", request.url);
             return;
         }
 

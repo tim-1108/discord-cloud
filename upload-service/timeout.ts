@@ -1,55 +1,26 @@
-const REQUEST_TIMEOUT_MS_PER_CHUNK = 180_000 as const;
+import { createResolveFunction } from "../common/useless.js";
 
-let timeout: Timer | null = null;
-let resolveFunc: Function | null = null;
+const TIMEOUT_PER_CHUNK_IN_MS = 120_000 as const;
 
 /**
- * Starts the initial request timeout which resolves to a Promise
- * after {@link REQUEST_TIMEOUT_MS_PER_CHUNK} ms.
- *
- * Resolves with whether the timeout was actually reached.
- * If false, something else canceled this without exceeding the timeout
- * @param chunkCount The amount of chunks to determine whether to even start a timeout (though it should never be 0)
+ * Creates a promise with a timeout of the length {@link TIMEOUT_PER_CHUNK_IN_MS} in milliseconds.
+ * When the timeout runs out, so the callback is executed, the promise **resolves** to `false`.
+ * A promise that resolves to `true` means that `clear()` has been called to cancel the
+ * timeout as a whole.
+ * Use `lengthen()` to extend the the timeout back to the original timeout length.
  */
-export function startRequestTimeout(chunkCount: number): Promise<boolean> {
-    if (!chunkCount) {
-        return Promise.resolve(true);
+export function createTimeout() {
+    const { promise, resolve } = createResolveFunction<boolean>();
+
+    let timeout = setTimeout(() => resolve(false), TIMEOUT_PER_CHUNK_IN_MS);
+    function lengthen(): void {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => resolve(false), TIMEOUT_PER_CHUNK_IN_MS);
     }
-    return new Promise((resolve) => {
-        resolveFunc = resolve;
-        timeout = setTimeout(resolveTimeout, REQUEST_TIMEOUT_MS_PER_CHUNK);
-    });
-}
-
-/**
- * Clears the resolve function of the timeout.
- * @param wasTimeoutReached Do not pass this as true when calling from outside the timeout itself
- */
-export function resetRequestTimeout(wasTimeoutReached: boolean = false) {
-    if (timeout) clearTimeout(timeout);
-    if (resolveFunc) resolveFunc(wasTimeoutReached);
-    timeout = null;
-    resolveFunc = null;
-}
-
-export function lengthenTimeout() {
-    if (!timeout || !resolveFunc) {
-        console.warn("[Timeout] Failed to renew timeout");
-        return;
+    function clear(): void {
+        clearTimeout(timeout);
+        resolve(true);
     }
-    clearTimeout(timeout);
-    timeout = setTimeout(resolveTimeout, REQUEST_TIMEOUT_MS_PER_CHUNK);
-    console.info("[Timeout] Lengthened");
-}
 
-/**
- * When this function is called, the time has run down
- *
- * => Request has failed
- *
- * (Used in setTimeout)
- */
-function resolveTimeout() {
-    if (!resolveFunc) return;
-    resolveFunc(true);
+    return { promise, lengthen, clear };
 }

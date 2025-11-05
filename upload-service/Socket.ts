@@ -2,12 +2,11 @@ import { WebSocket, type MessageEvent, type CloseEvent } from "ws";
 import { PacketReceiver } from "../common/packet/PacketReceiver.js";
 import { parsePacket } from "../common/packet/parser.js";
 import { UploadStartPacket } from "../common/packet/s2u/UploadStartPacket.js";
-import { setPendingUpload } from "./state.js";
-import type { UUID } from "../common";
 import { getEnvironmentVariables } from "../common/environment.js";
 import { getServersidePacketList } from "../common/packet/reader.js";
 import PacketType from "../common/packet/PacketType.js";
-import { GenericBooleanPacket } from "../common/packet/generic/GenericBooleanPacket.js";
+import { UploadAbortPacket } from "../common/packet/s2u/UploadAbortPacket.js";
+import { Upload } from "./index.js";
 
 export class Socket extends PacketReceiver {
     public constructor() {
@@ -37,10 +36,11 @@ export class Socket extends PacketReceiver {
         this.resolveReplies(packet);
 
         if (packet instanceof UploadStartPacket) {
-            const { upload_id, client, ...data } = packet.getData();
-            const chunks = Math.ceil(data.size / data.chunk_size);
-            const message = setPendingUpload({ ...data, upload_id: upload_id as UUID, client: client as UUID /* not present here */ }, chunks);
-            this.replyToPacket(packet, new GenericBooleanPacket({ success: message === null, message: message ?? undefined }));
+            Upload.packet.start(packet);
+        } else if (packet instanceof UploadAbortPacket) {
+            Upload.packet.abort(packet);
+        } else {
+            throw new TypeError("You forgot to handle a packet class within Socket.ts!");
         }
     }
 }

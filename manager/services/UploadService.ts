@@ -11,7 +11,8 @@ import { Uploads } from "../uploads.js";
 import type { DataErrorFields, UUID } from "../../common/index.js";
 import type { Client } from "../client/Client.js";
 import { GenericBooleanPacket } from "../../common/packet/generic/GenericBooleanPacket.js";
-import { logWarn } from "../../common/logging.js";
+import { logError, logInfo, logWarn } from "../../common/logging.js";
+import { UploadAbortPacket } from "../../common/packet/s2u/UploadAbortPacket.js";
 
 const config = {
     name: "upload",
@@ -88,7 +89,29 @@ export class UploadService extends Service {
     }
 
     public async abortUpload(): Promise<boolean> {
-        return false;
+        if (!this.uploadMetadata) {
+            return true;
+        }
+        // log moved here because on every service free, this function is called
+        // (even when reshuffling uploaders because the client is now done uploading)
+        logInfo("Called for abort on:", this.address);
+        const result = await this.sendPacketAndReply_new(new UploadAbortPacket({}), GenericBooleanPacket);
+        if (!result.packet) {
+            logInfo(`Failed to request upload abort at ${this.address}: ${result.error}`);
+            return false;
+        }
+        this.markNotBusy();
+        this.uploadMetadata = null;
+        const data = result.packet.getData();
+
+        if (!data.success) {
+            logError("Failed to abort upload due to:", data.message ?? "Unspecified reason");
+        }
+        // Now, when aborting, the service may of course always say that is has nothing stored.
+        // However, we are already catching that scenario, meaning no abort would even be sent
+        // if there is no active upload. That would be a scenario where it'd be best to kill
+        // the service anyway since something seems to have de-synced.
+        return data.success;
     }
 
     /**
@@ -102,6 +125,7 @@ export class UploadService extends Service {
         this.markBusy();
         const result = await this.sendPacketAndReply_new(new UploadStartPacket(rest), GenericBooleanPacket);
         if (!result.packet) {
+            logInfo(`Failed to submit upload to ${this.address}: ${result.error}`);
             this.markNotBusy();
             return { error: result.error, data: null };
         }

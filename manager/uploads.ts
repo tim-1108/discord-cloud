@@ -274,11 +274,10 @@ function handleClientDisconnect(client: Client) {
 
 async function internal_serviceReleaseAndRedistribution(s: UploadService) {
     s.clearBooking();
-    // TODO: once this function actually does something, get the return
-    //       value to check whether the running upload has actually been
-    //       cancelled. If that did not work, we could kill the socket.
-    //       That would cause the service to have to reconnect.
-    await s.abortUpload();
+    const result = await s.abortUpload();
+    if (!result) {
+        s.closeSocket(1000, "Failed to abort the running upload, going just a bit more extreme now.");
+    }
     Uploads.handlers.service.initOrRelease(s);
 }
 
