@@ -228,9 +228,9 @@ function abortUpload() {
 // We cannnot be sure that just converting the map's values
 // into an array will retrieve them in the correct order (by index)
 // as the user may submit them in any order.
-function retrieveMessagesFromMap(map: Map<number, string>) {
+function retrieveMessagesFromMap(map: Map<number, string>): string[] {
     const arr = new Array<string>(map.size);
-    const iterator = map.entries();
+    const iterator = "forEach" in Iterator.prototype ? map.entries() : Array.from(map.entries());
     iterator.forEach(([index, msg]) => (arr[index] = msg));
     return arr;
 }
