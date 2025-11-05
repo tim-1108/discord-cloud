@@ -189,7 +189,12 @@ function destroyLockIfEmpty(struct: LockStruct /* root should not be destroyed *
         if (isInUse(parent)) {
             break;
         }
-        parent = parent.parent;
+        // Only by removing the current folder from the parent can
+        // the parent then be dropped. At this point in execution,
+        // we know the current folder is empty and can be removed.
+        const child = parent;
+        parent = child.parent;
+        parent.subfolders.delete(child.name);
     }
     return true;
 }
