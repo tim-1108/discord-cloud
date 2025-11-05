@@ -230,7 +230,8 @@ function abortUpload() {
 // as the user may submit them in any order.
 function retrieveMessagesFromMap(map: Map<number, string>): string[] {
     const arr = new Array<string>(map.size);
-    const iterator = "forEach" in Iterator.prototype ? map.entries() : Array.from(map.entries());
-    iterator.forEach(([index, msg]) => (arr[index] = msg));
+    const iterator = map.entries();
+    // polyfill for Iterator.prototype.forEach (node > 22)
+    (typeof iterator.forEach === "function" ? iterator : Array.from(iterator)).forEach(([index, msg]) => (arr[index] = msg));
     return arr;
 }
