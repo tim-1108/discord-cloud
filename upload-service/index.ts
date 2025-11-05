@@ -162,6 +162,7 @@ function packet$uploadStart(packet: UploadStartPacket) {
     })();
 
     logInfo("Started upload:", metadata.path, metadata.name);
+    socket.replyToPacket(packet, new GenericBooleanPacket({ success: true }));
 }
 
 function packet$uploadAbort(packet: UploadAbortPacket) {
