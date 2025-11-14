@@ -78,6 +78,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
 
     archive.pipe(res);
 
+    let i = 0;
     for (const { file, path } of files) {
         if (_closed) {
             archive.end();
@@ -86,6 +87,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
             return;
         }
         const pass = new PassThrough();
+        logDebug(`${path}/${file.name} | ${++i}/${files.length}`);
         archive.append(pass, { name: `${path}/${file.name}` });
 
         const result = await streamFileContents(pass, file, undefined /* here, ranges are unsupported */, res.socket);

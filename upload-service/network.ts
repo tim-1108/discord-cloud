@@ -25,7 +25,7 @@ app.use(async (req, res, next) => {
     next();
 });
 
-app.post("/", multer({ limits: { fileSize: 10 * 1024 * 1024 - 1024 } }).single("file"), event$fileUpload);
+app.post("/", multer({ limits: { fileSize: 10 * 1024 * 1024 } }).single("file"), (req, res) => event$fileUpload(req, res));
 
 app.use((error: unknown, req: Request, res: Response, next: unknown) => {
     res.status(500).json({ error: "Internal Server Error" });
@@ -55,7 +55,7 @@ async function event$fileUpload(req: Request, res: Response): Promise<void> {
         respondWithError(res, status.error || "An unspecified error whilst processing chunk", 500);
         return;
     }
-    res.status(200).send(file.data.chunk_id);
+    res.status(200).send(file.data.chunk_id.toString(10));
 }
 
 function validateAndParseRequest(req: Request, data: Data): DataErrorFields<{ buffer: Buffer; chunk_id: number }, string> {

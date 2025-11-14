@@ -155,7 +155,7 @@ function packet$uploadStart(packet: UploadStartPacket) {
         if (handle.value === null) {
             logError("Handle has already been cleared before the upload could be aborted via timeout! (timeout not cleared upon success?)");
         } else {
-            logInfo(`Timeout exceeded after uploading chunks: ${handle.value.completed_chunks}/${handle.value.chunk_count}`);
+            logInfo(`Timeout exceeded after uploading chunks: ${handle.value.completed_chunks.size}/${handle.value.chunk_count}`);
         }
         socket.sendPacket(new UploadFinishPacket({ success: false, reason: "Timeout exceeded" }));
         abortUpload();
@@ -203,7 +203,7 @@ async function event$submitFile(buffer: Buffer, chunkId: number): Promise<DataEr
     // This is only truly necessary on the first chunk uploaded.
     // We cannot however just do "chunkId === 0", as chunks may
     // be uploaded in any order by the user.
-    data.channel_id = msg.id;
+    data.channel_id = msg.channel_id;
     data.chunk_finish_handler(chunkId, data);
     return { success: true, error: null };
 }

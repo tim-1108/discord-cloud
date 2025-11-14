@@ -3,6 +3,8 @@ import type { Service, ServiceParams } from "./Service.js";
 import { WebSocket } from "ws";
 import { ThumbnailService } from "./ThumbnailService.js";
 import { logDebug, logWarn } from "../../common/logging.js";
+import { ClientList } from "../client/list.js";
+import { ServiceRegistryPacket } from "../../common/packet/s2c/ServiceRegistryPacket.js";
 
 /**
  * Services have to be registered here
@@ -47,6 +49,13 @@ function registerAndGetService(name: ServiceName, socket: WebSocket, params: Gen
     // Stuff we call inside the instance
     inst.addHandler();
     socket.addEventListener("close", () => unregisterService(inst));
+    const pkt = new ServiceRegistryPacket({
+        action: "added",
+        service_type: name,
+        address: inst instanceof UploadService ? inst.getAddress() : undefined,
+        service_uuid: inst.getServiceUUID()
+    });
+    ClientList.broadcast(() => pkt);
 
     return inst as T["prototype"];
 }
@@ -63,6 +72,12 @@ function unregisterService(inst: Service) {
     }
 
     inst.removeHandler();
+    const pkt = new ServiceRegistryPacket({
+        action: "removed",
+        service_type: name as ServiceName,
+        service_uuid: inst.getServiceUUID()
+    });
+    ClientList.broadcast(() => pkt);
     return ret;
 }
 

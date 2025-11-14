@@ -1,6 +1,7 @@
 import type { WebSocket } from "ws";
 import { PacketReceiver } from "../../common/packet/PacketReceiver.js";
 import type { SchemaEntryConsumer, SchemaToType } from "../../common/validator.js";
+import type { UUID } from "../../common/index.js";
 
 export interface ServiceConfiguration {
     maxAmount?: number;
@@ -39,13 +40,25 @@ export abstract class Service extends PacketReceiver {
      */
     private busy: boolean = false;
 
+    /**
+     * A value to help identify individual services on the client-side
+     * when broadcasted via {@link ServiceRegistryPacket}s. This serves
+     * no other use as of now.
+     */
+    private uuid: UUID;
+
     protected constructor(socket: WebSocket, params: ServiceParams<any> | undefined /* declared explicitly to force subclass pass parameter */) {
         super(socket);
         this.params = params ?? null;
+        this.uuid = crypto.randomUUID();
     }
 
-    public isBusy() {
+    public isBusy(): boolean {
         return this.busy;
+    }
+
+    public getServiceUUID(): UUID {
+        return this.uuid;
     }
 
     /**
