@@ -378,9 +378,10 @@ async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket
         const d = new Date();
         $handle = await Database.file.update(metadata.overwrite_target, { ...handle, updated_at: d.toUTCString() });
         if ($handle === null) {
-            // The file might have been the deleted in the meantime
-            // We cannot really prevent that, as dropping folders also
-            // cascades in file deletions (too complicated)
+            // The file should not have been tampered with in the meantime.
+            // The folder also should not have been able to be deleted,
+            // as if any file within the folder is locked, the method
+            // `contentStatus` of Locks.folder will return that.
             failUpload(metadata, "Failed to overwrite file");
             return;
         }

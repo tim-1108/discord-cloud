@@ -24,6 +24,7 @@ import { UploadServicesRequestPacket } from "../../../common/packet/c2s/UploadSe
 import { UploadBookingModifyPacket } from "../../../common/packet/s2c/UploadBookingModifyPacket.js";
 import { UploadResponsePacket } from "../../../common/packet/s2c/UploadResponsePacket.js";
 import { UploadServicesPacket } from "../../../common/packet/s2c/UploadServicesPacket.js";
+import { ServiceRegistryPacket } from "../../../common/packet/s2c/ServiceRegistryPacket.js";
 
 // As we cannot just scan directories, this requires manual registering
 
@@ -37,7 +38,8 @@ const clientboundPackets: PacketWithID<PacketTypeMap[PacketType.Server2Client]>[
     ListFoldersPacket,
     UploadBookingModifyPacket,
     UploadResponsePacket,
-    UploadServicesPacket
+    UploadServicesPacket,
+    ServiceRegistryPacket
 ];
 const serverboundPackets: PacketWithID<PacketTypeMap[PacketType.Client2Server]>[] = [
     ListRequestPacket,

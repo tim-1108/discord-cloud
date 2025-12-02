@@ -14,6 +14,7 @@ import {
 import {
     addFolder,
     createOrGetFolderByPath,
+    getAllFolders,
     getFileCount_folder,
     getFolderById_Database,
     getFolderByNameAndParent_Database,
@@ -23,7 +24,9 @@ import {
     resolveRouteFromFolderId
 } from "./folder.js";
 import { listSubfolders } from "./public.js";
+import { Database$Sizes } from "./sizes.js";
 import { getSignedLinkForThumbnail, deleteThumbnailFromStorage, uploadThumbnailToStorage } from "./storage.js";
+import { Database$Tree } from "./tree.js";
 import { createUser, getUserByName_Database, getUser_Database, updateUserPassword } from "./users.js";
 
 export const Database = {
@@ -57,7 +60,8 @@ export const Database = {
         listing: {
             files: listFilesInFolder_Database,
             subfolders: listSubfolders
-        }
+        },
+        getAll: getAllFolders
     },
     file: {
         add: addFileHandle,
@@ -80,5 +84,10 @@ export const Database = {
             delete: deleteFileShare,
             update: updateFileShare
         }
-    }
+    },
+    sizes: {
+        fileTypeGlobally: Database$Sizes.getFileTypeTotalSizes_Database,
+        fileTypeByFolder: Database$Sizes.getFolderAndTypeSizes_Database
+    },
+    tree: Database$Tree
 } as const;

@@ -29,6 +29,16 @@ export async function addFolder(name: string, parent: FolderOrRoot) {
     return data;
 }
 
+export async function getAllFolders(): Promise<FolderHandle[] | null> {
+    // Is this efficient, NO!
+    const selector = await supabase.from("folders").select("*").limit(Number.MAX_SAFE_INTEGER);
+    if (!selector.data) {
+        logError("Failed to retrieve all folders due to:", selector.error);
+        return null;
+    }
+    return selector.data;
+}
+
 export async function renameFolder(id: number, targetName: string): Promise<FolderHandle | null> {
     const handle = await Database.folder.getById(id);
     if (!handle) {

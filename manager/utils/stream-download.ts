@@ -1,5 +1,5 @@
 import { decryptBuffer } from "../../common/crypto.js";
-import { logError } from "../../common/logging.js";
+import { logError, logInfo } from "../../common/logging.js";
 import { createResolveFunction, sortMapValuesAsArrayByKeyArray } from "../../common/useless.js";
 import { enqueue, shiftQueue } from "../../common/processing-queue.js";
 import { PassThrough, type Writable } from "node:stream";
@@ -30,6 +30,8 @@ const DRAIN_TIMEOUT = 1_000_000 as const;
  */
 export async function streamFileContents(target: Writable, file: FileHandle, range?: RequestRange, socket?: Socket | null): Promise<string | null> {
     await enqueue();
+
+    logInfo(`Streaming file "${file.name}" in folder ${file.folder} with range ${range ? `${range.from} - ${range.to} bytes` : "full"}`);
 
     const chunks = range ? getChunkIdsForRange(range) : null;
     // Optimizes message fetching by only fetching those required by the range
