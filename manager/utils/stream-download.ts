@@ -71,7 +71,7 @@ export async function streamFileContents(target: Writable, file: FileHandle, ran
     // If these wouldn't be sorted, they'd come in as they were uploaded to Discord
     // This might be in some random order. They have to be sorted by their ordering in the DB
     // and cannot be just sorted via Discord message id.
-    const sortedLinks = sortMapValuesAsArrayByKeyArray(links.data, file.messages);
+    const sortedLinks = sortMapValuesAsArrayByKeyArray(links.data, $msgs);
     if (!sortedLinks) {
         shiftQueue();
         return "If you see this error, The Impossible has arrived";
