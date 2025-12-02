@@ -80,6 +80,7 @@ export function validateObjectBySchema<S extends SchemaEntryConsumer>(object: an
         else if (schema.type === "boolean") validateBooleanSchema(schema, value, invalidateKey);
         else if (schema.type === "record") validateRecordSchema(schema, value, invalidateKey);
         else if (schema.type === "array") validateArraySchema(schema, value, invalidateKey);
+        else if (schema.type === "generic_record") validateGenericRecordSchema(schema, value, invalidateKey);
         else throw new SyntaxError("Invalid type for validation");
     }
 
@@ -151,6 +152,18 @@ function validateArraySchema(schema: ArraySchemaEntry, value: any, func: Invalid
     });
 
     if (hasAnyInvalid) return func("items_invalid");
+}
+
+function validateGenericRecordSchema(schema: GenericRecordSchemaEntry, value: any, func: InvalidateFunction) {
+    if (!isRecord(value)) return func("incorrect_type");
+
+    for (const key in value) {
+        const val = value[key];
+        const type = typeof val;
+        if (type !== schema.value_type) {
+            return func("items_invalid");
+        }
+    }
 }
 
 type SchemaOffense =
@@ -250,6 +263,14 @@ interface RecordSchemaEntry extends BaseSchemaEntry {
     items: SchemaEntryConsumer;
 }
 
+interface GenericRecordSchemaEntry extends BaseSchemaEntry {
+    type: "generic_record";
+    /**
+     * The primitive all values of the record should be enforced to have.
+     */
+    value_type: Exclude<Primitives, "object">;
+}
+
 export interface ArraySchemaEntry<T = any, Allowed = any, Required extends boolean | undefined = boolean> extends BaseSchemaEntry {
     type: "array";
     item_type?: Primitives;
@@ -280,7 +301,13 @@ export function createArraySchemaEntry<T = any, Allowed = any, Required extends 
 
 type Primitives = "object" | "boolean" | "number" | "string";
 
-export type SchemaEntry = StringSchemaEntry | NumberSchemaEntry | BooleanSchemaEntry | RecordSchemaEntry | ArraySchemaEntry;
+export type SchemaEntry =
+    | StringSchemaEntry
+    | NumberSchemaEntry
+    | BooleanSchemaEntry
+    | RecordSchemaEntry
+    | ArraySchemaEntry
+    | GenericRecordSchemaEntry;
 
 interface SerializedSchemaEntry extends BaseSchemaEntry {
     pattern?: string;
@@ -302,9 +329,11 @@ type SchemaEntryType<T extends SchemaEntry> = T extends StringSchemaEntry
         ? boolean
         : T extends RecordSchemaEntry
           ? SchemaToType<T["items"]>
-          : T extends ArraySchemaEntry
-            ? ArraySchemaEntryTypeDetection<T>
-            : unknown;
+          : T extends GenericRecordSchemaEntry
+            ? Record<string, PrimitiveNameToType<T["value_type"]>>
+            : T extends ArraySchemaEntry
+              ? ArraySchemaEntryTypeDetection<T>
+              : unknown;
 
 type PrimitiveNameToType<T extends Primitives> = T extends "object"
     ? object

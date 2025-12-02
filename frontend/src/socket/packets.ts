@@ -25,6 +25,11 @@ import { UploadBookingModifyPacket } from "../../../common/packet/s2c/UploadBook
 import { UploadResponsePacket } from "../../../common/packet/s2c/UploadResponsePacket.js";
 import { UploadServicesPacket } from "../../../common/packet/s2c/UploadServicesPacket.js";
 import { ServiceRegistryPacket } from "../../../common/packet/s2c/ServiceRegistryPacket.js";
+import { FolderSizePacket } from "../../../common/packet/s2c/FolderSizePacket.js";
+import { EmptyFileUploadPacket } from "../../../common/packet/c2s/EmptyFileUploadPacket.js";
+import { FileSharePacket } from "../../../common/packet/c2s/FileSharePacket.js";
+import { FolderSizeRequestPacket } from "../../../common/packet/c2s/FolderSizeRequestPacket.js";
+import { FolderStatusRequestPacket } from "../../../common/packet/c2s/FolderStatusRequestPacket.js";
 
 // As we cannot just scan directories, this requires manual registering
 
@@ -39,7 +44,8 @@ const clientboundPackets: PacketWithID<PacketTypeMap[PacketType.Server2Client]>[
     UploadBookingModifyPacket,
     UploadResponsePacket,
     UploadServicesPacket,
-    ServiceRegistryPacket
+    ServiceRegistryPacket,
+    FolderSizePacket
 ];
 const serverboundPackets: PacketWithID<PacketTypeMap[PacketType.Client2Server]>[] = [
     ListRequestPacket,
@@ -53,7 +59,11 @@ const serverboundPackets: PacketWithID<PacketTypeMap[PacketType.Client2Server]>[
     ThumbnailRequestPacket,
     UploadRequestPacket,
     UploadServicesReleasePacket,
-    UploadServicesRequestPacket
+    UploadServicesRequestPacket,
+    EmptyFileUploadPacket,
+    FileSharePacket,
+    FolderSizeRequestPacket,
+    FolderStatusRequestPacket
 ];
 const genericPackets: PacketWithID<PacketTypeMap[PacketType.Generic]>[] = [GenericBooleanPacket, GenericPrimitivesPacket];
 

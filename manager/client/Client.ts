@@ -23,6 +23,7 @@ import { UploadRequestPacket } from "../../common/packet/c2s/UploadRequestPacket
 import { UploadServicesRequestPacket } from "../../common/packet/c2s/UploadServicesRequestPacket.js";
 import { UploadServicesReleasePacket } from "../../common/packet/c2s/UploadServicesReleasePacket.js";
 import { logInfo } from "../../common/logging.js";
+import { FolderSizeRequestPacket } from "../../common/packet/c2s/FolderSizeRequestPacket.js";
 
 export class Client extends PacketReceiver {
     private readonly uuid: UUID;
@@ -83,6 +84,8 @@ export class Client extends PacketReceiver {
             void Uploads.booking.request(this, packet);
         } else if (packet instanceof UploadServicesReleasePacket) {
             void Uploads.booking.release(this, packet);
+        } else if (packet instanceof FolderSizeRequestPacket) {
+            void ListingClientOperations.folderSize(this, packet);
         }
     }
 }

@@ -10,10 +10,13 @@ import type { FolderStatusRequestPacket } from "../../common/packet/c2s/FolderSt
 import { FolderStatusPacket } from "../../common/packet/s2c/FolderStatusPacket.js";
 import { ListFilesPacket } from "../../common/packet/s2c/ListFilesPacket.js";
 import { ListFoldersPacket } from "../../common/packet/s2c/ListFoldersPacket.js";
+import type { FolderSizeRequestPacket } from "../../common/packet/c2s/FolderSizeRequestPacket.js";
+import { FolderSizePacket } from "../../common/packet/s2c/FolderSizePacket.js";
 
 export const ListingClientOperations = {
     folderStatus,
-    listRequest
+    listRequest,
+    folderSize
 } as const;
 
 /**
@@ -39,6 +42,22 @@ async function folderStatus(client: Client, packet: FolderStatusRequestPacket) {
         packet,
         new FolderStatusPacket({ path, exists: true, file_count: files, subfolder_count: subfolders, page_size: PAGE_SIZE })
     );
+}
+
+async function folderSize(client: Client, packet: FolderSizeRequestPacket) {
+    const { folder_id } = packet.getData();
+    if (folder_id !== null) {
+        const handle = await Database.folder.getById(folder_id);
+        if (!handle) return;
+    }
+    const types = Database.tree.getCombinedSizes(folder_id);
+    const record: Record<string, number> = {};
+    let totalSize = 0;
+    for (const [type, size] of types) {
+        record[type] = size;
+        totalSize += size;
+    }
+    client.replyToPacket(packet, new FolderSizePacket({ total_size: totalSize, types: record, folder_id }));
 }
 
 /**
