@@ -10,7 +10,7 @@ const metadata = ref<ListingMetadata | null>(null);
 const sPageCount = computed(() => (metadata.value ? Math.ceil(metadata.value.subfolder_count / metadata.value.page_size) : null));
 const fPageCount = computed(() => (metadata.value ? Math.ceil(metadata.value.file_count / metadata.value.page_size) : null));
 
-const listingType = ref<"grid" | "table">("grid");
+const listingType = ref<"grid" | "table">("table");
 
 type NamedMap<T extends { name: string }> = Map<string, T>;
 

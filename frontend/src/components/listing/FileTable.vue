@@ -6,12 +6,8 @@ import type { ClientFileHandle } from "../../../../common/client";
 
 const props = defineProps<{ fileList: ClientFileHandle[] }>();
 const route = useCurrentRoute();
-async function openImageOrDownload(file: ClientFileHandle) {
-    const link = await generateDownloadLink(file.name, convertRouteToPath(route.value));
-    if (isFileImage(file)) {
-        getPreviewingImage().value = link;
-        return;
-    }
+function openImageOrDownload(file: ClientFileHandle) {
+    const link = generateDownloadLink(file.name, convertRouteToPath(route.value));
     window.open(link, "_blank");
 }
 </script>
@@ -28,7 +24,7 @@ async function openImageOrDownload(file: ClientFileHandle) {
             </tr>
         </thead>
         <tbody>
-            <tr v-for="file of fileList" class="" @click="openImageOrDownload(file)">
+            <tr v-for="file of fileList" class="hover:bg-gray-200 cursor-pointer" @click="openImageOrDownload(file)">
                 <td></td>
                 <td>{{ file.name }}</td>
                 <td>{{ parseDateObjectToRelative(new Date(file.updated_at ?? "")) }}</td>

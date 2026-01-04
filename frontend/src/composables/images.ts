@@ -1,10 +1,13 @@
 import { ref } from "vue";
 import { getAuthenticationSync } from "./authentication";
 import type { ClientFileHandle } from "../../../common/client";
+import { LocalStorageKey, readRawFromStorage } from "./storage";
+import { patterns } from "../../../common/patterns";
 
-export async function generateDownloadLink(name: string, path: string) {
+export function generateDownloadLink(name: string, path: string) {
     const auth = getAuthenticationSync();
-    if (auth === null) {
+    const token = readRawFromStorage(LocalStorageKey.Token, { type: "string", required: true, pattern: patterns.jwt });
+    if (auth === null || token === null) {
         // This really should never be able to happen
         throw new ReferenceError("Authentication is not defined upon generating a download link");
     }
@@ -12,7 +15,7 @@ export async function generateDownloadLink(name: string, path: string) {
     url.pathname = "/download";
     // Will, if possible, auto correct to https
     url.protocol = "http:";
-    url.searchParams.append("auth", auth.password);
+    url.searchParams.append("auth", token);
     url.searchParams.append("name", name);
     url.searchParams.append("path", path);
     return url.toString();
