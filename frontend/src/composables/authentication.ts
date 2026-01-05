@@ -111,8 +111,13 @@ export async function getOrCreateCommunicator(): Promise<Communicator> {
         throw new ReferenceError("Invalid address: " + a);
     }
 
-    // @ts-expect-error is readonly due to "as const" typing of auth schema
-    auth.address = u.toString();
+    // If we updated something, make sure to actually also save it.
+    // If the user did not enter a protocol in their auth run, we will now write it there.
+    if (auth.address !== u.toString()) {
+        // @ts-expect-error is readonly due to "as const" typing of auth schema
+        auth.address = u.toString();
+        writeObjectToStorage(LocalStorageKey.Authentication, auth);
+    }
 
     PendingAuthenticationState.value = "health";
 

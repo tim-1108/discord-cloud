@@ -2,7 +2,7 @@
 
 :root {
     --bg-color: white;
-    --side-color: #fafaff;
+    --side-color: #f5f5f5;
     --button-color: #f0f4f9;
     --button-active-color: #dfe3e7;
     --selected-color: #c2e7ff;
@@ -30,6 +30,10 @@ body {
 
 h1 {
     @apply text-3xl;
+}
+
+h2 {
+    @apply text-2xl;
 }
 
 h3 {

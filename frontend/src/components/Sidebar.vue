@@ -12,12 +12,13 @@ function logOff() {
 }
 
 const uploadCount = computed(() => Uploads.queue.length + Uploads.active.size);
+const props = defineProps<{ folderId?: number | null }>();
 </script>
 
 <template>
     <aside class="px-4">
         <button
-            class="p-4 bg-[var(--text-selected-color)] text-[var(--selected-color)] items-center flex gap-4 drop-shadow transition-all rounded-xl hover:shadow-lg hover:bg-[var(--text-selected-color-lighter)]"
+            class="p-4 bg-(--text-selected-color) text-(--selected-color) items-center flex gap-4 drop-shadow transition-all rounded-xl hover:shadow-lg hover:bg-(--text-selected-color-lighter)"
             @click="Dialogs.mount('upload-submit', {})">
             <FontAwesomeIcon :icon="faPlus"></FontAwesomeIcon>
             <span>Upload</span>
@@ -26,5 +27,6 @@ const uploadCount = computed(() => Uploads.queue.length + Uploads.active.size);
             >View {{ uploadCount }} upload{{ uploadCount === 1 ? "" : "s" }}</GrayHighlightButton
         >
         <GrayHighlightButton styling="default" @click="logOff" :icon="faArrowRightFromBracket">Log out</GrayHighlightButton>
+        <SidebarSizeChart :folder-id="props.folderId" v-if="props.folderId !== undefined"></SidebarSizeChart>
     </aside>
 </template>

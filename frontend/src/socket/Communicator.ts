@@ -18,7 +18,7 @@ export class Communicator extends PacketReceiver {
     public constructor(address: URL) {
         const socket = new WebSocket(address);
         super(socket);
-        this.socket.addEventListener("open", async () => {
+        this.socket.addEventListener("open", () => {
             PendingAuthenticationState.value = "established";
             Connection.isConnected.value = true;
         });

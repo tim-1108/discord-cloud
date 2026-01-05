@@ -27,7 +27,7 @@ const PAGE_SIZE = 100 as const;
 async function folderStatus(client: Client, packet: FolderStatusRequestPacket) {
     const { path } = packet.getData();
     const fid = await Database.folder.getByPath(path);
-    const invalidReply = new FolderStatusPacket({ path, exists: false, file_count: 0, subfolder_count: 0, page_size: PAGE_SIZE });
+    const invalidReply = new FolderStatusPacket({ path, exists: false, file_count: 0, subfolder_count: 0, page_size: PAGE_SIZE, folder_id: null });
     if (fid === null) {
         client.replyToPacket(packet, invalidReply);
         return;
@@ -40,7 +40,14 @@ async function folderStatus(client: Client, packet: FolderStatusRequestPacket) {
     }
     client.replyToPacket(
         packet,
-        new FolderStatusPacket({ path, exists: true, file_count: files, subfolder_count: subfolders, page_size: PAGE_SIZE })
+        new FolderStatusPacket({
+            path,
+            exists: true,
+            file_count: files,
+            subfolder_count: subfolders,
+            page_size: PAGE_SIZE,
+            folder_id: fid === "root" ? null : fid
+        })
     );
 }
 

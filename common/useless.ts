@@ -100,7 +100,7 @@ export function createResolveFunction<Return = void>() {
 }
 
 interface FormatByteStringConfig {
-    type?: "full" | "short";
+    type?: "full" | "short" | "only-bytes-full";
     has_spacing?: boolean;
     float_digits?: number;
 }
@@ -123,6 +123,10 @@ export function formatByteString(byte_val: number, cfg?: FormatByteStringConfig)
             // that is not actually that important.
             const suffix = val === 1.0 ? "" : "s";
             return sign + str_val + offsetsLong[offset_index] + suffix;
+        } else if (cfg?.type === "only-bytes-full") {
+            const suffix = offset_index === 0 ? (val === 1.0 ? "" : "s") : "";
+            const accessor = offset_index === 0 ? offsetsLong : offsets;
+            return sign + str_val + accessor[offset_index] + suffix;
         }
         return sign + str_val + offsets[offset_index];
     };

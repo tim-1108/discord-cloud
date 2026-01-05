@@ -13,6 +13,9 @@ import ThumbnailFileGrid from "./components/listing/ThumbnailFileGrid.vue";
 import { faFolderPlus, faLongArrowUp, faRotateRight } from "@fortawesome/free-solid-svg-icons";
 import { Connection } from "./composables/connection";
 import { PendingAuthenticationState } from "./composables/state";
+import { UncachedListing, type ListingError, type ListingMetadata } from "./composables/listing_uncached";
+import { getOrCreateCommunicator } from "./composables/authentication";
+import { logWarn } from "../../common/logging";
 
 const route = useCurrentRoute();
 const path = computed(() => convertRouteToPath(route.value));
@@ -37,6 +40,25 @@ const dropPreview = {
 };
 
 const isConnected = Connection.isConnected;
+
+const listingMetadata = ref<ListingMetadata | null>(null);
+const listingError = ref<ListingError | null>(null);
+async function fetchListingMetadata() {
+    if (PendingAuthenticationState.value !== "established") {
+        logWarn("Tried fetching metadata whilst not (yet) being connected!");
+        return;
+    }
+    const res = await UncachedListing.init(path.value);
+    listingMetadata.value = res.data;
+    listingError.value = res.error;
+}
+watch(path, fetchListingMetadata);
+watch(PendingAuthenticationState, (val) => {
+    if (val !== "established") {
+        return;
+    }
+    void fetchListingMetadata();
+});
 </script>
 
 <template>
@@ -50,7 +72,7 @@ const isConnected = Connection.isConnected;
             </div>
         </header>
 
-        <Sidebar class="row-span-1 overflow-auto"></Sidebar>
+        <Sidebar class="row-span-1 overflow-auto" :folder-id="listingMetadata?.folder_id"></Sidebar>
         <main class="row-span-1 overflow-auto p-4 bg-white rounded-tl-3xl min-h-0">
             <div v-if="!isConnected">
                 <span v-if="PendingAuthenticationState === 'health'">Waiting for server to come online</span>
@@ -59,7 +81,7 @@ const isConnected = Connection.isConnected;
                 <span v-else-if="PendingAuthenticationState === 'establishing'">Establishing connection</span>
                 <span v-else-if="PendingAuthenticationState === 'established'">Connected</span>
             </div>
-            <ListingWrapper :path="path" :key="path" v-else></ListingWrapper>
+            <ListingWrapper :path="path" :key="path" :metadata="listingMetadata" :error="listingError" v-else></ListingWrapper>
         </main>
         <component v-for="[k, cmp] of Dialogs.iterator.value" :is="cmp" :key="k"></component>
         <UploadDropOverlay

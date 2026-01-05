@@ -7,6 +7,7 @@ const id = "folder-status";
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
     path: { type: "string", required: true, pattern: patterns.stringifiedPath },
+    folder_id: { type: "number", required: true, min: 0, allow_null: true },
     exists: { type: "boolean", required: true },
     file_count: { type: "number", required: true, min: 0 },
     subfolder_count: { type: "number", required: true, min: 0 },
