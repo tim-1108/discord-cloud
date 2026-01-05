@@ -48,7 +48,7 @@ const ENV_SUBSETS = {
      * format (node/lib/internal/crypto/keys.js#prepareAsymmetricKey)
      */
     crypto: ["PRIVATE_KEY", "PUBLIC_KEY"],
-    manager: ["SERVICE_PASSWORD", "SUPABASE_URL", "SUPABASE_KEY"],
+    manager: ["SERVICE_PASSWORD", "SUPABASE_URL", "SUPABASE_KEY", "MANAGER_PORT"],
     "upload-service": ["SERVICE_PASSWORD", "OWN_ADDRESS", "MANAGER_ADDRESS", "ENCRYPTION", "PORT", "BOT_TOKEN", "CHANNEL_ID"],
     "thumbnail-service": ["SERVICE_PASSWORD", "MANAGER_ADDRESS"],
     "service-pinger": ["SERVICE_PINGING_ENABLED", "SERVICES"],

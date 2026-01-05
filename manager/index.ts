@@ -22,4 +22,10 @@ if (!folders || !sizes) {
 Database.tree.init(folders, sizes);
 logInfo("Init: Folder tree done");
 
-new Network(4000);
+const { MANAGER_PORT } = getEnvironmentVariables("manager");
+const port = parseInt(MANAGER_PORT, 10);
+if (!Number.isSafeInteger(port) || port <= 0 || port > 32767) {
+    throw new Error("The port value is invalid: " + port);
+}
+logInfo("Init: Network on port", port);
+new Network(port);
