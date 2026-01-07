@@ -16,6 +16,11 @@ export interface ListingMetadata {
     file_count: number;
     page_size: number;
     folder_id: number | null;
+    /**
+     * Used to compare the inputted path to. If the path in here does
+     * not match the current path, we do not render the ListingWrapper.
+     */
+    path: string;
 }
 
 export type ListingError = {
@@ -26,7 +31,8 @@ export type ListingError = {
 
 export const UncachedListing = {
     init,
-    getPage,
+    getFilesPage,
+    getSubfolderPage,
     getSizes,
     modify: {}
 };
@@ -37,13 +43,14 @@ async function init(path: string[] | string): Promise<DataErrorFields<ListingMet
     const com = await getOrCreateCommunicator();
     const res = await com.sendPacketAndReply_new(new FolderStatusRequestPacket({ path }), FolderStatusPacket);
     if (!res.packet) {
-        return { error: { message: res.error, can_retry: true }, data: null };
+        return { error: { message: res.error }, data: null };
     }
     const { exists, subfolder_count, file_count, page_size, folder_id } = res.packet.getData();
     if (!exists) {
         return { error: { message: "The folder does not exist", can_create: true }, data: null };
     }
     const data: ListingMetadata = {
+        path,
         subfolder_count,
         folder_id,
         file_count,
@@ -63,42 +70,46 @@ async function getSizes(id: number | null): Promise<DataErrorFields<GetSizeRetur
     return { data, error: null };
 }
 
-type Sort<T extends "files" | "subfolders"> = {
+export type Sort<T extends "files" | "subfolders"> = {
     field: T extends "files" ? "name" | "last_updated" | "size" : "name";
     ascending?: boolean;
 };
 
-async function getPage<T extends "files" | "subfolders", R = Map<string, T extends "files" ? ClientFileHandle : ClientFolderHandle>>(
-    path: string[] | string,
-    type: T,
-    page: number,
-    sort?: Sort<T>
-): Promise<DataErrorFields<R, ListingError>> {
-    path = typeof path === "string" ? path : convertRouteToPath(path);
-    const packet = new ListRequestPacket({ path, page, type, sort_by: sort?.field, ascending_sort: sort?.ascending });
-    const com = await getOrCreateCommunicator();
+// TODO: Ecmascript guarantees us the return of values of a Map in insertion order
+// when called via .values(). This might be needed to create a NamedMap with the
+// file name as key. This would assure us when adding multiple pages that no item
+// can appear multiple times.
 
-    if (type === "files") {
-        const res = await com.sendPacketAndReply_new(packet, ListFilesPacket);
-        if (!res.packet) {
-            return { data: null, error: { message: res.error, can_retry: true } };
-        }
-        const { files, success } = res.packet.getData();
-        if (!success) {
-            return { data: null, error: { message: "Failed to load files on the page", can_retry: true } };
-        }
-        const map = createMapFromNamedArray<ClientFileHandle>(files as ClientFileHandle[]);
-        return { data: map as R, error: null };
-    } else {
-        const res = await com.sendPacketAndReply_new(packet, ListFoldersPacket);
-        if (!res.packet) {
-            return { data: null, error: { message: res.error, can_retry: true } };
-        }
-        const { folders, success } = res.packet.getData();
-        if (!success) {
-            return { data: null, error: { message: "Failed to load folders on the page", can_retry: true } };
-        }
-        const map = createMapFromNamedArray<ClientFolderHandle>(folders as ClientFolderHandle[]);
-        return { data: map as R, error: null };
+async function getSubfolderPage(
+    path: string[] | string,
+    page: number,
+    sort?: Sort<"subfolders">
+): Promise<DataErrorFields<ClientFolderHandle[], ListingError>> {
+    path = typeof path === "string" ? path : convertRouteToPath(path);
+    const packet = new ListRequestPacket({ path, page, type: "subfolders", sort_by: sort?.field, ascending_sort: sort?.ascending });
+    const com = await getOrCreateCommunicator();
+    const res = await com.sendPacketAndReply_new(packet, ListFoldersPacket);
+    if (!res.packet) {
+        return { data: null, error: { message: res.error, can_retry: true } };
     }
+    const { folders, success } = res.packet.getData();
+    if (!success) {
+        return { data: null, error: { message: "Failed to load folders on the page", can_retry: true } };
+    }
+    return { data: folders as ClientFolderHandle[], error: null };
+}
+
+async function getFilesPage(path: string[] | string, page: number, sort?: Sort<"files">): Promise<DataErrorFields<ClientFileHandle[], ListingError>> {
+    path = typeof path === "string" ? path : convertRouteToPath(path);
+    const packet = new ListRequestPacket({ path, page, type: "files", sort_by: sort?.field, ascending_sort: sort?.ascending });
+    const com = await getOrCreateCommunicator();
+    const res = await com.sendPacketAndReply_new(packet, ListFilesPacket);
+    if (!res.packet) {
+        return { data: null, error: { message: res.error, can_retry: true } };
+    }
+    const { files, success } = res.packet.getData();
+    if (!success) {
+        return { data: null, error: { message: "Failed to load files on the page", can_retry: true } };
+    }
+    return { data: files as ClientFileHandle[], error: null };
 }

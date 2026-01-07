@@ -7,8 +7,8 @@ const emit = defineEmits<{ retry: []; createFolder: []; navigateUp: [] }>();
 
 <template>
     <div class="grid h-full w-full place-content-center">
-        <section class="bg-[var(--component-color)] shadow rounded-xl py-2 px-4 grid justify-items-center gap-2">
-            <h1 class="!text-5xl">:/</h1>
+        <section class="bg-(--component-color) shadow rounded-xl py-2 px-4 grid justify-items-center gap-2">
+            <h1 class="text-5xl!">:/</h1>
             <h3>An Error Occured</h3>
             <span>{{ message }}</span>
             <div class="grid md:flex gap-2">

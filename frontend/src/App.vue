@@ -43,6 +43,15 @@ const isConnected = Connection.isConnected;
 
 const listingMetadata = ref<ListingMetadata | null>(null);
 const listingError = ref<ListingError | null>(null);
+/**
+ * When `path` is updated, this function is called. However,
+ * as obtaining the metadata takes some time, the `ListingWrapper`
+ * component will already have rerendered, but with the old metadata.
+ * Thus, `metadata` also stores a `path` attribute that is compared
+ * to the current path. If they do not match, we do not render the
+ * component. `ListingWrapper` runs its page and initial fetching
+ * logic only on `mount`.
+ */
 async function fetchListingMetadata() {
     if (PendingAuthenticationState.value !== "established") {
         logWarn("Tried fetching metadata whilst not (yet) being connected!");
@@ -81,7 +90,11 @@ watch(PendingAuthenticationState, (val) => {
                 <span v-else-if="PendingAuthenticationState === 'establishing'">Establishing connection</span>
                 <span v-else-if="PendingAuthenticationState === 'established'">Connected</span>
             </div>
-            <ListingWrapper :path="path" :key="path" :metadata="listingMetadata" :error="listingError" v-else></ListingWrapper>
+            <ListingWrapper
+                :path="path"
+                :key="path"
+                v-else-if="listingMetadata && listingMetadata.path === path"
+                :metadata="listingMetadata"></ListingWrapper>
         </main>
         <component v-for="[k, cmp] of Dialogs.iterator.value" :is="cmp" :key="k"></component>
         <UploadDropOverlay
