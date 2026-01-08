@@ -71,9 +71,15 @@ async function getSizes(id: number | null): Promise<DataErrorFields<GetSizeRetur
 }
 
 export type Sort<T extends "files" | "subfolders"> = {
-    field: T extends "files" ? "name" | "last_updated" | "size" : "name";
+    field: T extends "files" ? SortingField : "name";
     ascending?: boolean;
 };
+export const SortingFieldOptions = [
+    { field: "name", name: "Name" },
+    { field: "updated_at", name: "Updated" },
+    { field: "size", name: "Size" }
+] as const;
+export type SortingField = (typeof SortingFieldOptions)[number]["field"];
 
 // TODO: Ecmascript guarantees us the return of values of a Map in insertion order
 // when called via .values(). This might be needed to create a NamedMap with the

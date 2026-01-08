@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { UncachedListing, type GetSizeReturn } from "@/composables/listing_uncached";
-import { convertRouteToPath, useCurrentRoute } from "@/composables/path";
 import { computed, onMounted, ref, watch } from "vue";
 import { formatByteString } from "../../../common/useless";
 import { mergeFileTypesAndSort } from "@/composables/file-types";
