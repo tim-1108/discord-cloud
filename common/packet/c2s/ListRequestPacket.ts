@@ -9,7 +9,7 @@ const dataStructure = {
     path: { type: "string", required: true, pattern: patterns.stringifiedPath },
     type: { type: "string", required: true, options: ["subfolders", "files"] },
     page: { type: "number", required: true, min: 0 },
-    sort_by: { type: "string", required: false, options: ["name", "last_updated", "size"] },
+    sort_by: { type: "string", required: false, options: ["name", "updated_at", "size"] },
     /**
      * If specified, the sort will be ascending, if not or false,
      * the entries will be sorted decendingly.
