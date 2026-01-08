@@ -2,6 +2,7 @@ import { getEnvironmentVariables } from "./environment.js";
 import FormData from "form-data";
 import { logDebug, logError } from "./logging.js";
 import { sleep } from "./useless.js";
+import type { DataErrorFields } from "./index.js";
 
 export const Discord = {
     bot: {
@@ -74,7 +75,7 @@ async function getMessages(input: string[], channel: string) {
         return { data: a, error: null };
     }
 
-    const $msgs = sortMessages(input);
+    const sortedMessageIds = sortMessages(input);
 
     const stats = {
         bulk: 0,
@@ -89,20 +90,21 @@ async function getMessages(input: string[], channel: string) {
     // (We do not fetch by chunk id, as the user is choosing the upload order)
 
     // If we have more than 100 chunks, we need to fetch at least twice
-    let neededRuns = Math.ceil($msgs.length / MESSAGE_FETCH_LIMIT);
+    // This is highly fluctuant, but by just wildly doubling the amount of runs
+    // we do, we tend to fetch many more messages if they are further spread apart.
+    // We'd rather do 10 mostly useless runs instead of doing 100 individual fetches.
+    let neededRuns = Math.ceil(sortedMessageIds.length / MESSAGE_FETCH_LIMIT) * 2;
 
-    while (neededRuns > 0) {
-        const newestMsg = $msgs[$msgs.length - 1];
+    while (neededRuns > 0 && sortedMessageIds.length > 0) {
+        const newestMsg = sortedMessageIds[sortedMessageIds.length - 1];
         // By using the "before" param on the discord api, the message itself is never fetched by bulk
-        const response = await fetchMessages(channel, newestMsg, $msgs);
+        const response = await fetchMessages(channel, newestMsg, sortedMessageIds);
         if (!response.data) {
             logDebug("Failed to fetch bulk messages due to:", response.error);
             return { data: null, error: "Failed to fetch all messages" };
         }
-        for (const msg of response.data) {
-            const link = extractAttachmentLinkFromMessage(msg);
-            a.set(msg.id, link);
-            attachmentLinkCache.set(msg.id, link);
+        for (const { link, id } of response.data) {
+            a.set(id, link);
         }
         const individual = await fetchIndividualMessage(channel, newestMsg);
         if (!individual.data) {
@@ -113,27 +115,22 @@ async function getMessages(input: string[], channel: string) {
         a.set(individual.data.id, link);
         attachmentLinkCache.set(individual.data.id, link);
         stats.individual++;
-        // As the messages that have just been looked up
-        // MUST all be at the end of the array, we can just
-        // remove from that index on. Working with MESSAGE_FETCH_LIMIT
-        // would be nonsensical as not as many messages might have
-        // actually been fetched.
         // Negative indices in Array.prototype.splice also go from
         // the end of the array (not behaviour we want, although it
         // should be impossible to occurr in this circumstance as the
         // response length should never be greater than $msgs')
         // CRITICAL: As we use "before" param, we can never fetch
         //           the last message using bulk
-        const targetIndex = Math.max($msgs.length - response.data.length - 1, 0);
+        const targetIndex = Math.max(sortedMessageIds.length - response.data.length - 1, 0);
         // as we now also have fetched the last message individually, we can splice it off as well
-        $msgs.splice(targetIndex);
+        sortedMessageIds.splice(targetIndex);
 
         stats.bulk += response.data.length;
         neededRuns--;
     }
 
     // Everything that is left is fetched this way...
-    for (const msg of $msgs) {
+    for (const msg of sortedMessageIds) {
         const response = await fetchIndividualMessage(channel, msg);
         if (!response.data) {
             logDebug("Failed to fetch individual message", msg, "due to:", response.error);
@@ -278,22 +275,42 @@ function getNumberHeader(obj: Response, name: string, allowFloats?: boolean): nu
     return val;
 }
 
-async function fetchMessages(channel: string, newestMsgId: string, messages?: string[]) {
+async function fetchMessages(channel: string, newestMsgId: string, requiredIds?: string[]): Promise<DataErrorFields<{ id: string; link: string }[]>> {
     // TODO: Also set the attachment cache in this function, as messages are filtered
     //       and thus some are not returned to the caller. (we can still cache them)
     const url = new URL(`${API_BASE}/channels/${channel}/messages`);
     url.searchParams.append("before", newestMsgId);
     url.searchParams.append("limit", MESSAGE_FETCH_LIMIT.toString());
-    const msgs = await fetchToDiscordApi<Discord_MessageHandle[]>({ target: url, method: "GET", retryCount: 3 });
-    if (!msgs.data) {
-        return { data: null, error: msgs.error };
+    const response = await fetchToDiscordApi<Discord_MessageHandle[]>({ target: url, method: "GET", retryCount: 3 });
+    if (!response.data) {
+        return { data: null, error: response.error };
     }
-    // The start index may not be negative! (would happen if the array is smaller than 100 items)
-    const filterIndex = messages ? Math.max(messages.length - MESSAGE_FETCH_LIMIT, 0) : 0;
-    // It is more efficient to reduce the size of the array to only what we will actually be filtering through
-    const filterTarget = messages ? messages.slice(filterIndex) : null;
-    const $msgs = messages ? msgs.data.filter(({ id }) => filterTarget!.includes(id)) : msgs.data;
-    return { data: $msgs, error: null };
+    // When comparing the message list we just received to the
+    // messages the caller provided to match, we of course need
+    // not use the entire array of message ids provided to us.
+    // The array is sorted with the newest messages being at then end,
+    // we can just get a slice of that array corresponding to the
+    // amount of messages we received from Discord. In the best case,
+    // all of those Discord sent us belong to this file.
+
+    // Important to remember that we fetched 100 messages BEFORE the newest one.
+    // That means that the newest message, which sits at the end of the string array,
+    // can never be within the response data.
+    const index = requiredIds ? Math.max(requiredIds.length - response.data.length - 1, 0) : null;
+    // Making a Set of this tends to improve performance
+    const ids = requiredIds ? new Set(requiredIds.slice(index!)) : null;
+
+    const links = new Array<{ id: string; link: string }>();
+    for (const handle of response.data) {
+        const link = extractAttachmentLinkFromMessage(handle);
+        // As we now filter the messages, we would not want even those
+        // that have no purpose for this file right now to just get lost.
+        attachmentLinkCache.set(handle.id, link);
+        if (ids && !ids.has(handle.id)) continue;
+        links.push({ id: handle.id, link });
+    }
+
+    return { data: links, error: null };
 }
 
 function fetchIndividualMessage(channel: string, message: string): Promise<IndividualMessageFetchReturn> {
