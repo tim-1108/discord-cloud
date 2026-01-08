@@ -33,9 +33,9 @@ export async function streamFileContents(target: Writable, file: FileHandle, ran
 
     logInfo(`Streaming file "${file.name}" in folder ${file.folder} with range ${range ? `${range.from} - ${range.to} bytes` : "full"}`);
 
-    const chunks = range ? getChunkIdsForRange(range) : null;
+    const rangeChunks = range ? getChunkIdsForRange(range) : null;
     // Optimizes message fetching by only fetching those required by the range
-    const $msgs = chunks ? file.messages.slice(chunks.from, chunks.to + 1 /* exclusive */) : file.messages;
+    const $msgs = rangeChunks ? file.messages.slice(rangeChunks.from, rangeChunks.to + 1 /* end in .slice is exclusive */) : file.messages;
 
     // If this function has been accidentially called again after the socket
     // had already been closed, we should never write to the stream.
@@ -77,6 +77,7 @@ export async function streamFileContents(target: Writable, file: FileHandle, ran
         return "If you see this error, The Impossible has arrived";
     }
 
+    let i = 0;
     for (const link of sortedLinks) {
         if (_closed || !target.writable) {
             end();
@@ -90,10 +91,31 @@ export async function streamFileContents(target: Writable, file: FileHandle, ran
             // - Status codes and headers might have already been sent
             // - If we were to send an error message, it might just append it to the download
             // - If the Content-Length should then something else than the header, it might fail client-side (CHECK THIS)
-            logError("Failed to download chunk", link, "for file", file);
-            return "Failed to download a chunk";
+            logError(`Failed to download chunk id ${i} with link ${link} for file`, file.id);
+            return "Failed to download chunk " + i;
         }
-        const buf = file.is_encrypted ? decryptBuffer(Buffer.from(response.buffer)) : Buffer.from(response.buffer);
+        let buf = file.is_encrypted ? decryptBuffer(Buffer.from(response.buffer)) : Buffer.from(response.buffer);
+
+        // If this is either the start or end chunk, we need
+        // to modify the buffer further as we cannot just write
+        // the whole thing, only the parts which are needed.
+        if (range && rangeChunks) {
+            // Both things can be true at the same time.
+            // If this is the case, we have to first slice
+            // off the end and then the beginning (if we do
+            // it with two calls to .subarray like here)
+            // Of course, this could also be done in one step.
+            // (if we were to have this check to = i & from = i).
+            if (rangeChunks.to === i) {
+                // + 1 because the end is exclusive.
+                buf = buf.subarray(0, range.to - i * Uploads.chunkSize() + 1);
+            }
+            if (rangeChunks.from === i) {
+                buf = buf.subarray(range.from - i * Uploads.chunkSize());
+            }
+        }
+        i++;
+
         // If this return value is false, we should wait until the target stream
         // is free to take in data once again.
         const result = target.write(buf);
