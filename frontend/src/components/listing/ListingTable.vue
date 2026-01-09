@@ -39,14 +39,16 @@ const observeOptions = {
     rootMargin: "0px",
     threshold: 0
 };
-const observer = new IntersectionObserver(loadMoreContent, observeOptions);
+// ok, don't name this variable "observer",
+// it will trigger problems in Vue.
+const io = new IntersectionObserver(loadMoreContent, observeOptions);
 onMounted(() => {
     if (!target.value) {
         // TODO: Add a fallback button within the container?
         logError("Failed to aquire intersection observer target for listing. Will not be able to auto-load more segments");
         return;
     }
-    observer.observe(target.value);
+    io.observe(target.value);
 });
 
 function loadMoreContent(entries: IntersectionObserverEntry[]) {
