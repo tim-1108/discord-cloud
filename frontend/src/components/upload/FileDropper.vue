@@ -16,7 +16,7 @@ function onInputChange(event: Event) {
     const target = event.target as HTMLInputElement;
     if (!target.files) return;
     emit("preprocessing");
-    const addedFiles = Array.from(target.files).map((file) => ({ handle: file, relativePath: "/" }));
+    const addedFiles = Array.from(target.files).map((file) => ({ file, relativePath: "/" }));
     emit("add", addedFiles);
     clearSavedFiles();
 }
