@@ -3,7 +3,6 @@ import { deleteFileShare, getFileShare, insertFileShare, updateFileShare } from 
 import {
     addFileHandle,
     deleteFileHandle,
-    findReplacementFileName,
     getFileHandle_Cached,
     getFileHandleById_Cached,
     getFileHandleWithPath_Cached,
@@ -24,6 +23,7 @@ import {
     resolveRouteFromFolderId
 } from "./folder.js";
 import { listSubfolders } from "./public.js";
+import replacement from "./replacement.js";
 import { Database$Sizes } from "./sizes.js";
 import { getSignedLinkForThumbnail, deleteThumbnailFromStorage, uploadThumbnailToStorage } from "./storage.js";
 import { Database$Tree } from "./tree.js";
@@ -76,7 +76,6 @@ export const Database = {
         get: getFileHandle_Cached,
         getWithPath: getFileHandleWithPath_Cached,
         getById: getFileHandleById_Cached,
-        findReplacementName: findReplacementFileName,
         rename: renameFile,
         share: {
             get: getFileShare,
@@ -89,5 +88,6 @@ export const Database = {
         fileTypeGlobally: Database$Sizes.getFileTypeTotalSizes_Database,
         fileTypeByFolder: Database$Sizes.getFolderAndTypeSizes_Database
     },
+    replacement,
     tree: Database$Tree
 } as const;

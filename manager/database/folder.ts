@@ -19,7 +19,7 @@ export async function addFolder(name: string, parent: FolderOrRoot) {
         if (!parentFolder) return null;
     }
 
-    const existingFolder = await Database.folder.getByNameAndParent(name, parent);
+    const existingFolder = await Database.folder.getByNameAndParent(parent, name);
     if (existingFolder) return existingFolder;
 
     const { data } = await supabase.from("folders").insert({ name, parent_folder: parentId }).select().single();
@@ -47,7 +47,7 @@ export async function renameFolder(id: number, targetName: string): Promise<Fold
     if (handle.name === targetName || !patterns.fileName.test(targetName)) {
         return null;
     }
-    const existingFolder = await Database.folder.getByNameAndParent(targetName, handle.parent_folder ?? "root");
+    const existingFolder = await Database.folder.getByNameAndParent(handle.parent_folder ?? "root", targetName);
     if (existingFolder) {
         // TODO: (very compilicated) merge both folders?
         return null;
@@ -71,7 +71,7 @@ export function getFolderById_Database(id: number) {
     return parsePostgrestResponse<FolderHandle>(supabase.from("folders").select().eq("id", id).single());
 }
 
-export function getFolderByNameAndParent_Database(name: string, parent: FolderOrRoot) {
+export function getFolderByNameAndParent_Database(parent: FolderOrRoot, name: string) {
     const selector = supabase.from("folders").select().eq("name", name);
     return parsePostgrestResponse<FolderHandle>(
         parent === ROOT_FOLDER_ID ? selector.is("parent_folder", null).single() : selector.eq("parent_folder", parent).single()
@@ -183,7 +183,7 @@ export async function mergeFolders_Recursive(a: number, b: number, targetParentP
         let targetName = file.name;
         const exists = await Database.file.get(b, file.name);
         if (exists) {
-            const $name = await Database.file.findReplacementName(file.name, b, path);
+            const $name = await Database.replacement.file(file.name, b, path);
         }
     }
 

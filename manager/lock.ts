@@ -7,7 +7,7 @@
 // TODO: Renames and deletes should drop the corresponding lock entry
 //       Store a reason for the lock (upload, rename, deletion, ...)
 
-import { pathToRoute } from "./database/core.js";
+import { pathToRoute, routeToPath } from "./database/core.js";
 
 /**
  * A synchronous implementation of a locking system for both
@@ -52,12 +52,13 @@ function getStructForPath<C extends boolean = false>(
     return parent as LockStruct;
 }
 
-function lockFile(path: string, name: string): void {
+function lockFile(path: string | string[], name: string): void {
     const struct = getStructForPath(path);
     struct.locked_files.add(name);
 }
 
-function lockFolder(path: string): void {
+function lockFolder(path: string | string[]): void {
+    path = Array.isArray(path) ? routeToPath(path) : path;
     if (path === "/") {
         return;
     }
@@ -65,7 +66,8 @@ function lockFolder(path: string): void {
     struct.is_locked = true;
 }
 
-function isFolderLocked(path: string): boolean {
+function isFolderLocked(path: string | string[]): boolean {
+    path = Array.isArray(path) ? routeToPath(path) : path;
     if (path === "/") {
         return false;
     }
@@ -94,7 +96,7 @@ function isFolderLocked(path: string): boolean {
  * Useful when deleting or renaming the folder to check whether
  * anything is queued within.
  */
-function isFolderContentLocked(path: string): boolean {
+function isFolderContentLocked(path: string | string[]): boolean {
     // TODO: also return the actually locked things?
     const struct = getStructForPath(path, true);
     if (!struct) {
@@ -115,7 +117,7 @@ function isFolderContentLocked(path: string): boolean {
     return recursive(struct);
 }
 
-function isFileLocked(path: string, name: string): boolean {
+function isFileLocked(path: string | string[], name: string): boolean {
     const folderFlag = isFolderLocked(path);
     if (folderFlag) {
         return true;
@@ -124,7 +126,7 @@ function isFileLocked(path: string, name: string): boolean {
     return struct.locked_files.has(name);
 }
 
-function unlockFolder(path: string): boolean {
+function unlockFolder(path: string | string[]): boolean {
     const struct = getStructForPath(path, true);
     if (!struct) {
         return false;
@@ -139,7 +141,7 @@ function unlockFolder(path: string): boolean {
     return val;
 }
 
-function unlockFile(path: string, name: string): boolean {
+function unlockFile(path: string | string[], name: string): boolean {
     const struct = getStructForPath(path, true);
     if (!struct) {
         return false;
@@ -158,7 +160,8 @@ function unlockFile(path: string, name: string): boolean {
  * Before dropping the lock, validate using `contentStatus` that nothing
  * within the folder is locked.
  */
-function dropLock(path: string): boolean {
+function dropLock(path: string | string[]): boolean {
+    path = Array.isArray(path) ? routeToPath(path) : path;
     if (path === "/") {
         return false;
     }

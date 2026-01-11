@@ -193,7 +193,7 @@ async function requestUploadStart(client: Client, packet: UploadRequestPacket) {
             break existing;
         }
         if (!isLocked) Locks.file.lock(path, name_doNotUseMe);
-        const attempt = await Database.file.findReplacementName(name_doNotUseMe, existingFile.folder ?? "root", path);
+        const attempt = await Database.replacement.file(name_doNotUseMe, existingFile.folder ?? "root", path);
         if (attempt === null) {
             // Only if it was previously unlocked, we unlock it again!
             if (!isLocked) Locks.file.unlock(path, name_doNotUseMe);
@@ -331,7 +331,6 @@ async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket
     logDebug("Finished upload for", metadata.path, metadata.name);
 
     const data = packet.getData();
-    Locks.file.unlock(metadata.path, metadata.name);
 
     // TODO: Make channel required
     if (typeof data.hash !== "string" || typeof data.type !== "string" || typeof data.channel !== "string") {
@@ -393,6 +392,11 @@ async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket
             return;
         }
     }
+
+    // The file should actually only be unlocked down here.
+    // Saving to db may take some time, we do not want any
+    // shenanigang to be able to start in that time.
+    Locks.file.unlock(metadata.path, metadata.name);
 
     // Next, we contact our thumbnail service to have a screenshot generated
     // We will not be waiting here for a response, as that might get queued

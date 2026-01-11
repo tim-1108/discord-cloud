@@ -1,4 +1,3 @@
-import path from "node:path";
 import type { FileModifyAction } from "../../common/client.js";
 import { logError } from "../../common/logging.js";
 import { FileModifyPacket } from "../../common/packet/s2c/FileModifyPacket.js";
@@ -9,7 +8,6 @@ import { ROOT_FOLDER_ID, routeToPath, supabase, type FolderOrRoot } from "./core
 import { parsePostgrestResponse } from "./helper.js";
 import { Database } from "./index.js";
 import { patterns } from "../../common/patterns.js";
-import { Locks } from "../lock.js";
 
 /**
  * Maps file name to a handle.
@@ -178,14 +176,18 @@ export async function listFilesInFolder_Database(
     return data;
 }
 
-export async function renameFile(id: number, targetName: string) {
-    if (!patterns.fileName.test(targetName)) return null;
+/**
+ * Internal rename function to be called after verifying that the user
+ * who generated this has proper permissions to actually rename the file.
+ */
+export async function renameFile(id: number, intendedName: string) {
+    if (!patterns.fileName.test(intendedName)) return null;
     const handle = await Database.file.getById(id);
     if (!handle) return null;
-    if (handle.name === targetName) return null;
+    if (handle.name === intendedName) return null;
 
-    const existingFile = await Database.file.get(handle.folder ?? "root", targetName);
-    const $target = existingFile ? await findReplacementFileName(targetName, handle.folder ?? "root") : targetName;
+    const existingFile = await Database.file.get(handle.folder ?? "root", intendedName);
+    const $target = existingFile ? await Database.replacement.file(intendedName, handle.folder ?? "root") : intendedName;
     if ($target === null) return null;
     const { data } = await supabase.from("files").update({ name: $target }).eq("id", id).select().single();
     return data;
@@ -201,50 +203,6 @@ function getFileHandle_Database(folder: FolderOrRoot, name: string) {
 
 function getFileHandleId_Database(id: number) {
     return parsePostgrestResponse<FileHandle>(supabase.from("files").select("*").eq("id", id).single());
-}
-
-/**
- * In Windows explorer, when attempting to rename a file to another that already exists
- * (or pasting it there), Windows will append a suffix like " (1)" to the file name.
- *
- * By default, the file should never actually be overwritten (even if the user has permissions),
- * to prevent acccidental overwrites. This is a safer system and the user may choose to delete
- * any "duplicated" files later on.
- *
- * This function takes the maximum file length into account. If a fitting file name cannot
- * be found, `null` is returned. If successful, the new name is returned.
- */
-export async function findReplacementFileName(name: string, folder: FolderOrRoot, folderPath: string): Promise<string | null> {
-    let handle: FileHandle | null;
-    let i = 1;
-    // After a certain point, looking up file names for an infinite time
-    // is maybe a little bit too much. At some point, we'll have to quit.
-    const LIMIT = 99;
-    const ext = path.extname(name);
-    const extI = name.lastIndexOf(".");
-    const qualifiedName = extI > -1 ? name.substring(0, extI).trim() : name.trim();
-    do {
-        const suffix = ` (${i})`;
-        const result = qualifiedName + suffix + ext;
-        if (!patterns.fileName.test(result)) {
-            return null;
-        }
-        // Of course, this lookup could fail for other reasons (network, rate limit, whatever)
-        // But for now, we will assume that if this fails, the file is non-existent
-        handle = await Database.file.get(folder, result);
-        // If the file is locked, that might mean that an upload for the
-        // same name is currently in progress. In that case, we have to
-        // continue with the next possible file name.
-        const isLocked = Locks.file.status(folderPath, result);
-        if (handle === null && !isLocked) {
-            return result;
-        }
-        if (i === LIMIT) {
-            return null;
-        }
-        i++;
-    } while (handle);
-    return null;
 }
 
 // TODO: Also emit to specific users whenever they receive a file share for themselves
