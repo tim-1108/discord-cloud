@@ -3,10 +3,11 @@ import { SortingFieldOptions, type Sort } from "@/composables/listing_uncached";
 import type { ClientFileHandle, ClientFolderHandle } from "../../../../common/client";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { computed, onMounted, reactive, ref, useTemplateRef } from "vue";
-import { useCurrentRoute } from "@/composables/path";
+import { useCurrentPath, useCurrentRoute } from "@/composables/path";
 import { getIconForFileType } from "@/composables/icons";
 import { formatByteString, parseDateObjectToRelative } from "../../../../common/useless";
 import { logError } from "../../../../common/logging";
+import { createSignedDownloadLink } from "@/composables/download";
 
 const props = defineProps<{
     files: ClientFileHandle[];
@@ -75,7 +76,11 @@ function openFile(handle: ClientFileHandle) {
 
 const selectedFiles = reactive(new Set<number>());
 const selectedFolders = reactive(new Set<number>());
+const hasSelected = computed(() => selectedFiles.size > 0 || selectedFolders.size > 0);
 const lastSelection = ref<{ type: "file" | "folder"; index: number } | null>(null);
+/**
+ * Mimics the selection mechanisms in Windows explorer.
+ */
 function handleClick(event: PointerEvent, type: "file" | "folder", index: number) {
     const set = type === "file" ? selectedFiles : selectedFolders;
     // we dont care about the alt key, that has no function here
@@ -118,28 +123,56 @@ function handleClick(event: PointerEvent, type: "file" | "folder", index: number
     if (lastSelection.value.type === type) {
         const min = Math.min(lastIndex, index);
         const max = Math.max(lastIndex, index);
+        // This is a behaviour of "going-back". This means:
+        // - user has selected a element above
+        // - then selects one far below with shift
+        // => all inbetween are selected
+        // - then user selects something above the first one
+        // => everything of the previous selection should be inverted
+
+        // This basically checks: ok the selection group is above me, and
+        // the user just selected something above me, so I should turn off
+        if ((hasNeighbourBelow(type, lastIndex) && index > lastIndex) || (hasNeighbourAbove(type, lastIndex) && index < lastIndex)) {
+            set.delete(lastIndex);
+        } else {
+            has ? set.delete(lastIndex) : set.add(lastIndex);
+        }
         for (let i = min + 1; i < max; i++) {
             set.has(i) ? set.delete(i) : set.add(i);
         }
-        has ? set.delete(lastIndex) : set.add(lastIndex);
         set.add(index);
     } else {
         // This is essentially the same code as above, but with the
         // consideration that we have to read from both Sets
+
+        const below = hasNeighbourBelow(lastType, lastIndex) && type === "file";
+        const above = hasNeighbourAbove(lastType, lastIndex) && type === "folder";
+        if (below || above) {
+            lastSet.delete(lastIndex);
+        } else {
+            has ? lastSet.delete(lastIndex) : lastSet.add(lastIndex);
+        }
+
         // These are ranges, start inclusive, end exclusive
-        const folders = [lastType === "folder" ? lastIndex : index, folderCount];
-        const files = [0, lastType === "file" ? lastIndex + 1 : index + 1];
+        // lastIndex is treated differently. It should not be included
+        // in these ranges as it is handled above already.
+        const folders = [lastType === "folder" ? lastIndex + 1 : index, folderCount];
+        const files = [0, lastType === "file" ? lastIndex : index + 1];
         for (let i = folders[0]; i < folders[1]; i++) {
             selectedFolders.has(i) ? selectedFolders.delete(i) : selectedFolders.add(i);
         }
         for (let i = files[0]; i < files[1]; i++) {
             selectedFiles.has(i) ? selectedFiles.delete(i) : selectedFiles.add(i);
         }
-        has ? lastSet.delete(lastIndex) : lastSet.add(lastIndex);
         set.add(index);
     }
 
     lastSelection.value = { type, index };
+}
+
+function clearSelection() {
+    selectedFiles.clear();
+    selectedFolders.clear();
 }
 
 function hasNeighbourAbove(type: "file" | "folder", index: number): boolean {
@@ -177,11 +210,19 @@ function handleDoubleClick<T extends "file" | "folder">(
     if (type === "file" && !canReadFile(handle)) return;
     type === "file" ? emit("openFile", handle as ClientFileHandle) : emit("down", handle.name);
 }
+
+async function createSignedDownloadLink_Wrapper(index: number) {
+    const handle = props.files[index];
+    if (!handle) return;
+    const link = await createSignedDownloadLink(useCurrentPath().value, handle.name);
+    if (!link) return;
+    navigator.clipboard.writeText(link.toString());
+}
 </script>
 
 <template>
-    <main class="grid gap-x-1">
-        <header class="row-start-1 row-end-1 select-none">
+    <main class="grid gap-x-1 relative">
+        <header class="row-start-1 row-end-1 select-none" v-if="!hasSelected">
             <div></div>
             <div class="grid place-content-center"><img src="@/assets/icons/page_facing_up_color.svg" class="h-6" /></div>
             <div v-for="item of SortingFieldOptions">
@@ -189,6 +230,13 @@ function handleDoubleClick<T extends "file" | "folder">(
             </div>
             <div class="text-gray-500 flex items-center"><p>Status</p></div>
         </header>
+        <SelectionInfo
+            class="row-start-1 row-end-1 col-span-7 sticky top-0"
+            :files="selectedFiles"
+            :folders="selectedFolders"
+            v-else
+            @clear="clearSelection"
+            @signed-download="createSignedDownloadLink_Wrapper"></SelectionInfo>
         <section id="parent-folder" v-if="!isInRoot" @click="emit('up')" class="hover:underline">
             <div></div>
             <div><img src="@/assets/icons/open_file_folder_color.svg" class="h-6" /></div>

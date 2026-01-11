@@ -34,6 +34,7 @@ declare module 'vue' {
     PathRenderer: typeof import('./src/components/PathRenderer.vue')['default']
     ProgressBar: typeof import('./src/components/basic/ProgressBar.vue')['default']
     RenameActionDialog: typeof import('./src/components/dialog/RenameActionDialog.vue')['default']
+    SelectionInfo: typeof import('./src/components/listing/SelectionInfo.vue')['default']
     Sidebar: typeof import('./src/components/Sidebar.vue')['default']
     SidebarSizeChart: typeof import('./src/components/SidebarSizeChart.vue')['default']
     SortableTable: typeof import('./src/components/SortableTable.vue')['default']

@@ -61,6 +61,25 @@ export async function getAuthentication(): Promise<Authentication> {
     return storedData;
 }
 
+export async function getServerAddress(protocol: string = window.location.protocol): Promise<URL> {
+    const auth = await getAuthentication();
+    const obj = URL.parse(auth.address);
+    if (!obj) throw new Error("Failed to initialize server address from: " + auth.address);
+    obj.protocol = protocol;
+    return obj;
+}
+
+/**
+ * Throws an error if the token is not defined. So,
+ * only call this function when you know that you
+ * are already authenticated.
+ */
+export function getAuthenticationToken(): string {
+    const token = readRawFromStorage(LocalStorageKey.Token, { type: "string", required: true, pattern: patterns.jwt });
+    if (!token) throw new ReferenceError("Failed to read token from local storage");
+    return token;
+}
+
 export function clearAuthentication() {
     deleteObjectFromStorage(LocalStorageKey.Authentication);
     deleteObjectFromStorage(LocalStorageKey.Token);

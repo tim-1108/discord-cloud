@@ -1,8 +1,9 @@
-import { ref, toRaw, watch, type Ref } from "vue";
+import { computed, ref, toRaw, watch, type ComputedRef, type Ref } from "vue";
 import { getNamingMaximumLengths, getNegatedCharacterPattern, patterns } from "../../../common/patterns";
 import { logError, logWarn } from "../../../common/logging";
 
 const route = ref<string[]>([]);
+const computedPath = computed(() => convertRouteToPath(route.value));
 
 export function convertPathToRoute(path: string): string[] {
     if (path === "/") {
@@ -18,6 +19,10 @@ export function convertRouteToPath(route: string[]): string {
 
 export function useCurrentRoute(): Ref<string[]> {
     return route;
+}
+
+export function useCurrentPath(): ComputedRef<string> {
+    return computedPath;
 }
 
 /**
