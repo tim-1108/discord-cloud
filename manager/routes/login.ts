@@ -1,4 +1,4 @@
-import { generateErrorResponse, generateResponse, getRequestQuery } from "../utils/http.js";
+import { generateErrorResponse, generateResponse } from "../utils/http.js";
 import type { Request, Response } from "express";
 import { getSearchParamsForAddress } from "../utils/url.js";
 import { patterns } from "../../common/patterns.js";

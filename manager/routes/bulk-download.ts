@@ -59,6 +59,8 @@ export default async function handleRequest(req: Request, res: Response): Promis
         // Only possible to send the first line of the HTTP response if the headers have not yet been sent!
         if (!res.headersSent) {
             res.status(500).end();
+        } else {
+            res.end();
         }
         archive.destroy();
     });

@@ -14,7 +14,7 @@ export const ActionClientOperations = { createFolder, moveFiles, deleteFile, ren
 
 async function createFolder(c: Client, p: CreateFolderPacket): Promise<void> {
     const d = p.getData();
-    const id = await Database.folder.getOrCreateByPath(d.path);
+    const id = await Database.folderId.getOrCreate(d.path);
     // Of course, the user may send a packet which attempts to create the root
     // folder. This is no issue as the function above will just return that folder.
     // Still, we'd count it as a failure.
@@ -59,7 +59,7 @@ async function moveFiles(c: Client, p: MoveFilesPacket): Promise<void> {
 
 async function deleteFile(c: Client, p: DeleteFilePacket) {
     const data = p.getData();
-    const handle = await Database.file.getWithPath(data.name, data.path);
+    const handle = await Database.file.get(data.path, data.name);
 
     if (!handle) {
         return;
@@ -74,7 +74,7 @@ async function deleteFile(c: Client, p: DeleteFilePacket) {
 
 async function renameFolder(c: Client, p: RenameFolderPacket) {
     const data = p.getData();
-    const id = await Database.folder.getByPath(data.path);
+    const id = Database.folderId.get(data.path);
     if (id === null || id === "root") return;
     const result = await Database.folder.rename(id, data.target_name);
 }
@@ -84,7 +84,7 @@ async function renameFile(c: Client, p: RenameFilePacket) {
     if (name === target_name) {
         return;
     }
-    const handle = await Database.file.getWithPath(name, path);
+    const handle = await Database.file.get(path, name);
     if (!handle) {
         return;
     }
@@ -97,7 +97,7 @@ async function renameFile(c: Client, p: RenameFilePacket) {
 
 async function uploadEmptyFile(c: Client, p: EmptyFileUploadPacket) {
     const { path, name } = p.getData();
-    const folder = await Database.folder.getByPath(path);
+    const folder = await Database.folderId.getOrCreate(path);
     if (folder === null) {
         return;
     }

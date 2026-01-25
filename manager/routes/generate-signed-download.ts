@@ -28,7 +28,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
         return void generateErrorResponse(res, 401, "Unauthorized");
     }
 
-    const handle = await Database.file.getWithPath(name, path);
+    const handle = await Database.file.get(path, name);
     if (handle == null) {
         return void generateErrorResponse(res, 404, "File not found");
     }

@@ -4,7 +4,7 @@ import type { UUID } from "../common";
 import { UploadFinishInfoPacket } from "../common/packet/s2c/UploadFinishInfoPacket.js";
 import type { UploadFinishPacket } from "../common/packet/u2s/UploadFinishPacket.js";
 import { ThumbnailService } from "./services/ThumbnailService.js";
-import { logDebug, logError, logWarn } from "../common/logging.js";
+import { logDebug, logError } from "../common/logging.js";
 import { ClientList } from "./client/list.js";
 import { ServiceRegistry } from "./services/list.js";
 import { Database } from "./database/index.js";
@@ -170,7 +170,7 @@ async function requestUploadStart(client: Client, packet: UploadRequestPacket) {
         client.sendPacket(packet);
     };
 
-    const existingFile = await Database.file.getWithPath(name_doNotUseMe, path);
+    const existingFile = await Database.file.get(path, name_doNotUseMe);
 
     const isLocked = Locks.file.status(path, name_doNotUseMe);
 
@@ -248,16 +248,15 @@ async function requestUploadStart(client: Client, packet: UploadRequestPacket) {
 }
 
 function handleServiceDisconnect(bookedClient?: UUID) {
-    client_cond: if (bookedClient) {
-        const client = ClientList.get(bookedClient);
-        if (!client) break client_cond;
-        const booking = bookings.get(client.getUUID());
-        if (!booking) {
-            throw new Error("No booking entry defined for client that had a service disconnect");
-        }
-        booking.current_amount--;
-        client.sendPacket(new UploadBookingModifyPacket({ effective_change: -1 }));
+    if (!bookedClient) return;
+    const client = ClientList.get(bookedClient);
+    if (!client) return;
+    const booking = bookings.get(client.getUUID());
+    if (!booking) {
+        throw new Error("No booking entry defined for client that had a service disconnect");
     }
+    booking.current_amount--;
+    client.sendPacket(new UploadBookingModifyPacket({ effective_change: -1 }));
 }
 
 function handleClientDisconnect(client: Client) {
@@ -273,10 +272,11 @@ function handleClientDisconnect(client: Client) {
 }
 
 async function internal_serviceReleaseAndRedistribution(s: UploadService) {
-    s.clearBooking();
     const result = await s.abortUpload();
     if (!result) {
         s.closeSocket(1000, "Failed to abort the running upload, going just a bit more extreme now.");
+    } else {
+        s.clearBooking();
     }
     Uploads.handlers.service.initOrRelease(s);
 }
@@ -339,7 +339,7 @@ async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket
     }
 
     const { name, path, size } = metadata;
-    const folderId = await Database.folder.getOrCreateByPath(path);
+    const folderId = await Database.folderId.getOrCreate(path);
     if (folderId === null) {
         failUpload(metadata, "Failed to create folder in database");
         return;
@@ -375,6 +375,12 @@ async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket
     let $handle: FileHandle | null;
     if (metadata.overwrite_target !== null) {
         const d = new Date();
+        const previousHandle = await Database.file.getById(metadata.overwrite_target);
+        if (previousHandle === null) {
+            failUpload(metadata, "Failed to acquire previous handle when overwriting file");
+            return;
+        }
+
         $handle = await Database.file.update(metadata.overwrite_target, { ...handle, updated_at: d.toUTCString() });
         if ($handle === null) {
             // The file should not have been tampered with in the meantime.
@@ -384,6 +390,19 @@ async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket
             failUpload(metadata, "Failed to overwrite file");
             return;
         }
+
+        if (previousHandle.folder !== $handle.folder) {
+            throw new Error(
+                `Previous folder id must not be different from new folder id on update. previous: ${previousHandle.folder} | now: ${$handle.folder}`
+            );
+        }
+        // If the type has changed, of course, the size has to be fully removed from the old type.
+        if (previousHandle.type === $handle.type) {
+            Database.tree.fileTypes.modify($handle.folder, $handle.type, $handle.size - previousHandle.size);
+        } else {
+            Database.tree.fileTypes.modify($handle.folder, previousHandle.type, -previousHandle.size);
+            Database.tree.fileTypes.modify($handle.folder, $handle.type, $handle.size);
+        }
         void Database.thumbnail.delete(metadata.overwrite_target);
     } else {
         $handle = await Database.file.add(handle);
@@ -391,6 +410,7 @@ async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket
             failUpload(metadata, "Failed to insert file into database");
             return;
         }
+        Database.tree.fileTypes.modify($handle.folder, $handle.type, $handle.size);
     }
 
     // The file should actually only be unlocked down here.

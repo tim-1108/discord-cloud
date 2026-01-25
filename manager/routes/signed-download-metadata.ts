@@ -21,7 +21,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
     }
 
     const { name, path, hash } = fileData;
-    const handle = await Database.file.getWithPath(name, path);
+    const handle = await Database.file.get(path, name);
     if (!handle) {
         return void generateErrorResponse(res, 404, "Not Found");
     }

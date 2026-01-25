@@ -1,23 +1,19 @@
-import { invalidateFolderCache, ROOT_FOLDER_ID } from "./core.js";
 import { deleteFileShare, getFileShare, insertFileShare, updateFileShare } from "./file-share.js";
 import {
     addFileHandle,
     deleteFileHandle,
+    dropFolderFromFileCache,
     getFileHandle_Cached,
     getFileHandleById_Cached,
-    getFileHandleWithPath_Cached,
     listFilesInFolder_Database,
     renameFile,
     updateFileHandle
 } from "./file.js";
 import {
     addFolder,
-    createOrGetFolderByPath,
+    deleteFolder_Recursive,
     getAllFolders,
     getFileCount_folder,
-    getFolderById_Database,
-    getFolderByNameAndParent_Database,
-    getFolderByPath,
     getSubfolderCount_folder,
     renameFolder,
     resolveRouteFromFolderId
@@ -26,13 +22,13 @@ import { listSubfolders } from "./public.js";
 import replacement from "./replacement.js";
 import { Database$Sizes } from "./sizes.js";
 import { getSignedLinkForThumbnail, deleteThumbnailFromStorage, uploadThumbnailToStorage } from "./storage.js";
-import { Database$Tree } from "./tree.js";
+import { Database$FolderHandle, Database$FolderId, Database$Tree } from "./tree.js";
 import { createUser, getUserByName_Database, getUser_Database, updateUserPassword } from "./users.js";
 
 export const Database = {
     root: "root" as const,
     cache: {
-        invalidateFolder: invalidateFolderCache
+        dropFolderIdFromFileCache: dropFolderFromFileCache
     },
     thumbnail: {
         upload: uploadThumbnailToStorage,
@@ -47,10 +43,6 @@ export const Database = {
     },
     folder: {
         add: addFolder,
-        getByPath: getFolderByPath,
-        getById: getFolderById_Database,
-        getByNameAndParent: getFolderByNameAndParent_Database,
-        getOrCreateByPath: createOrGetFolderByPath,
         resolveRouteById: resolveRouteFromFolderId,
         rename: renameFolder,
         counts: {
@@ -61,7 +53,8 @@ export const Database = {
             files: listFilesInFolder_Database,
             subfolders: listSubfolders
         },
-        getAll: getAllFolders
+        getAll: getAllFolders,
+        delete: deleteFolder_Recursive
     },
     file: {
         add: addFileHandle,
@@ -74,7 +67,6 @@ export const Database = {
          *        even though it has been validated as a path previously.
          */
         get: getFileHandle_Cached,
-        getWithPath: getFileHandleWithPath_Cached,
         getById: getFileHandleById_Cached,
         rename: renameFile,
         share: {
@@ -84,6 +76,8 @@ export const Database = {
             update: updateFileShare
         }
     },
+    folderId: Database$FolderId,
+    folderHandle: Database$FolderHandle,
     sizes: {
         fileTypeGlobally: Database$Sizes.getFileTypeTotalSizes_Database,
         fileTypeByFolder: Database$Sizes.getFolderAndTypeSizes_Database

@@ -24,6 +24,10 @@ import { UploadServicesRequestPacket } from "../../common/packet/c2s/UploadServi
 import { UploadServicesReleasePacket } from "../../common/packet/c2s/UploadServicesReleasePacket.js";
 import { logInfo } from "../../common/logging.js";
 import { FolderSizeRequestPacket } from "../../common/packet/c2s/FolderSizeRequestPacket.js";
+import { ServiceRegistry } from "../services/list.js";
+import { ServiceRegistryPacket } from "../../common/packet/s2c/ServiceRegistryPacket.js";
+import { UploadService } from "../services/UploadService.js";
+import { sleep } from "../../common/useless.js";
 
 export class Client extends PacketReceiver {
     private readonly uuid: UUID;
@@ -41,10 +45,26 @@ export class Client extends PacketReceiver {
         super(ws);
         this.uuid = crypto.randomUUID();
         this.userId = userId;
-        // To get all services online once a client connects,
-        // they are also pinged here.
-        pingServices();
+
         console.info(`[Client.constructor] ${this.uuid} initialized`);
+        pingServices();
+        this.socket.readyState === this.socket.OPEN
+            ? this.emitServiceRegistryList()
+            : this.socket.addEventListener("open", () => this.emitServiceRegistryList());
+    }
+
+    private async emitServiceRegistryList() {
+        // FIXME: When the socket opens, and says it IS OPEN, why do packets
+        //        still not go through? Same thing goes for the thumbnail service queue.
+        await sleep(0);
+        for (const type of ServiceRegistry.typeNames()) {
+            const arr = ServiceRegistry.predicatedList(type);
+            for (const service of arr) {
+                // The "address" field is only passed on upload services
+                const address = service instanceof UploadService ? service.getAddress() : undefined;
+                this.sendPacket(new ServiceRegistryPacket({ action: "list", service_type: type, service_uuid: service.getServiceUUID(), address }));
+            }
+        }
     }
 
     // TODO: Whenever a client disconnects, also force the uploader (if one is connected to this client)

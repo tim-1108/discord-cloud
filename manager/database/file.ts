@@ -19,24 +19,16 @@ type FileCacheValue = Map<string, FileHandle>;
 const fileCache = new Map<FolderOrRoot, FileCacheValue>();
 const fileIdCache = new Map<number, FileHandle>();
 
-type IdOrPath = FolderOrRoot | `/${string}`;
+type IdOrPath = FolderOrRoot | `${string}`;
 
-function isPath(input: IdOrPath): input is `/${string}` {
+function isPath(input: IdOrPath): input is `${string}` {
     return typeof input === "string" && input.startsWith("/");
 }
 
 export async function resolvePath(input: IdOrPath, createPath: boolean = false): Promise<FolderOrRoot | null> {
     if (!isPath(input)) return input;
     // We do not create the path if it does not exist.
-    return createPath ? Database.folder.getOrCreateByPath(input) : Database.folder.getByPath(input);
-}
-
-export async function getFileHandleWithPath_Cached(name: string, path: string) {
-    const folderId = await Database.folder.getByPath(path);
-    if (folderId === null) {
-        return null;
-    }
-    return Database.file.get(folderId, name);
+    return createPath ? Database.folderId.getOrCreate(input) : Database.folderId.get(input);
 }
 
 export async function getFileHandleById_Cached(id: number) {
@@ -101,7 +93,7 @@ export async function addFileHandle(handle: Omit<FileHandle, AutoCreatedFileColu
     return val.data;
 }
 
-export async function updateFileHandle(id: number, handle: Partial<FileHandle>) {
+export async function updateFileHandle(id: number, handle: Partial<Omit<FileHandle, "id">>) {
     const value = await supabase.from("files").update(handle).eq("id", id).select("*").single();
     if (value.error) {
         logError("Failed to update file handle", id, "due to:", value.error);
@@ -109,6 +101,7 @@ export async function updateFileHandle(id: number, handle: Partial<FileHandle>) 
     }
     // TODO: Only emit this to all clients when actually needed data changes
     broadcastToClients("modify", value.data);
+    popFromCache(id);
     putIntoCache(value.data);
     return value.data;
 }
@@ -121,7 +114,7 @@ export async function deleteFileHandle(id: number) {
         // If it is registered within the id cache,
         // it will always be registered within
         // the path cache as well.
-        popFromCache(hit);
+        popFromCache(hit.id);
     }
 
     if (value.error) {
@@ -132,16 +125,31 @@ export async function deleteFileHandle(id: number) {
     return value.error !== null;
 }
 
-function popFromCache(handle: FileHandle) {
-    const folderId = handle.folder ?? ROOT_FOLDER_ID;
-    const submap = fileCache.get(folderId);
-    if (!submap) {
-        return false;
-    }
-    return submap.delete(handle.name) && fileIdCache.delete(handle.id);
+/**
+ * When calling this function, make sure a file of that name
+ * does not exist in `targetFolderId` yet.
+ */
+export function moveFileHandle(fileId: number, targetFolderId: FolderOrRoot): Promise<FileHandle | null> {
+    return Database.file.update(fileId, { folder: targetFolderId === "root" ? null : targetFolderId });
 }
 
-function putIntoCache(handle: FileHandle) {
+function popFromCache(fileId: number): boolean {
+    // If it is not within the fileIdCache, it is neither in the folder map
+    const handle = fileIdCache.get(fileId);
+    if (!handle) return false;
+    const folderId = handle.folder ?? "root";
+    const submap = fileCache.get(folderId);
+    if (!submap) throw new ReferenceError("");
+
+    const returnValue = submap.delete(handle.name) && fileIdCache.delete(fileId);
+    // Cleanup
+    if (!submap.size) {
+        fileCache.delete(folderId);
+    }
+    return returnValue;
+}
+
+function putIntoCache(handle: FileHandle): void {
     const folderId = handle.folder ?? ROOT_FOLDER_ID;
     let submap = fileCache.get(folderId);
     if (!submap) {
@@ -150,6 +158,18 @@ function putIntoCache(handle: FileHandle) {
     }
     submap.set(handle.name, handle);
     fileIdCache.set(handle.id, handle);
+}
+
+/**
+ * @deprecated Part of the old file cache - to be removed
+ */
+export function dropFolderFromFileCache(folderId: FolderOrRoot) {
+    const submap = fileCache.get(folderId);
+    if (!submap) return false;
+    for (const [_, handle] of submap) {
+        fileIdCache.delete(handle.id);
+    }
+    return true;
 }
 
 export async function listFilesInFolder_Database(
@@ -187,9 +207,19 @@ export async function renameFile(id: number, intendedName: string) {
     if (handle.name === intendedName) return null;
 
     const existingFile = await Database.file.get(handle.folder ?? "root", intendedName);
-    const $target = existingFile ? await Database.replacement.file(intendedName, handle.folder ?? "root") : intendedName;
-    if ($target === null) return null;
-    const { data } = await supabase.from("files").update({ name: $target }).eq("id", id).select().single();
+    const actualTargetName = existingFile ? await Database.replacement.file(intendedName, handle.folder ?? "root") : intendedName;
+    if (actualTargetName === null) return null;
+    const { data } = await supabase.from("files").update({ name: actualTargetName }).eq("id", id).select().single();
+
+    if (data !== null) {
+        // Of course, we could actually measure the differences.
+        // For instance, if the folder did not change, there'd be
+        // no need to remove it from the folder map. But, for
+        // simplicity's sake, we'll just pop it.
+        popFromCache(id);
+        putIntoCache(data);
+    }
+
     return data;
 }
 
@@ -211,7 +241,7 @@ function broadcastToClients(action: FileModifyAction, handle: FileHandle, target
         if (typeof targetUser === "number" && user !== targetUser) {
             return null;
         }
-        const f = handle.folder !== null ? await Database.folder.getById(handle.folder) : "/";
+        const f = handle.folder !== null ? Database.folderHandle.getById(handle.folder) : "/";
         const r = await Database.folder.resolveRouteById(handle.folder ?? "root" /* converting database to js version of root */);
         const o = await Authentication.permissions.ownership(user, handle);
         if (!o || !f || !r) {

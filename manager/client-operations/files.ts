@@ -16,7 +16,7 @@ export async function performFileShareOperation(client: Client, packet: FileShar
 
     const user = client.getUserId();
     const { target_user, path, name, can_write, is_deleting } = packet.getData();
-    const handle = await Database.file.getWithPath(name, path);
+    const handle = await Database.file.get(path, name);
     if (!handle) {
         return reply(false, "The file does not exist");
     }

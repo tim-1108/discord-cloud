@@ -1,5 +1,5 @@
 import { logDebug, logError, logWarn } from "../../common/logging.js";
-import { parseFileSize } from "../../common/useless.js";
+import { formatByteString } from "../../common/useless.js";
 import { supabase } from "./core.js";
 import type { Bucket } from "@supabase/storage-js";
 import jwt from "jsonwebtoken";
@@ -21,7 +21,7 @@ export async function uploadThumbnailToStorage(id: number, data: Buffer) {
         logError("Failed to upload thumbnail for", id, response.error);
         return false;
     }
-    logDebug("Uploaded thumbnail for file", id, "with size", parseFileSize(data.length));
+    logDebug("Uploaded thumbnail for file", id, "with size", formatByteString(data.length));
     return true;
 }
 

@@ -81,6 +81,9 @@ export class UploadService extends Service {
     }
 
     public clearBooking() {
+        if (this.uploadMetadata !== null) {
+            throw new Error("Before clearing booking, first abort the upload");
+        }
         this.booking = null;
     }
 

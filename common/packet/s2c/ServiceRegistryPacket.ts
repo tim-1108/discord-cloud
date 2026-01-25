@@ -10,7 +10,7 @@ const dataStructure = {
     address: { type: "string", required: false },
     // This cannot just be imported from ServiceRegistry, as that is only available on the manager
     service_type: { type: "string", required: true, options: ["thumbnail", "upload"] },
-    action: { type: "string", required: true, options: ["added", "removed"] },
+    action: { type: "string", required: true, options: ["added", "removed", "list"] },
     service_uuid: { type: "string", required: true, pattern: patterns.uuid }
 } as const;
 

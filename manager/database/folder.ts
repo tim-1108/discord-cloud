@@ -5,25 +5,40 @@ import { FolderModifyPacket } from "../../common/packet/s2c/FolderModifyPacket.j
 import { patterns } from "../../common/patterns.js";
 import type { FolderHandle } from "../../common/supabase.js";
 import { ClientList } from "../client/list.js";
-import { resolvePathToFolderId_Cached, ROOT_FOLDER_ID, routeToPath, supabase, type FolderOrRoot } from "./core.js";
-import { parsePostgrestResponse } from "./helper.js";
+import { ROOT_FOLDER_ID, routeToPath, supabase, type FolderOrRoot } from "./core.js";
 import { Database } from "./index.js";
 
-export async function addFolder(name: string, parent: FolderOrRoot) {
+export const Database$Folder = {
+    add: addFolder
+};
+
+/**
+ * Adds a folder to the database. If a folder of that name already
+ * exists within the parent, this function returns the existing handle.
+ * Otherweise, a `FolderHandle` to the newly created folder is returned,
+ * or `null`, should an error have occured.
+ *
+ * If `isFromTreeLookup` is specified, the folder is not automatically
+ * added to the tree cache, as the caller is doing that already. This
+ * may not be the most sustainable method of doing this.
+ */
+export async function addFolder(name: string, parent: FolderOrRoot, isFromTreeLookup?: boolean): Promise<FolderHandle | null> {
     const parentId = parent === ROOT_FOLDER_ID ? null : parent;
 
     if (parent !== "root") {
-        // This call cannot (yet) be cached as
-        const parentFolder = await getFolderById_Database(parent);
+        const parentFolder = Database.folderHandle.getById(parent);
         // The parent folder does not exist. We will not add the folder
         if (!parentFolder) return null;
     }
 
-    const existingFolder = await Database.folder.getByNameAndParent(parent, name);
+    const existingFolder = Database.folderHandle.getByNameAndParentId(parent, name);
     if (existingFolder) return existingFolder;
 
     const { data } = await supabase.from("folders").insert({ name, parent_folder: parentId }).select().single();
     if (data) {
+        if (!isFromTreeLookup) {
+            Database.tree.add(data);
+        }
         broadcastToClients("add", data);
     }
     return data;
@@ -40,42 +55,29 @@ export async function getAllFolders(): Promise<FolderHandle[] | null> {
 }
 
 export async function renameFolder(id: number, targetName: string): Promise<FolderHandle | null> {
-    const handle = await Database.folder.getById(id);
+    const handle = Database.folderHandle.getById(id);
     if (!handle) {
         return null;
     }
     if (handle.name === targetName || !patterns.fileName.test(targetName)) {
         return null;
     }
-    const existingFolder = await Database.folder.getByNameAndParent(handle.parent_folder ?? "root", targetName);
+    const path = await Database.folder.resolveRouteById(id);
+    if (path === null) {
+        logError("Failed to build route for folder id", id);
+        return null;
+    }
+    const existingFolder = Database.folderHandle.getByNameAndParentId(handle.parent_folder ?? "root", targetName);
     if (existingFolder) {
         // TODO: (very compilicated) merge both folders?
         return null;
     }
     const { data } = await supabase.from("folders").update({ name: targetName }).eq("name", targetName).select().single();
     if (data) {
+        Database.tree.rename(id, targetName);
         void broadcastToClients("rename", data, handle.name);
     }
     return data;
-}
-
-/**
- * If the caller does not have the path to a folder and
- * only the id, no cache lookup is performed (this may take
- * way longer) and rather, the database is called directly.
- *
- * TODO: Maintain two caches, one mapping folder names and one map for ids
- * @param id
- */
-export function getFolderById_Database(id: number) {
-    return parsePostgrestResponse<FolderHandle>(supabase.from("folders").select().eq("id", id).single());
-}
-
-export function getFolderByNameAndParent_Database(parent: FolderOrRoot, name: string) {
-    const selector = supabase.from("folders").select().eq("name", name);
-    return parsePostgrestResponse<FolderHandle>(
-        parent === ROOT_FOLDER_ID ? selector.is("parent_folder", null).single() : selector.eq("parent_folder", parent).single()
-    );
 }
 
 export async function resolveRouteFromFolderId(id: FolderOrRoot): Promise<string[] | null> {
@@ -86,7 +88,7 @@ export async function resolveRouteFromFolderId(id: FolderOrRoot): Promise<string
 
     let $id = id;
     while (true) {
-        const handle = await Database.folder.getById($id);
+        const handle = Database.folderHandle.getById($id);
         // The lookup has failed and thus, we'll assume the folder does not exist
         // This condition should be impossible on anything past the first folder
         // we check, as all folders are linked and a folder deletion is cascading
@@ -103,25 +105,28 @@ export async function resolveRouteFromFolderId(id: FolderOrRoot): Promise<string
     }
 }
 
-/**
- * Explicitly creates the folder at the given path if not already existent.
- */
-export function createOrGetFolderByPath(path: string) {
-    return resolvePathToFolderId_Cached(path, true);
-}
-export function getFolderByPath(path: string) {
-    return resolvePathToFolderId_Cached(path, false);
+export async function deleteFolder_Recursive(folderId: FolderOrRoot) {
+    throw new Error("Not implemented");
 }
 
-export function deleteFolder_Recursive() {
-    throw new Error("Not implemented");
+async function moveFolder(folderId: number, targetId: FolderOrRoot) {
+    const parent = targetId !== "root" ? Database.folderHandle.getById(targetId) : true;
+    if (!parent) {
+        throw new ReferenceError("This target parent folder does not exist: " + targetId);
+    }
+    const response = await supabase
+        .from("folders")
+        .update({ parent_folder: targetId === "root" ? null : targetId })
+        .eq("id", folderId);
 }
 
 /**
  * Folder a is merged into folder b.
  */
 export async function mergeFolders_Recursive(a: number, b: number, targetParentPath?: string): Promise<DataErrorFields<true>> {
-    const target = await Database.folder.getById(b);
+    // TODO: The folder needs to be locked. However, if we lock the folder,
+    //       we cannot find replacement names (those check for locks)
+    const target = Database.folderHandle.getById(b);
     if (!target) {
         return { error: "", data: null };
     }
@@ -143,7 +148,7 @@ export async function mergeFolders_Recursive(a: number, b: number, targetParentP
     // This does not mean that no subfolders exist, that would be returned
     // as an empty array, rather, an error occured whilst fetching
     if (subfoldersA === null || subfoldersB === null) {
-        logError(`Failed to retrieve subfolder list for folders ${a}`);
+        logError(`Failed to retrieve subfolder list for folders ${a} or ${b}`);
         return { data: null, error: "Failed to retrieve subfolder list" };
     }
 
@@ -169,6 +174,7 @@ export async function mergeFolders_Recursive(a: number, b: number, targetParentP
     }
 
     for (const s of free) {
+        await moveFolder(s.id, b);
     }
 
     // Now, finally, all files can be ported over
@@ -184,7 +190,23 @@ export async function mergeFolders_Recursive(a: number, b: number, targetParentP
         const exists = await Database.file.get(b, file.name);
         if (exists) {
             const $name = await Database.replacement.file(file.name, b, path);
+            if ($name === null) {
+                flag_isIncomplete = true;
+                continue;
+            }
+            targetName = $name;
         }
+        const handle = await Database.file.update(file.id, { folder: b });
+        if (!handle) {
+            flag_isIncomplete = true;
+        }
+    }
+
+    // Regardless of whether this was fully successful, we'd best un-cache
+    // everything to prevent any possible invalid cache entry.
+    Database.cache.dropFolderIdFromFileCache(a);
+    if (!flag_isIncomplete) {
+        await Database.folder.delete(a);
     }
 
     return { data: true, error: null };

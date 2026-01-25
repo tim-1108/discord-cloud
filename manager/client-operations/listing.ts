@@ -26,7 +26,7 @@ const PAGE_SIZE = 100 as const;
 
 async function folderStatus(client: Client, packet: FolderStatusRequestPacket) {
     const { path } = packet.getData();
-    const fid = await Database.folder.getByPath(path);
+    const fid = Database.folderId.get(path);
     const invalidReply = new FolderStatusPacket({ path, exists: false, file_count: 0, subfolder_count: 0, page_size: PAGE_SIZE, folder_id: null });
     if (fid === null) {
         client.replyToPacket(packet, invalidReply);
@@ -54,10 +54,10 @@ async function folderStatus(client: Client, packet: FolderStatusRequestPacket) {
 async function folderSize(client: Client, packet: FolderSizeRequestPacket) {
     const { folder_id } = packet.getData();
     if (folder_id !== null) {
-        const handle = await Database.folder.getById(folder_id);
+        const handle = Database.folderHandle.getById(folder_id);
         if (!handle) return;
     }
-    const types = Database.tree.getCombinedSizes(folder_id);
+    const types = Database.tree.fileTypes.getMap(folder_id);
     const record: Record<string, number> = {};
     let totalSize = 0;
     for (const [type, size] of types) {
@@ -81,7 +81,7 @@ async function folderSize(client: Client, packet: FolderSizeRequestPacket) {
 async function listRequest(client: Client, packet: ListRequestPacket): Promise<void> {
     const { path, type, page, sort_by, ascending_sort } = packet.getData();
     const $type = type as "subfolders" | "files";
-    const folderId = await Database.folder.getByPath(path);
+    const folderId = Database.folderId.get(path);
     // The client is expected to have sent a FolderStatusRequest packet beforehand.
     // If this folder does not exist, we'll tell the client
     if (!folderId) return;

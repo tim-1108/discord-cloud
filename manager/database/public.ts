@@ -2,10 +2,8 @@ import { safeDestr } from "destr";
 import { encryptBuffer, decryptBuffer } from "../../common/crypto.js";
 import { patterns } from "../../common/patterns.js";
 import { type SchemaToType, validateObjectBySchema } from "../../common/validator.js";
-import { resolvePathToFolderId_Cached, ROOT_FOLDER_ID, supabase, type FolderOrRoot } from "./core.js";
-import { folderOrRootToDatabaseType, nullOrTypeSelection, parsePostgrestResponse } from "./helper.js";
-import { ThumbnailService } from "../services/ThumbnailService.js";
-import { deleteThumbnailFromStorage } from "./storage.js";
+import { ROOT_FOLDER_ID, supabase, type FolderOrRoot } from "./core.js";
+import { parsePostgrestResponse } from "./helper.js";
 import { Database } from "./index.js";
 import type { FileHandle, FolderHandle } from "../../common/supabase.js";
 
@@ -68,46 +66,13 @@ export function parseSignedFileDownload(input: string) {
     }
 }
 
-export async function deleteFileFromDatabase(id: number) {
-    void ThumbnailService.removeQueueFileById(id);
-    const result = await supabase.from("files").delete().eq("id", id);
-    void deleteThumbnailFromStorage(id);
-    // The data, even if successful, is null.
-    // If an error object exists, something has gone wrong.
-    return result.error === null;
-}
-
-/**
- * Move files from one directory into another
- * @param files A list of file names to move
- * @param sourcePath The path from which to move
- * @param destinationPath The path to which to move
- * @returns The files names and folder once they have been moved, or null on failure
- */
-export async function moveFiles(files: string[], sourcePath: string, destinationPath: string) {
-    const sourceId = await Database.folder.getByPath(sourcePath);
-    const destinationId = await Database.folder.getByPath(destinationPath);
-    if (!sourceId || !destinationId || sourceId === destinationId) return null;
-
-    // This does not fail if some or all files have not been moved.
-    // There is also no check whether all these files even exist.
-    // EVEN SO, This poses no security threat.
-    const condition = supabase
-        .from("files")
-        .update({ folder: folderOrRootToDatabaseType(destinationId) })
-        .containedBy("name", files);
-    const { data } = await nullOrTypeSelection(condition, "folder", folderOrRootToDatabaseType(sourceId)).select("name,folder");
-
-    return data;
-}
-
 interface SubfolderFilesListItem {
     path: string;
     file: FileHandle;
 }
 
 export async function getAllFilesInSubfolders(path: string): Promise<SubfolderFilesListItem[] | null> {
-    const id = await resolvePathToFolderId_Cached(path);
+    const id = Database.folderId.get(path);
     if (id === null) {
         return null;
     }

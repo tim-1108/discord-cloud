@@ -47,7 +47,7 @@ function registerAndGetService(name: ServiceName, socket: WebSocket, params: Gen
     set.add(inst);
 
     // Stuff we call inside the instance
-    inst.addHandler();
+    socket.readyState === socket.OPEN ? inst.addHandler() : socket.addEventListener("open", () => inst.addHandler());
     socket.addEventListener("close", () => unregisterService(inst));
     const pkt = new ServiceRegistryPacket({
         action: "added",
@@ -163,6 +163,10 @@ function getServiceClassForName(name: string /* user input can be any string, no
     return serviceClassMap.get(name) ?? null;
 }
 
+function getAllTypeNames() {
+    return serviceRegistry.map((cls) => cls.getConfig().name);
+}
+
 export const ServiceRegistry = {
     registerAndGet: registerAndGetService,
     unregister: unregisterService,
@@ -174,5 +178,6 @@ export const ServiceRegistry = {
     },
     predicatedList: getPredicatedList,
     count: getServiceCount,
-    classForName: getServiceClassForName
+    classForName: getServiceClassForName,
+    typeNames: getAllTypeNames
 } as const;

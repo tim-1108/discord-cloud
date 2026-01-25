@@ -2,7 +2,7 @@ import type { Request, Response } from "express";
 import { generateErrorResponse, getRequestQuery, getRequestUrl, isCrawlerRequest } from "../utils/http.js";
 import { patterns } from "../../common/patterns.js";
 import { parseSignedFileDownload } from "../database/public.js";
-import { escapeQuotes, parseFileSize } from "../../common/useless.js";
+import { escapeQuotes, formatByteString } from "../../common/useless.js";
 import { logDebug } from "../../common/logging.js";
 import { streamFileToResponse_wrapper } from "../utils/stream-download.js";
 import { Database } from "../database/index.js";
@@ -25,7 +25,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
     logDebug("Requested signed file download with", fileData);
 
     const { name, path, hash } = fileData;
-    const handle = await Database.file.getWithPath(name, path);
+    const handle = await Database.file.get(path, name);
     if (!handle) {
         return void generateErrorResponse(res, 404, "Not Found");
     }
@@ -42,7 +42,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
                 <meta property="og:title" content="${escapeQuotes(fileData.name)}" />
                 <meta property="og:type" content="website" />
                 <meta property="og:url" content="${getRequestUrl(req)?.toString()}" />
-                <meta property="og:description" content="File &quot;${escapeQuotes(fileData.name)}&quot; at ${escapeQuotes(fileData.path)} (${parseFileSize(handle.size)})"
+                <meta property="og:description" content="File &quot;${escapeQuotes(fileData.name)}&quot; at ${escapeQuotes(fileData.path)} (${formatByteString(handle.size)})"
             </head>
             <body></body>
         </html>

@@ -177,7 +177,7 @@ function dropLock(path: string | string[]): boolean {
 }
 
 function destroyLockIfEmpty(struct: LockStruct /* root should not be destroyed */): boolean {
-    const isInUse = (target: LockStruct) => target.is_locked || target.locked_files.size || target.subfolders.size;
+    const isInUse = (target: LockStruct): boolean => target.is_locked || target.locked_files.size > 0 || target.subfolders.size > 0;
     if (isInUse(struct)) {
         return false;
     }

@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import { generateErrorResponse, getRequestQuery, getRequestUrl, isCrawlerRequest } from "../utils/http.js";
 import { patterns } from "../../common/patterns.js";
-import { escapeQuotes, parseFileSize } from "../../common/useless.js";
+import { escapeQuotes, formatByteString } from "../../common/useless.js";
 import { streamFileToResponse_wrapper } from "../utils/stream-download.js";
 import { Database } from "../database/index.js";
 import { Authentication } from "../authentication.js";
@@ -29,7 +29,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
         return void generateErrorResponse(res, 401, "Unauthorized");
     }
 
-    const handle = await Database.file.getWithPath(name, path);
+    const handle = await Database.file.get(path, name);
     if (handle == null) {
         return void generateErrorResponse(res, 404, "File not found");
     }
@@ -42,7 +42,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
                     <meta property="og:title" content="${escapeQuotes(handle.name)}" />
                     <meta property="og:type" content="website" />
                     <meta property="og:url" content="${getRequestUrl(req)?.toString()}" />
-                    <meta property="og:description" content="File &quot;${escapeQuotes(handle.name)}&quot; at ${escapeQuotes(path)} (${parseFileSize(handle.size)})"
+                    <meta property="og:description" content="File &quot;${escapeQuotes(handle.name)}&quot; at ${escapeQuotes(path)} (${formatByteString(handle.size)})"
                 </head>
                 <body></body>
             </html>

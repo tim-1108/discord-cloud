@@ -17,6 +17,9 @@ import path from "node:path";
  *
  * This function takes the maximum file length into account. If a fitting file name cannot
  * be found, `null` is returned. If successful, the new name is returned.
+ *
+ * If the `path` argument is supplied, the route does not need to be computed to verify
+ * whether a lock is present on the folder.
  */
 function file_wrapper(name: string, folderId: FolderOrRoot, path?: string): Promise<string | null> {
     return findReplacementName({ lock: Locks.file.status, database: Database.file.get }, name, folderId, path);
@@ -37,7 +40,12 @@ function folder_wrapper(name: string, folderId: FolderOrRoot, path?: string): Pr
         return Locks.folder.status(route) || Locks.folder.contentStatus(route);
     }
 
-    return findReplacementName({ lock: isLocked_Wrapper, database: Database.folder.getByNameAndParent }, name, folderId, path);
+    return findReplacementName(
+        { lock: isLocked_Wrapper, database: async (...args) => Database.folderHandle.getByNameAndParentId(...args) },
+        name,
+        folderId,
+        path
+    );
 }
 
 type Providers = {
