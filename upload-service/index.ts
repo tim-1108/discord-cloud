@@ -60,6 +60,12 @@ export interface Data {
      * is now fully uploaded.
      */
     chunk_finish_handler: (i: number, data: Data) => void;
+    /**
+     * A function which clears the timeout promise (resolving it to true).
+     * Used when the upload is aborted so that the timeout does not continue
+     * to run despite the upload being already terminated.
+     */
+    promise_clear_fn: () => void;
 }
 
 const socket = new Socket();
@@ -88,7 +94,7 @@ function getHandleOrThrow(): Data {
     return handle.value;
 }
 
-function createData(metadata: UploadMetadataInService, onChunkFinish: (i: number, data: Data) => void): Data {
+function createData(metadata: UploadMetadataInService, onChunkFinish: (i: number, data: Data) => void, promiseClearFn: () => void): Data {
     const cc = Math.ceil(metadata.size / metadata.chunk_size);
     return {
         metadata,
@@ -99,7 +105,8 @@ function createData(metadata: UploadMetadataInService, onChunkFinish: (i: number
         hashes: new Array(cc),
         should_encrypt: env.ENCRYPTION === "1",
         channel_id: null,
-        chunk_finish_handler: onChunkFinish
+        chunk_finish_handler: onChunkFinish,
+        promise_clear_fn: promiseClearFn
     };
 }
 
@@ -142,7 +149,7 @@ function packet$uploadStart(packet: UploadStartPacket) {
         handle.value = null;
     }
 
-    handle.value = createData(metadata, onChunkFinish);
+    handle.value = createData(metadata, onChunkFinish, clear);
 
     // Async worker to detect timeout expiration
     (async () => {
@@ -222,6 +229,7 @@ function abortUpload() {
         return;
     }
     logInfo("Upload aborted:", handle.value.metadata.path, handle.value.metadata.name);
+    handle.value.promise_clear_fn();
     handle.value = null;
 }
 
