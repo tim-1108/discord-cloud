@@ -28,6 +28,7 @@ import { ServiceRegistry } from "../services/list.js";
 import { ServiceRegistryPacket } from "../../common/packet/s2c/ServiceRegistryPacket.js";
 import { UploadService } from "../services/UploadService.js";
 import { sleep } from "../../common/useless.js";
+import { UploadAbortRequestPacket } from "../../common/packet/c2s/UploadAbortRequestPacket.js";
 
 export class Client extends PacketReceiver {
     private readonly uuid: UUID;
@@ -46,7 +47,7 @@ export class Client extends PacketReceiver {
         this.uuid = crypto.randomUUID();
         this.userId = userId;
 
-        console.info(`[Client.constructor] ${this.uuid} initialized`);
+        logInfo("Connected:", this.userId, this.uuid);
         pingServices();
         this.socket.readyState === this.socket.OPEN
             ? this.emitServiceRegistryList()
@@ -106,6 +107,8 @@ export class Client extends PacketReceiver {
             void Uploads.booking.release(this, packet);
         } else if (packet instanceof FolderSizeRequestPacket) {
             void ListingClientOperations.folderSize(this, packet);
+        } else if (packet instanceof UploadAbortRequestPacket) {
+            void Uploads.handlers.client.requestAbort(this, packet);
         }
     }
 }

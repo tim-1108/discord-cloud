@@ -1,7 +1,7 @@
 import type { UUID } from "../../../common";
 import { attemptRepairFolderOrFileName, combinePaths, convertPathToRoute, convertRouteToPath, useCurrentRoute } from "./path";
 import { logError, logWarn } from "../../../common/logging";
-import { computed, reactive, ref, watch, type Ref } from "vue";
+import { computed, reactive, ref, shallowReactive, toRaw, watch, type Reactive, type Ref } from "vue";
 import { getOrCreateCommunicator } from "./authentication";
 import { UploadServicesReleasePacket } from "../../../common/packet/c2s/UploadServicesReleasePacket";
 import { GenericBooleanPacket } from "../../../common/packet/generic/GenericBooleanPacket";
@@ -13,6 +13,7 @@ import { UploadRequestPacket } from "../../../common/packet/c2s/UploadRequestPac
 import { patterns } from "../../../common/patterns";
 import { UploadResponsePacket } from "../../../common/packet/s2c/UploadResponsePacket";
 import type { UploadFinishInfoPacket } from "../../../common/packet/s2c/UploadFinishInfoPacket";
+import { UploadAbortRequestPacket } from "../../../common/packet/c2s/UploadAbortRequestPacket";
 
 export interface UploadRelativeFileHandle {
     file: File;
@@ -22,6 +23,10 @@ interface UploadAbsoluteFileHandle {
     file: File;
     path: string;
 }
+
+const SERVER_INITIATED_ABORT = 0x01 as const;
+const USER_INITIATED_ABORT = 0x02 as const;
+const CONNECTION_ABORT = 0x03 as const;
 
 const activeUploads = reactive(new Map<UUID, ActiveUpload>());
 const queue = reactive(new Array<UploadAbsoluteFileHandle>());
@@ -83,7 +88,7 @@ function handleBookingModification(packet: UploadBookingModifyPacket) {
     availableUploaderCount.value += effective_change;
 }
 
-function streamFromFile(file: File, chunkSize: number) {
+function streamFromFile(file: File, chunkSize: number, abortController?: AbortController) {
     /**
      * A buffer in which we write the data we have read from the stream.
      * If the buffer size exceeds the
@@ -93,12 +98,14 @@ function streamFromFile(file: File, chunkSize: number) {
     const stream = file.stream();
     const reader = stream.getReader();
 
+    const signal = abortController?.signal;
+
     /**
      * Returns the next chunk with the previously inputted {@link chunkSize} or the remainder.
      * If done, no value is returned anymore. "done: true" is only emitted after the final
      * chunk has been read (similar to using a ReadableStreamReader)
      */
-    async function readNextChunk(): Promise<{ value: Uint8Array<ArrayBuffer>; done: false } | { value?: Uint8Array<ArrayBuffer>; done: true }> {
+    async function readNextChunk(): Promise<{ value: Uint8Array<ArrayBuffer>; done: false } | { value: undefined; done: true }> {
         remainder = remainder - chunkSize;
         // There is already enough data stored within the buffer,
         // we can just return the asked for amount from there.
@@ -110,6 +117,11 @@ function streamFromFile(file: File, chunkSize: number) {
 
         while (true) {
             const { value, done } = await reader.read();
+            // If we actually just aborted this thing, we might as well
+            // just stop now instead of building the whole buffer. The
+            // caller will not do anything with this buffer anyhow.
+            // This is only done here as all other operations occurr sync.
+            if (signal?.aborted) return { value: undefined, done: true };
 
             if (done) {
                 // if done, there is no value
@@ -173,6 +185,7 @@ interface ActiveUpload {
      * Upload speed in bytes/sec
      */
     speed: Ref<number>;
+    abort_controller?: AbortController;
 }
 
 function submitUpload({ file, relativePath }: UploadRelativeFileHandle): number | null {
@@ -198,6 +211,8 @@ async function startNextUpload() {
         return;
     }
 
+    // If we are not presently connected to anything, this will
+    // halt execution of the function until we are.
     const com = await getOrCreateCommunicator();
     const name = attemptRepairFolderOrFileName(handle.file.name);
     if (!patterns.fileName.test(name)) {
@@ -225,7 +240,10 @@ async function startNextUpload() {
         //       is already adjusted for display down below
     }
 
-    const streamFn = streamFromFile(handle.file, chunk_size);
+    const abortController = new AbortController();
+    const { signal } = abortController;
+
+    const streamFn = streamFromFile(handle.file, chunk_size, abortController);
     const cc = Math.ceil(handle.file.size / chunk_size);
 
     const au: ActiveUpload = {
@@ -241,34 +259,74 @@ async function startNextUpload() {
         name: rename_target ?? handle.file.name,
         path: handle.path,
         start_timestamp: performance.now(),
-        speed: ref(0)
+        speed: ref(0),
+        abort_controller: abortController
     };
+    // @ts-expect-error au.processed_chunks is picked up as number when it should actually be Ref<number>??
     activeUploads.set(upload_id as UUID, au);
 
     let lastProgress = 0;
     const $i = setInterval(() => {
+        if (signal.aborted) {
+            clearInterval($i);
+            return;
+        }
         const delta = au.progress.value - lastProgress;
         lastProgress = au.progress.value;
         au.speed.value = delta / 0.5;
     }, 500);
 
-    for (let i = 0; i < cc; i++) {
-        const buffer = await streamFn();
-        if (buffer.done) {
-            logError(`Stream reported done despite chunks still remaining`);
-            break;
-        }
-        const cfg = { uploadId: au.id, targetAddress: au.target_address, chunkIndex: i, dataBuffer: buffer.value };
-        const result = await sendChunk(cfg, au);
-        au.processed_chunks.value++;
-        // TODO: Implement retry system, we'll just move on for now
-        if (!result) {
-            logError("Failed to upload chunk", i, "for upload", handle);
-            continue;
+    async function cleanup(sendAbortPacket?: boolean): Promise<void> {
+        activeUploads.delete(upload_id as UUID);
+        clearInterval($i);
+        if (sendAbortPacket) {
+            const com = await getOrCreateCommunicator();
+            void com.sendPacket(new UploadAbortRequestPacket({ upload_id }));
         }
     }
 
-    clearInterval($i);
+    for (let i = 0; i < cc; i++) {
+        // We can only load this buffer once as it comes out of a stream
+        // we cannot reverse. If the upload has failed, we have to retry
+        // the upload itself, but never the stream reading.
+        const buffer = await streamFn();
+
+        // This is before the buffer.done check because when the upload is
+        // aborted, the stream function returns done = true regardless of
+        // the actual state.
+        if (signal.aborted) {
+            logWarn("Aborted upload", au);
+            // If the server informed us of the abort, we need not ask for one from it.
+            cleanup(signal.reason !== SERVER_INITIATED_ABORT);
+            return startNextUpload();
+        }
+        if (buffer.done) {
+            // If this happend, shit has hit the fan.
+            throw new Error(`Stream reported done despite chunks still remaining: ${upload_id} | Chunk: ${i}`);
+        }
+
+        const cfg = { uploadId: au.id, targetAddress: au.target_address, chunkIndex: i, dataBuffer: buffer.value };
+
+        let attempt = 0;
+        const MAX_ATTEMPTS = 10 as const;
+        while (attempt++ < MAX_ATTEMPTS) {
+            const result = await sendChunk(cfg, au, signal);
+            if (result) {
+                au.processed_chunks.value++;
+                break;
+            }
+            logError(`(Attempt ${attempt}) Failed to upload chunk ${i} for upload`, handle);
+            // There is no reason to then upload the other chunks. This file is dead.
+            if (attempt === MAX_ATTEMPTS) {
+                logError("Failed to upload the file after too many failed attempts to upload the chunk");
+                cleanup(true);
+                return startNextUpload();
+            }
+        }
+    }
+    cleanup();
+    // TODO: Would this not possibly create a big big callstack? Bad!
+    return startNextUpload();
 }
 
 function handleUploadFinish(packet: UploadFinishInfoPacket) {
@@ -277,6 +335,9 @@ function handleUploadFinish(packet: UploadFinishInfoPacket) {
     if (!handle) {
         logWarn("Received finish packet for unknown upload:", upload_id);
         return;
+    }
+    if (!success && handle.abort_controller && !handle.abort_controller?.signal.aborted) {
+        handle.abort_controller.abort(SERVER_INITIATED_ABORT);
     }
     activeUploads.delete(upload_id as UUID);
     if (!success) {
@@ -294,7 +355,7 @@ interface SendConfig {
     chunkIndex: number;
     dataBuffer: Uint8Array<ArrayBuffer>;
 }
-function sendChunk(cfg: SendConfig, handle: ActiveUpload) {
+function sendChunk(cfg: SendConfig, handle: ActiveUpload, signal?: AbortSignal) {
     return new Promise<boolean>((resolve) => {
         const form = new FormData();
         form.append("id", cfg.uploadId);
@@ -309,7 +370,6 @@ function sendChunk(cfg: SendConfig, handle: ActiveUpload) {
             const deltaBytes = loaded - loaded_lastValue;
             loaded_lastValue = loaded;
             handle.progress.value += deltaBytes;
-            console.log(deltaBytes, handle.progress.value);
         });
 
         xhr.onload = () => {
@@ -323,6 +383,12 @@ function sendChunk(cfg: SendConfig, handle: ActiveUpload) {
         xhr.onabort = () => {
             resolve(false);
         };
+
+        function _abort() {
+            xhr.abort();
+            signal?.removeEventListener("abort", _abort);
+        }
+        signal?.addEventListener("abort", () => _abort());
 
         xhr.send(form);
     });

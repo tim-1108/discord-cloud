@@ -21,6 +21,7 @@ import { UploadBookingModifyPacket } from "../common/packet/s2c/UploadBookingMod
 import type { UploadServicesReleasePacket } from "../common/packet/c2s/UploadServicesReleasePacket.js";
 import { GenericBooleanPacket } from "../common/packet/generic/GenericBooleanPacket.js";
 import { pingServices } from "./pinging.js";
+import type { UploadAbortRequestPacket } from "../common/packet/c2s/UploadAbortRequestPacket.js";
 
 const Constants = {
     /**
@@ -42,7 +43,8 @@ export const Uploads = {
     chunkSize: () => Constants.chunkSize,
     handlers: {
         client: {
-            disconnect: handleClientDisconnect
+            disconnect: handleClientDisconnect,
+            requestAbort: handleClientAbortRequest
         },
         service: {
             initOrRelease: handleServiceInitOrRelease,
@@ -103,7 +105,7 @@ async function requestUploadServices(client: Client, packet: UploadServicesReque
             // note that we do not look for just idle services!
             // if the user submits such a packet while their uploads are
             // running, we will force stop them.
-            const services = ServiceRegistry.random.multiple("upload", count, (s) => s.isBookedForClient(client));
+            const services = ServiceRegistry.predicatedList("upload", (s) => s.isBookedForClient(client));
             if (!services) {
                 throw new RangeError(
                     "Incorrect value stored in current_amount, not as many uploaders are booked: " +
@@ -143,10 +145,7 @@ async function requestUploadServices(client: Client, packet: UploadServicesReque
         getOrWriteBooking(client).desired_amount = desired_amount;
         return reply(0);
     }
-    const services = ServiceRegistry.random.multiple("upload", count, (service) => !service.isBooked());
-    if (services === null) {
-        throw new RangeError("Expected to get a certain amount of non-booked uploaders, but received less");
-    }
+    const services = ServiceRegistry.predicatedList("upload", (service) => !service.isBooked());
     for (const s of services) {
         s.bookForClient(client);
     }
@@ -264,11 +263,42 @@ function handleClientDisconnect(client: Client) {
     if (!booking) return;
     // here, there is of course no need to decrement current_amount
     bookings.delete(client.getUUID());
-    const services = ServiceRegistry.random.multiple("upload", booking.current_amount, (s) => s.isBookedForClient(client));
-    if (!services) {
+    const services = ServiceRegistry.predicatedList("upload", (s) => s.isBookedForClient(client));
+    if (services.length !== booking.current_amount) {
         throw new Error("current_amount incorrect upon client disconnect");
     }
     services.forEach(internal_serviceReleaseAndRedistribution);
+}
+
+async function handleClientAbortRequest(client: Client, packet: UploadAbortRequestPacket) {
+    const { upload_id } = packet.getData();
+    // There is no central list for uploads, so we essentially
+    // have to ask the services nicely.
+    const services = ServiceRegistry.predicatedList("upload", (s) => s.isBookedForClient(client));
+    const s = services.find((s) => s.getUploadTaskUUID() === upload_id);
+
+    if (!s) {
+        client.replyToPacket(packet, new GenericBooleanPacket({ success: false, message: "The requested upload was not found for this client" }));
+        return;
+    }
+
+    // TODO: yada yada yada locking of any of this whilst we are trying to terminate
+    //       The user may just kill their connection in the meantime... (those few ms)
+    const status = await s.abortUpload();
+    client.replyToPacket(
+        packet,
+        new GenericBooleanPacket({ success: !status.error, message: status.error ? "Failed to terminate upload" : undefined })
+    );
+    if (status.error) {
+        s.closeSocket(1000);
+        return;
+    }
+
+    if (!status.metadata) {
+        throw new ReferenceError("Metadata would have to be defined, because we know that an upload was running");
+    }
+    // The client now has the responsibility to request a new upload
+    failUpload(status.metadata, "The user requested the upload to be aborted");
 }
 
 async function internal_serviceReleaseAndRedistribution(s: UploadService) {
@@ -277,8 +307,8 @@ async function internal_serviceReleaseAndRedistribution(s: UploadService) {
         s.closeSocket(1000, "Failed to abort the running upload, going just a bit more extreme now.");
     } else {
         s.clearBooking();
+        Uploads.handlers.service.initOrRelease(s);
     }
-    Uploads.handlers.service.initOrRelease(s);
 }
 
 /**

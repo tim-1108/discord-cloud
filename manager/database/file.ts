@@ -8,6 +8,8 @@ import { ROOT_FOLDER_ID, routeToPath, supabase, type FolderOrRoot } from "./core
 import { parsePostgrestResponse } from "./helper.js";
 import { Database } from "./index.js";
 import { patterns } from "../../common/patterns.js";
+import type { DataErrorFields } from "../../common/index.js";
+import { Locks } from "../lock.js";
 
 /**
  * Maps file name to a handle.
@@ -200,27 +202,39 @@ export async function listFilesInFolder_Database(
  * Internal rename function to be called after verifying that the user
  * who generated this has proper permissions to actually rename the file.
  */
-export async function renameFile(id: number, intendedName: string) {
-    if (!patterns.fileName.test(intendedName)) return null;
-    const handle = await Database.file.getById(id);
-    if (!handle) return null;
-    if (handle.name === intendedName) return null;
-
-    const existingFile = await Database.file.get(handle.folder ?? "root", intendedName);
-    const actualTargetName = existingFile ? await Database.replacement.file(intendedName, handle.folder ?? "root") : intendedName;
-    if (actualTargetName === null) return null;
-    const { data } = await supabase.from("files").update({ name: actualTargetName }).eq("id", id).select().single();
-
-    if (data !== null) {
-        // Of course, we could actually measure the differences.
-        // For instance, if the folder did not change, there'd be
-        // no need to remove it from the folder map. But, for
-        // simplicity's sake, we'll just pop it.
-        popFromCache(id);
-        putIntoCache(data);
+export async function renameFile(fileId: number, desiredName: string): Promise<DataErrorFields<FileHandle>> {
+    const handle = await Database.file.getById(fileId);
+    if (!handle) {
+        return { error: "Failed to find file handle", data: null };
     }
 
-    return data;
+    if (handle.name === desiredName || !patterns.fileName.test(desiredName) /* a last failsafe, but the packet should have caught this */) {
+        return { error: "Target name must not be the same as the current name", data: null };
+    }
+
+    const folderId = handle.folder ?? "root";
+    const route = await Database.folder.resolveRouteById(folderId);
+    if (!route) {
+        return { error: "Failed to resolve full route to folder", data: null };
+    }
+
+    if (Locks.file.status(route, handle.name)) return { error: "This file is presently locked", data: null };
+    Locks.file.lock(route, handle.name);
+
+    const existingFile = await Database.file.get(folderId, desiredName);
+    let targetName = desiredName;
+    if (existingFile) {
+        const replacement = await Database.replacement.file(desiredName, folderId);
+        if (!replacement) return { error: "The target name is already taken, but failed to find a replacement name", data: null };
+        targetName = replacement;
+    }
+    const { data } = await supabase.from("files").update({ name: targetName }).eq("id", handle.id).select().single();
+    if (data) {
+        popFromCache(fileId);
+        putIntoCache(data);
+        void broadcastToClients("modify", data /* of course, we should not pass in the old handle here */);
+    }
+    return data ? { error: null, data } : { data: null, error: "Failed to update file handle in database" };
 }
 
 /**

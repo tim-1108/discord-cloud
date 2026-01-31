@@ -11,3 +11,7 @@ The tree itself also stores information on file type sizes in the corresponding 
 A deprecated cache within `file.ts` is the file handle cache, containing files accessible via folder id or file id. These caches are updated whenever a file changes (like via `Database.file.update`). If a folder is dropped, call `Database.cache.dropFolderIdFromFileCache`, until the function is removed together with the entire cache.
 
 Individual file operations tend to draw from this cache, but listings are always performed from the database, with these files then being added to the cache.
+
+## Thumbnails
+
+Thumbnails may be retrieved via the `thumbnail` field as they are stored within the Supabase Storage. Calling `getSignedLink` returns a URL that may be sent safely to a client. Only call this function when you know that the client who requested the thumbnail has sufficient permissions. If `null` is returned, the file either has no thumbnail or something has gone wrong.

@@ -5,6 +5,7 @@ import { FolderModifyPacket } from "../../common/packet/s2c/FolderModifyPacket.j
 import { patterns } from "../../common/patterns.js";
 import type { FolderHandle } from "../../common/supabase.js";
 import { ClientList } from "../client/list.js";
+import { Locks } from "../lock.js";
 import { ROOT_FOLDER_ID, routeToPath, supabase, type FolderOrRoot } from "./core.js";
 import { Database } from "./index.js";
 
@@ -54,30 +55,39 @@ export async function getAllFolders(): Promise<FolderHandle[] | null> {
     return selector.data;
 }
 
-export async function renameFolder(id: number, targetName: string): Promise<FolderHandle | null> {
-    const handle = Database.folderHandle.getById(id);
+export async function renameFolder(folderId: number, desiredName: string): Promise<DataErrorFields<FolderHandle>> {
+    const handle = Database.folderHandle.getById(folderId);
     if (!handle) {
-        return null;
+        return { error: "Failed to find folder handle", data: null };
     }
-    if (handle.name === targetName || !patterns.fileName.test(targetName)) {
-        return null;
+
+    if (handle.name === desiredName || !patterns.fileName.test(desiredName) /* a last failsafe, but the packet should have caught this */) {
+        return { error: "Target name must not be the same as the current name", data: null };
     }
-    const path = await Database.folder.resolveRouteById(id);
-    if (path === null) {
-        logError("Failed to build route for folder id", id);
-        return null;
+
+    const route = await Database.folder.resolveRouteById(folderId);
+    if (!route) {
+        return { error: "Failed to resolve full route to folder", data: null };
     }
-    const existingFolder = Database.folderHandle.getByNameAndParentId(handle.parent_folder ?? "root", targetName);
+
+    if (Locks.folder.status(route) || Locks.folder.contentStatus(route))
+        return { error: "This folder or its contents are presently locked", data: null };
+    Locks.folder.lock(route);
+
+    const existingFolder = Database.folderHandle.getByNameAndParentId(handle.parent_folder ?? "root", desiredName);
+    let targetName = desiredName;
     if (existingFolder) {
-        // TODO: (very compilicated) merge both folders?
-        return null;
+        const replacement = await Database.replacement.folder(desiredName, handle.parent_folder ?? "root");
+        if (!replacement) return { error: "The target name is already taken, but failed to find a replacement name", data: null };
+        targetName = replacement;
     }
-    const { data } = await supabase.from("folders").update({ name: targetName }).eq("name", targetName).select().single();
+    const { data } = await supabase.from("folders").update({ name: targetName }).eq("id", handle.id).select().single();
     if (data) {
-        Database.tree.rename(id, targetName);
+        Database.tree.rename(folderId, targetName);
+        Database.cache.dropFolderIdFromFileCache(folderId);
         void broadcastToClients("rename", data, handle.name);
     }
-    return data;
+    return data ? { error: null, data } : { data: null, error: "Failed to update folder handle in database" };
 }
 
 export async function resolveRouteFromFolderId(id: FolderOrRoot): Promise<string[] | null> {
@@ -105,7 +115,7 @@ export async function resolveRouteFromFolderId(id: FolderOrRoot): Promise<string
     }
 }
 
-export async function deleteFolder_Recursive(folderId: FolderOrRoot) {
+export async function deleteFolder_Recursive(folderId: FolderOrRoot): Promise<string | null> {
     throw new Error("Not implemented");
 }
 

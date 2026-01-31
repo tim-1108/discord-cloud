@@ -1,5 +1,5 @@
 import { type CloseEvent as ServersideCloseEvent, type MessageEvent as ServersideMessageEvent, WebSocket as ServersideWebSocket } from "ws";
-import type { Packet } from "./Packet.js";
+import { Packet } from "./Packet.js";
 import type { DataErrorFields, UUID } from "../index.js";
 import { isServerside } from "../types.js";
 import { logWarn } from "../logging.js";

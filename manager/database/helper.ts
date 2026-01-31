@@ -1,6 +1,6 @@
 import { type PostgrestBuilder, type PostgrestFilterBuilder } from "@supabase/postgrest-js";
 import { type FolderOrRoot, ROOT_FOLDER_ID } from "./core.js";
-import type { GenericSchema } from "@supabase/supabase-js/dist/module/lib/types.js";
+import type { GenericSchema } from "@supabase/supabase-js/dist/index.mjs";
 
 export async function parsePostgrestResponse<K, B extends PostgrestBuilder<any, K> = PostgrestBuilder<any, K>>(request: B) {
     const { data, error } = await request;
