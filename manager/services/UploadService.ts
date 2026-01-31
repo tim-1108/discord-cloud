@@ -91,9 +91,14 @@ export class UploadService extends Service {
         return this.booking !== null;
     }
 
-    public async abortUpload(): Promise<boolean> {
+    public getUploadTaskUUID(): UUID | null {
+        if (!this.uploadMetadata) return null;
+        return this.uploadMetadata.upload_id;
+    }
+
+    public async abortUpload(): Promise<{ error: false; metadata: UploadMetadata | undefined } | { error: true }> {
         if (!this.uploadMetadata) {
-            return true;
+            return { error: false, metadata: undefined };
         }
         // log moved here because on every service free, this function is called
         // (even when reshuffling uploaders because the client is now done uploading)
@@ -101,20 +106,21 @@ export class UploadService extends Service {
         const result = await this.sendPacketAndReply_new(new UploadAbortPacket({}), GenericBooleanPacket);
         if (!result.packet) {
             logInfo(`Failed to request upload abort at ${this.address}: ${result.error}`);
-            return false;
+            return { error: true };
         }
-        this.markNotBusy();
-        this.uploadMetadata = null;
+        // Should we really be clearing this here if something has gone wrong?
         const data = result.packet.getData();
 
         if (!data.success) {
+            // In this case, best kill the uploader!
             logError("Failed to abort upload due to:", data.message ?? "Unspecified reason");
+            return { error: true };
+        } else {
+            const um = this.uploadMetadata;
+            this.markNotBusy();
+            this.uploadMetadata = null;
+            return { error: false, metadata: um };
         }
-        // Now, when aborting, the service may of course always say that is has nothing stored.
-        // However, we are already catching that scenario, meaning no abort would even be sent
-        // if there is no active upload. That would be a scenario where it'd be best to kill
-        // the service anyway since something seems to have de-synced.
-        return data.success;
     }
 
     /**
@@ -168,7 +174,7 @@ export class UploadService extends Service {
 
         if (packet instanceof UploadFinishPacket) {
             if (!this.uploadMetadata) {
-                console.warn("[UploadService] Received a finish packet when no upload was marked for this service");
+                logWarn(`Received a finish packet when no upload was marked for this service (service ${this.getServiceUUID()}):`, packet.getData());
                 return;
             }
             const { success, reason } = packet.getData();
