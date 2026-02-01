@@ -6,7 +6,10 @@ export function streamFromFile(file: File, chunkSize: number, abortController?: 
      * If the buffer size exceeds the
      */
     let buffer = new Uint8Array();
-    let remainder = file.size;
+    // Used for when the buffer has been fully read, but there
+    // still is data within the internal buffer of this function
+    // (so the user calls it again to retrieve it).
+    let hasFinishedStream = false;
     const stream = file.stream();
     const reader = stream.getReader();
 
@@ -22,43 +25,47 @@ export function streamFromFile(file: File, chunkSize: number, abortController?: 
      * any data within its buffer.
      */
     async function readNextChunk(): Promise<StreamFromFileReturn> {
-        remainder = remainder - chunkSize;
+        function clipChunkOrLessFromBuffer() {
+            const value = buffer.subarray(0, chunkSize);
+            buffer = buffer.subarray(chunkSize);
+            return value;
+        }
+
+        if (hasFinishedStream) {
+            if (buffer.byteLength === 0) {
+                return { value: undefined, done: true };
+            }
+            const value = clipChunkOrLessFromBuffer();
+            return { value, done: false };
+        }
+
         // There is already enough data stored within the buffer,
         // we can just return the asked for amount from there.
         if (buffer.byteLength >= chunkSize) {
-            const value = buffer.subarray(0, chunkSize);
-            buffer = buffer.subarray(chunkSize);
+            const value = clipChunkOrLessFromBuffer();
             return { value, done: false };
         }
 
         while (true) {
+            // We don't count how much data we got from the reader
+            // because we just have to trust it anyhow.
             const { value, done } = await reader.read();
             // If we actually just aborted this thing, we might as well
             // just stop now instead of building the whole buffer. The
             // caller will not do anything with this buffer anyhow.
-            // This is only done here as all other operations occurr sync.
+            // This is only done here as all other operations occur sync.
             if (signal?.aborted) return { value: undefined, done: true };
 
             if (done) {
-                // if done, there is no value
-                // thus, we just take everything we have stored
-                const value = buffer.subarray(0, chunkSize);
-                // If we get unlucky, the last chunk of our stream.read sits between
-                // the second to last upload chunk and the remainder.
-                // In such a case, this function will get called again for
-                // the final chunk and then all the remainder will be returned
-
-                if (remainder <= 0) {
-                    // The last chunk typically is not as long as the default chunk length,
-                    // thus the remainder variable will be less than 0.
-                    buffer = buffer.subarray(value.length);
-                    return { value, done: false };
+                // Ok, we are actually done. There is no data left.
+                // This is very unlikely to happen.
+                if (buffer.byteLength === 0) {
+                    return { value: undefined, done: true };
                 }
-                // once we're actually done, we clear all data
-                // so - if this gets called accidentially again - the data is not returned twice
-                // (this oughn't happen though)
-                buffer = new Uint8Array();
-                return { value: undefined, done: true };
+
+                hasFinishedStream = true;
+                const value = clipChunkOrLessFromBuffer();
+                return { value, done: false };
             }
 
             const newBuffer = new Uint8Array(buffer.byteLength + value.byteLength);
@@ -70,8 +77,7 @@ export function streamFromFile(file: File, chunkSize: number, abortController?: 
             // We have just read a chunk from the stream and all the accumulated
             // data is enough to return a finished chunk!
             if (buffer.byteLength >= chunkSize) {
-                const value = buffer.subarray(0, chunkSize);
-                buffer = buffer.subarray(chunkSize);
+                const value = clipChunkOrLessFromBuffer();
                 return { value, done: false };
             }
         }

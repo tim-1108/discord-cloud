@@ -32,7 +32,8 @@ const Constants = {
      * service with too many concurrent chunks at once.
      */
     maxConcurrentChunks: 5,
-    maxRetriesForChunkUpload: 10
+    maxRetriesForChunkUpload: 10,
+    speedCalculationIntervalMs: 500
 } as const;
 
 const SERVER_INITIATED_ABORT = 0x01 as const;
@@ -205,7 +206,7 @@ async function upload(handle: UploadAbsoluteFileHandle) {
     const abortController = new AbortController();
     const { signal } = abortController;
 
-    const stream = streamFromFile(handle.file, chunk_size, abortController);
+    const read = streamFromFile(handle.file, chunk_size, abortController);
     const cc = Math.ceil(handle.file.size / chunk_size);
 
     const au: ActiveUpload = {
@@ -225,6 +226,7 @@ async function upload(handle: UploadAbsoluteFileHandle) {
     activeUploads.set(upload_id as UUID, au);
 
     let lastProgress = 0;
+    const speedIntervalSeconds = Constants.speedCalculationIntervalMs / 1000;
     const interval = setInterval(() => {
         if (signal.aborted) {
             clearInterval(interval);
@@ -232,8 +234,10 @@ async function upload(handle: UploadAbsoluteFileHandle) {
         }
         const delta = au.processed_bytes.value - lastProgress;
         lastProgress = au.processed_bytes.value;
-        au.speed.value = delta / 0.5;
-    }, 500);
+        // We cannot just use 1 second as the divider, that is
+        // dependent on how often this interval is fired.
+        au.speed.value = delta / speedIntervalSeconds;
+    }, Constants.speedCalculationIntervalMs);
 
     if (cc <= 0) {
         throw new Error("Chunk count is " + cc);
@@ -241,7 +245,7 @@ async function upload(handle: UploadAbsoluteFileHandle) {
 
     // This config only includes constants that don't change between chunks.
     // Chunk-dependent things get passed as individual parameters.
-    const cfg: PrepareChunkConfig = { stream, handle: au, signal };
+    const cfg: PrepareChunkConfig = { read, handle: au, signal };
 
     const concurrency = createChunkConcurrency(cc);
     let latestChunkIndex = -1;
@@ -277,13 +281,13 @@ async function upload(handle: UploadAbsoluteFileHandle) {
     }
 }
 
-type PrepareChunkConfig = { handle: ActiveUpload; stream: () => Promise<StreamFromFileReturn>; signal: AbortSignal };
+type PrepareChunkConfig = { handle: ActiveUpload; read: () => Promise<StreamFromFileReturn>; signal: AbortSignal };
 async function prepareAndRetryChunk(cfg: PrepareChunkConfig, chunkIndex: number, sentResolve: ResolveFunction<boolean>): Promise<SendChunkStatus> {
-    const { handle, stream, signal } = cfg;
+    const { handle, read, signal } = cfg;
     // We can only load this buffer once as it comes out of a stream
     // we cannot reverse. If the upload has failed, we have to retry
     // the upload itself, but never the stream reading.
-    const buffer = await stream();
+    const buffer = await read();
 
     // This is before the buffer.done if clause because when the upload is
     // aborted, the stream function returns done = true regardless of
