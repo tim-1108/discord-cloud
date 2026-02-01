@@ -1,6 +1,6 @@
 import type { ResolveFunction, UUID } from "../../../common";
 import { attemptRepairFolderOrFileName, combinePaths, convertPathToRoute, convertRouteToPath, useCurrentRoute } from "./path";
-import { logError, logWarn } from "../../../common/logging";
+import { logDebug, logError, logWarn } from "../../../common/logging";
 import { reactive, ref, watch, type Ref } from "vue";
 import { getOrCreateCommunicator } from "./authentication";
 import { UploadServicesReleasePacket } from "../../../common/packet/c2s/UploadServicesReleasePacket";
@@ -14,7 +14,7 @@ import { patterns } from "../../../common/patterns";
 import { UploadResponsePacket } from "../../../common/packet/s2c/UploadResponsePacket";
 import type { UploadFinishInfoPacket } from "../../../common/packet/s2c/UploadFinishInfoPacket";
 import { UploadAbortRequestPacket } from "../../../common/packet/c2s/UploadAbortRequestPacket";
-import { createResolveFunction } from "../../../common/useless";
+import { createResolveFunction, formatByteString } from "../../../common/useless";
 import { streamFromFile, type StreamFromFileReturn } from "./stream-from-file";
 
 export interface UploadRelativeFileHandle {
@@ -441,17 +441,28 @@ function sendChunk(cfg: SendConfig, signal?: AbortSignal) {
         form.append("chunk", cfg.chunkIndex.toString());
         form.append("file", new Blob([cfg.dataBuffer]));
 
+        const timestamp = performance.now();
+
         const xhr = new XMLHttpRequest();
         xhr.open("POST", cfg.targetAddress);
         let loaded_lastValue = 0;
-        xhr.upload.addEventListener("progress", ({ loaded, lengthComputable }) => {
-            if (!lengthComputable) return;
+        xhr.upload.addEventListener("progress", ({ loaded, lengthComputable, total }) => {
+            if (!lengthComputable) {
+                logWarn(`Cannot access tranferred byte count for chunk ${cfg.chunkIndex} of "${cfg.uploadId}" - concurrency won't work`);
+                return;
+            }
             const deltaBytes = loaded - loaded_lastValue;
             loaded_lastValue = loaded;
             cfg.progressRef.value += deltaBytes;
 
-            if (cfg.progressRef.value >= 1.0) {
+            // This may trigger multiple times but as we are dealing with a promise
+            // which may only be resolved once, we need not worry.
+            if (loaded >= total) {
                 sentPromise.resolve(true);
+                const timestampEnd = performance.now();
+                logDebug(
+                    `Transferred chunk ${cfg.chunkIndex} (${formatByteString(cfg.dataBuffer.length)}) of "${cfg.uploadId}" in ${timestampEnd - timestamp}ms`
+                );
             }
         });
 
@@ -460,18 +471,22 @@ function sendChunk(cfg: SendConfig, signal?: AbortSignal) {
             resolve(hasSucceeded);
         };
 
+        function xhrAbort() {
+            xhr.abort();
+        }
+
         function resolve(flag: boolean) {
             // Even though sendPromise might already be resolved, there would
             // be no pain in just resolving it again - that just does nothing.
             sentPromise.resolve(flag);
             responsePromise.resolve(flag);
-            signal?.removeEventListener("abort", xhr.abort);
+            signal?.removeEventListener("abort", xhrAbort);
         }
         const resolveWithFalse = () => resolve(false);
         xhr.onerror = resolveWithFalse;
         xhr.onabort = resolveWithFalse;
 
-        signal?.addEventListener("abort", xhr.abort);
+        signal?.addEventListener("abort", xhrAbort);
 
         xhr.send(form);
     })();
