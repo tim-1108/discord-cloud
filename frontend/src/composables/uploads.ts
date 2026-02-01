@@ -1,7 +1,7 @@
-import type { UUID } from "../../../common";
+import type { ResolveFunction, UUID } from "../../../common";
 import { attemptRepairFolderOrFileName, combinePaths, convertPathToRoute, convertRouteToPath, useCurrentRoute } from "./path";
 import { logError, logWarn } from "../../../common/logging";
-import { computed, reactive, ref, shallowReactive, toRaw, watch, type Reactive, type Ref } from "vue";
+import { reactive, ref, watch, type Ref } from "vue";
 import { getOrCreateCommunicator } from "./authentication";
 import { UploadServicesReleasePacket } from "../../../common/packet/c2s/UploadServicesReleasePacket";
 import { GenericBooleanPacket } from "../../../common/packet/generic/GenericBooleanPacket";
@@ -14,6 +14,8 @@ import { patterns } from "../../../common/patterns";
 import { UploadResponsePacket } from "../../../common/packet/s2c/UploadResponsePacket";
 import type { UploadFinishInfoPacket } from "../../../common/packet/s2c/UploadFinishInfoPacket";
 import { UploadAbortRequestPacket } from "../../../common/packet/c2s/UploadAbortRequestPacket";
+import { createResolveFunction } from "../../../common/useless";
+import { streamFromFile, type StreamFromFileReturn } from "./stream-from-file";
 
 export interface UploadRelativeFileHandle {
     file: File;
@@ -23,6 +25,15 @@ interface UploadAbsoluteFileHandle {
     file: File;
     path: string;
 }
+
+const Constants = {
+    /**
+     * This amount exists in order to not overwhelm the upload
+     * service with too many concurrent chunks at once.
+     */
+    maxConcurrentChunks: 5,
+    maxRetriesForChunkUpload: 10
+} as const;
 
 const SERVER_INITIATED_ABORT = 0x01 as const;
 const USER_INITIATED_ABORT = 0x02 as const;
@@ -56,11 +67,14 @@ watch(availableUploaderCount, async (value, oldValue) => {
     if (value <= oldValue) return;
     const delta = value - oldValue;
     for (let i = 0; i < delta; i++) {
-        await startNextUpload();
+        checkInQueueAndStart();
     }
 });
 
-async function trigger_servicesRelease() {
+/**
+ * Releases the booked services, but only if nothing is presently within the queue.
+ */
+async function releaseServicesIfDone() {
     if (queue.length || activeUploads.size) return;
     const com = await getOrCreateCommunicator();
     const reply = await com.sendPacketAndReply_new(new UploadServicesReleasePacket({}), GenericBooleanPacket);
@@ -88,82 +102,6 @@ function handleBookingModification(packet: UploadBookingModifyPacket) {
     availableUploaderCount.value += effective_change;
 }
 
-function streamFromFile(file: File, chunkSize: number, abortController?: AbortController) {
-    /**
-     * A buffer in which we write the data we have read from the stream.
-     * If the buffer size exceeds the
-     */
-    let buffer = new Uint8Array();
-    let remainder = file.size;
-    const stream = file.stream();
-    const reader = stream.getReader();
-
-    const signal = abortController?.signal;
-
-    /**
-     * Returns the next chunk with the previously inputted {@link chunkSize} or the remainder.
-     * If done, no value is returned anymore. "done: true" is only emitted after the final
-     * chunk has been read (similar to using a ReadableStreamReader)
-     */
-    async function readNextChunk(): Promise<{ value: Uint8Array<ArrayBuffer>; done: false } | { value: undefined; done: true }> {
-        remainder = remainder - chunkSize;
-        // There is already enough data stored within the buffer,
-        // we can just return the asked for amount from there.
-        if (buffer.byteLength >= chunkSize) {
-            const value = buffer.subarray(0, chunkSize);
-            buffer = buffer.subarray(chunkSize);
-            return { value, done: false };
-        }
-
-        while (true) {
-            const { value, done } = await reader.read();
-            // If we actually just aborted this thing, we might as well
-            // just stop now instead of building the whole buffer. The
-            // caller will not do anything with this buffer anyhow.
-            // This is only done here as all other operations occurr sync.
-            if (signal?.aborted) return { value: undefined, done: true };
-
-            if (done) {
-                // if done, there is no value
-                // thus, we just take everything we have stored
-                const value = buffer.subarray(0, chunkSize);
-                // If we get unlucky, the last chunk of our stream.read sits between
-                // the second to last upload chunk and the remainder.
-                // In such a case, this function will get called again for
-                // the final chunk and then all the remainder will be returned
-
-                if (remainder <= 0) {
-                    // The last chunk typically is not as long as the default chunk length,
-                    // thus the remainder variable will be less than 0.
-                    buffer = buffer.subarray(value.length);
-                    return { value, done: false };
-                }
-                // once we're actually done, we clear all data
-                // so - if this gets called accidentially again - the data is not returned twice
-                // (this oughn't happen though)
-                buffer = new Uint8Array();
-                return { value: undefined, done: true };
-            }
-
-            const newBuffer = new Uint8Array(buffer.byteLength + value.byteLength);
-            // appending both buffers
-            newBuffer.set(buffer, 0);
-            newBuffer.set(value, buffer.byteLength);
-            buffer = newBuffer;
-
-            // We have just read a chunk from the stream and all the accumulated
-            // data is enough to return a finished chunk!
-            if (buffer.byteLength >= chunkSize) {
-                const value = buffer.subarray(0, chunkSize);
-                buffer = buffer.subarray(chunkSize);
-                return { value, done: false };
-            }
-        }
-    }
-
-    return readNextChunk;
-}
-
 interface ActiveUpload {
     target_address: string;
     file: File;
@@ -171,10 +109,10 @@ interface ActiveUpload {
     chunks: number;
     processed_chunks: Ref<number>;
     /**
-     * A value ranging from 0 to 1 describing the total
-     * upload progress on the file.
+     * The amount of bytes already transferred. A percentage may be
+     * calculated by dividing this number by the `size` field of the file object.
      */
-    progress: Ref<number>;
+    processed_bytes: Ref<number>;
     name: string;
     path: string;
     /**
@@ -205,32 +143,53 @@ function submitUpload({ file, relativePath }: UploadRelativeFileHandle): number 
     return queue.push({ file, path: absPath });
 }
 
-async function startNextUpload() {
+function checkInQueueAndStart() {
     const handle = queue.shift();
     if (!handle) {
         return;
     }
+    upload(handle);
+}
 
+type SendChunkStatus = { success: true } | { success: false; sendAbortPacket: boolean };
+
+/**
+ * The main function for handling an upload. Expects that a service was already booked
+ * before being called. This function creates the stream function to read from the file
+ * and controls the sending of chunks. For the actual chunk sending, it calls into
+ * {@link prepareAndRetryChunk}, which finally calls {@link sendChunk}, which handles
+ * the actual XHR. In here, concurrency and failure handling is implemented for chunks.
+ *
+ * This function **does not** handle the queue or sending the next file. Nor does it handle
+ * the releasing of services. All that is only done when the {@link UploadFinishInfoPacket}
+ * is received from the server to let us know that the file is **actually** done on the server.
+ *
+ * Never call this function directly. This is the job of the queue.
+ */
+async function upload(handle: UploadAbsoluteFileHandle) {
     // If we are not presently connected to anything, this will
     // halt execution of the function until we are.
     const com = await getOrCreateCommunicator();
     const name = attemptRepairFolderOrFileName(handle.file.name);
     if (!patterns.fileName.test(name)) {
         await Dialogs.alert({ body: `Invalid file name: ${handle.file.name}\nAttempted fix: ${name}\nThis did not work either. Sorry!` });
-        return startNextUpload();
+        checkInQueueAndStart();
+        return;
     }
     const reply = await com.sendPacketAndReply_new(
         new UploadRequestPacket({ name, path: handle.path, is_public: true, size: handle.file.size }),
         UploadResponsePacket
     );
     if (!reply.packet) {
-        logError(handle);
-        throw new Error("Error on sending a upload request: " + reply.error);
+        logError("Error on sending a upload request: " + reply.error);
+        checkInQueueAndStart();
+        return;
     }
     const { accepted, upload_address, chunk_size, rejection_reason, rename_target, upload_id } = reply.packet.getData();
     if (!accepted) {
         await Dialogs.alert({ body: `File ${name} at ${handle.path} was not accepted due to: ${rejection_reason ?? "unknown"}` });
-        return startNextUpload();
+        checkInQueueAndStart();
+        return;
     }
 
     const uploadAddress = upload_address as string;
@@ -243,7 +202,7 @@ async function startNextUpload() {
     const abortController = new AbortController();
     const { signal } = abortController;
 
-    const streamFn = streamFromFile(handle.file, chunk_size, abortController);
+    const stream = streamFromFile(handle.file, chunk_size, abortController);
     const cc = Math.ceil(handle.file.size / chunk_size);
 
     const au: ActiveUpload = {
@@ -251,10 +210,7 @@ async function startNextUpload() {
         target_address: uploadAddress,
         chunks: cc,
         processed_chunks: ref(0),
-        /**
-         * The amount of bytes already sent
-         */
-        progress: ref(0),
+        processed_bytes: ref(0),
         file: handle.file,
         name: rename_target ?? handle.file.name,
         path: handle.path,
@@ -266,67 +222,178 @@ async function startNextUpload() {
     activeUploads.set(upload_id as UUID, au);
 
     let lastProgress = 0;
-    const $i = setInterval(() => {
+    const interval = setInterval(() => {
         if (signal.aborted) {
-            clearInterval($i);
+            clearInterval(interval);
             return;
         }
-        const delta = au.progress.value - lastProgress;
-        lastProgress = au.progress.value;
+        const delta = au.processed_bytes.value - lastProgress;
+        lastProgress = au.processed_bytes.value;
         au.speed.value = delta / 0.5;
     }, 500);
 
-    async function cleanup(sendAbortPacket?: boolean): Promise<void> {
-        activeUploads.delete(upload_id as UUID);
-        clearInterval($i);
-        if (sendAbortPacket) {
-            const com = await getOrCreateCommunicator();
-            void com.sendPacket(new UploadAbortRequestPacket({ upload_id }));
-        }
+    if (cc <= 0) {
+        throw new Error("Chunk count is " + cc);
     }
 
-    for (let i = 0; i < cc; i++) {
-        // We can only load this buffer once as it comes out of a stream
-        // we cannot reverse. If the upload has failed, we have to retry
-        // the upload itself, but never the stream reading.
-        const buffer = await streamFn();
+    // This config only includes constants that don't change between chunks.
+    // Chunk-dependent things get passed as individual parameters.
+    const cfg: PrepareChunkConfig = { stream, handle: au, signal };
 
-        // This is before the buffer.done check because when the upload is
-        // aborted, the stream function returns done = true regardless of
-        // the actual state.
+    const concurrency = createChunkConcurrency(cc);
+    let latestChunkIndex = 0;
+    // Sadly, this wrapper also has to exist due to the concurrency needs.
+    async function wrapper(chunkIndex: number): Promise<void> {
+        if (latestChunkIndex !== chunkIndex - 1) throw new Error(`Previous latest index was ${latestChunkIndex}, now would be ${chunkIndex}`);
+        latestChunkIndex = chunkIndex;
+        concurrency.increment();
+
+        const { promise: sentPromise, resolve: sentResolve } = createResolveFunction<boolean>();
+        const resultPromise = prepareAndRetryChunk(cfg, chunkIndex, sentResolve);
+
+        sentPromise.then(() => {
+            if (!concurrency.canStartNext()) return;
+            // This does not use "chunkIndex + 1" due to the fact that this might be chunk 1
+            // here, but chunk 2 is already finished and has started chunk 3 by now. Then, we'd
+            // want this to start chunk 4.
+            wrapper(latestChunkIndex + 1);
+        });
+
+        const result = await resultPromise;
+        result.success ? concurrency.markDone() : concurrency.markFail(result.sendAbortPacket);
+        concurrency.decrement();
+    }
+
+    wrapper(0);
+    const result = await concurrency.done;
+
+    clearInterval(interval);
+    if (!result.success && result.sendAbortPacket) {
+        const com = await getOrCreateCommunicator();
+        void com.sendPacket(new UploadAbortRequestPacket({ upload_id }));
+    }
+}
+
+type PrepareChunkConfig = { handle: ActiveUpload; stream: () => Promise<StreamFromFileReturn>; signal: AbortSignal };
+async function prepareAndRetryChunk(cfg: PrepareChunkConfig, chunkIndex: number, sentResolve: ResolveFunction<boolean>): Promise<SendChunkStatus> {
+    const { handle, stream, signal } = cfg;
+    // We can only load this buffer once as it comes out of a stream
+    // we cannot reverse. If the upload has failed, we have to retry
+    // the upload itself, but never the stream reading.
+    const buffer = await stream();
+
+    // This is before the buffer.done if clause because when the upload is
+    // aborted, the stream function returns done = true regardless of
+    // the actual state.
+    if (signal.aborted) {
+        logWarn("Aborted upload", handle);
+        // If the server informed us of the abort, we need not ask for one from it.
+        return { success: false, sendAbortPacket: signal.reason !== SERVER_INITIATED_ABORT };
+    }
+    if (buffer.done) {
+        // If this happend, shit has hit the fan.
+        throw new Error(`Stream reported done despite chunks still remaining: ${handle.id} | Chunk: ${chunkIndex}`);
+    }
+
+    const sendChunkCfg = {
+        uploadId: handle.id,
+        targetAddress: handle.target_address,
+        chunkIndex,
+        dataBuffer: buffer.value,
+        progressRef: handle.processed_bytes
+    };
+
+    let attempt = 0;
+    // If we once already sent this chunk, we won't trigger the concurrency.
+    let flag_hasFinishedSent = false;
+    while (attempt < Constants.maxRetriesForChunkUpload) {
         if (signal.aborted) {
-            logWarn("Aborted upload", au);
-            // If the server informed us of the abort, we need not ask for one from it.
-            cleanup(signal.reason !== SERVER_INITIATED_ABORT);
-            return startNextUpload();
-        }
-        if (buffer.done) {
-            // If this happend, shit has hit the fan.
-            throw new Error(`Stream reported done despite chunks still remaining: ${upload_id} | Chunk: ${i}`);
+            logWarn("Aborted upload", handle);
+            return { success: false, sendAbortPacket: signal.reason !== SERVER_INITIATED_ABORT };
         }
 
-        const cfg = { uploadId: au.id, targetAddress: au.target_address, chunkIndex: i, dataBuffer: buffer.value };
+        const { sent: promise_sent, response: promise_response } = sendChunk(sendChunkCfg, signal);
 
-        let attempt = 0;
-        const MAX_ATTEMPTS = 10 as const;
-        while (attempt++ < MAX_ATTEMPTS) {
-            const result = await sendChunk(cfg, au, signal);
-            if (result) {
-                au.processed_chunks.value++;
-                break;
+        const status_sent = await promise_sent;
+        // Only if the sending succeeded, we need bother to wait for the response promise.
+        block_success: if (status_sent) {
+            if (!flag_hasFinishedSent) {
+                flag_hasFinishedSent = true;
+                sentResolve(true);
             }
-            logError(`(Attempt ${attempt}) Failed to upload chunk ${i} for upload`, handle);
-            // There is no reason to then upload the other chunks. This file is dead.
-            if (attempt === MAX_ATTEMPTS) {
-                logError("Failed to upload the file after too many failed attempts to upload the chunk");
-                cleanup(true);
-                return startNextUpload();
-            }
+            const status_response = await promise_response;
+            if (!status_response) break block_success;
+            return { success: true };
         }
+
+        logWarn(`(Attempt ${attempt + 1}/${Constants.maxRetriesForChunkUpload}) Failed to upload chunk ${chunkIndex} for upload`, handle);
+
+        attempt++;
+        continue;
     }
-    cleanup();
-    // TODO: Would this not possibly create a big big callstack? Bad!
-    return startNextUpload();
+
+    logError("Failed to upload the file after too many failed attempts to upload the chunk");
+    // To continue with the next file instead of waiting for the service
+    // to terminate us, we request an abort here.
+    return { success: false, sendAbortPacket: true };
+}
+
+/**
+ * Handles concurrency for uploading multiple chunks for one file at a time
+ * instead of waiting until one chunk has received a response to start the
+ * next one. This is intended to speed up the uploading of large files.´
+ *
+ * It is vital that a new chunk may only be started once we fully transferred
+ * the buffer to the service. If we would just send multiple chunks at once,
+ * they'd all run with slower speeds, in effect making that useless. Building
+ * a system like here though only uses the bandwith more effectively by not
+ * waiting for the upload service to encrypt and to send to Discord.
+ *
+ * The count is limited to {@link Constants.maxConcurrentChunks}.
+ */
+function createChunkConcurrency(chunkCount: number) {
+    let activeCount = 0;
+    let doneCount = 0;
+    // Because of the way this is built, some other wrapper might call
+    // one of these functions after thw whole upload has failed.
+    let isLocked = false;
+    // Resolves upon all chunks being done or one having failed.
+    const { promise, resolve } = createResolveFunction<SendChunkStatus>();
+    function increment() {
+        if (activeCount === Constants.maxConcurrentChunks) throw new RangeError("Cannot increment concurrent chunks above defined max");
+        activeCount++;
+    }
+    function decrement() {
+        if (activeCount === 0) throw new RangeError("Cannot decrement concurrent chunks below 0");
+        activeCount--;
+    }
+    /**
+     * Called whenever a chunk has been successfully finished.
+     * When all chunks are marked as such, the function will
+     * resolve the promise of the wrapper.
+     */
+    function markDone() {
+        if (doneCount === chunkCount) throw new RangeError("Cannot increment the done count above the chunk count");
+        doneCount++;
+        if (doneCount === chunkCount) resolve({ success: true });
+    }
+    /**
+     * Called when the upload of the chunk has failed for good.
+     * When called, the entire file upload will fail.
+     */
+    function markFail(sendAbortPacket: boolean) {
+        isLocked = true;
+        resolve({ success: false, sendAbortPacket });
+    }
+    /**
+     * Checks whether the max concurrent amount allows a new chunk to start and
+     * that there are still any chunks left to actually start.
+     */
+    function canStartNext(): boolean {
+        if (isLocked) return false;
+        return activeCount < Constants.maxConcurrentChunks && activeCount + doneCount < chunkCount;
+    }
+    return { increment, decrement, canStartNext, markDone, markFail, done: promise };
 }
 
 function handleUploadFinish(packet: UploadFinishInfoPacket) {
@@ -336,17 +403,22 @@ function handleUploadFinish(packet: UploadFinishInfoPacket) {
         logWarn("Received finish packet for unknown upload:", upload_id);
         return;
     }
+    // If we manually aborted the upload, then the signal is already toggled.
+    // But even then, the server sends us the upload finish packet.
     if (!success && handle.abort_controller && !handle.abort_controller?.signal.aborted) {
         handle.abort_controller.abort(SERVER_INITIATED_ABORT);
     }
-    activeUploads.delete(upload_id as UUID);
     if (!success) {
         logError(`Upload failed due to ${reason ?? "unknown"}`);
         console.error(`${handle.path} | ${handle.name}`);
     }
-    // TODO: Notify user if upload failed!
-    void startNextUpload();
-    trigger_servicesRelease();
+    // We rely entirely on this function to check when an upload is "done".
+    // If we were to go by the metric that all chunks have been sent, the
+    // data might not yet be stored in the DB and a new upload start request
+    // would be rejected by the server.
+    activeUploads.delete(upload_id as UUID);
+    releaseServicesIfDone();
+    checkInQueueAndStart();
 }
 
 interface SendConfig {
@@ -354,9 +426,13 @@ interface SendConfig {
     targetAddress: string;
     chunkIndex: number;
     dataBuffer: Uint8Array<ArrayBuffer>;
+    progressRef: Ref<number>;
 }
-function sendChunk(cfg: SendConfig, handle: ActiveUpload, signal?: AbortSignal) {
-    return new Promise<boolean>((resolve) => {
+function sendChunk(cfg: SendConfig, signal?: AbortSignal) {
+    const sentPromise = createResolveFunction<boolean>();
+    const responsePromise = createResolveFunction<boolean>();
+
+    (async () => {
         const form = new FormData();
         form.append("id", cfg.uploadId);
         form.append("chunk", cfg.chunkIndex.toString());
@@ -369,29 +445,35 @@ function sendChunk(cfg: SendConfig, handle: ActiveUpload, signal?: AbortSignal) 
             if (!lengthComputable) return;
             const deltaBytes = loaded - loaded_lastValue;
             loaded_lastValue = loaded;
-            handle.progress.value += deltaBytes;
+            cfg.progressRef.value += deltaBytes;
+
+            if (cfg.progressRef.value >= 1.0) {
+                sentPromise.resolve(true);
+            }
         });
 
         xhr.onload = () => {
-            resolve(xhr.status === 200);
+            const hasSucceeded = xhr.status === 200;
+            resolve(hasSucceeded);
         };
 
-        xhr.onerror = () => {
-            resolve(false);
-        };
-
-        xhr.onabort = () => {
-            resolve(false);
-        };
-
-        function _abort() {
-            xhr.abort();
-            signal?.removeEventListener("abort", _abort);
+        function resolve(flag: boolean) {
+            // Even though sendPromise might already be resolved, there would
+            // be no pain in just resolving it again - that just does nothing.
+            sentPromise.resolve(flag);
+            responsePromise.resolve(flag);
+            signal?.removeEventListener("abort", xhr.abort);
         }
-        signal?.addEventListener("abort", () => _abort());
+        const resolveWithFalse = () => resolve(false);
+        xhr.onerror = resolveWithFalse;
+        xhr.onabort = resolveWithFalse;
+
+        signal?.addEventListener("abort", xhr.abort);
 
         xhr.send(form);
-    });
+    })();
+
+    return { sent: sentPromise.promise, response: responsePromise.promise };
 }
 
 // === preview section ===
@@ -471,7 +553,7 @@ function resetPreviews() {
 
 export const Uploads = {
     submit: submitUpload,
-    start: startNextUpload,
+    start: checkInQueueAndStart,
     active: activeUploads,
     queue: queue,
     preview: {
