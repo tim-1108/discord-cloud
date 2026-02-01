@@ -24,6 +24,7 @@ export function pathToRoute(path: string): string[] {
     if (!patterns.stringifiedPath.test(path)) {
         throw new TypeError("Entered invalid path into pathToRoute: " + path);
     }
+    if (path === "/") return [];
     // To get only the relevant folders, we remove the first and last slash.
     return path.replace(/(^\/)|(\/$)/g, "").split("/");
 }

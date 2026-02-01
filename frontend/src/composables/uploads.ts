@@ -144,6 +144,9 @@ function submitUpload({ file, relativePath }: UploadRelativeFileHandle): number 
 }
 
 function checkInQueueAndStart() {
+    if (activeUploads.size === availableUploaderCount.value) {
+        return;
+    }
     const handle = queue.shift();
     if (!handle) {
         return;
@@ -241,7 +244,7 @@ async function upload(handle: UploadAbsoluteFileHandle) {
     const cfg: PrepareChunkConfig = { stream, handle: au, signal };
 
     const concurrency = createChunkConcurrency(cc);
-    let latestChunkIndex = 0;
+    let latestChunkIndex = -1;
     // Sadly, this wrapper also has to exist due to the concurrency needs.
     async function wrapper(chunkIndex: number): Promise<void> {
         if (latestChunkIndex !== chunkIndex - 1) throw new Error(`Previous latest index was ${latestChunkIndex}, now would be ${chunkIndex}`);
@@ -553,7 +556,6 @@ function resetPreviews() {
 
 export const Uploads = {
     submit: submitUpload,
-    start: checkInQueueAndStart,
     active: activeUploads,
     queue: queue,
     preview: {
