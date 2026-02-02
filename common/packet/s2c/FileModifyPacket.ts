@@ -2,6 +2,7 @@ import type { SchemaToType } from "../../validator.js";
 import { S2CPacket } from "../S2CPacket.js";
 import { patterns } from "../../patterns.js";
 import { ClientFileSchema } from "../../client.js";
+import type { UUID } from "../../index.js";
 
 const id = "file-modify";
 
@@ -24,7 +25,7 @@ export class FileModifyPacket extends S2CPacket {
         return this.data;
     }
 
-    public constructor(data?: DataType) {
+    public constructor(data: DataType | UUID | null) {
         super(id, data);
     }
 }

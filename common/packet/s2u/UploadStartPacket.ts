@@ -1,6 +1,7 @@
 import { patterns } from "../../patterns.js";
 import type { SchemaToType } from "../../validator.js";
 import { S2UPacket } from "../S2UPacket.js";
+import type { UUID } from "../../index.js";
 
 const id = "upload-start";
 
@@ -26,7 +27,7 @@ export class UploadStartPacket extends S2UPacket {
         return this.data;
     }
 
-    public constructor(data?: DataType) {
+    public constructor(data: DataType | UUID | null) {
         super(id, data);
     }
 }

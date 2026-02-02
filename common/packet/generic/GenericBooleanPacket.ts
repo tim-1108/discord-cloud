@@ -1,5 +1,6 @@
 import type { SchemaToType } from "../../validator.js";
 import { GenericPacket } from "../GenericPacket.js";
+import type { UUID } from "../../index.js";
 
 const id = "boolean";
 
@@ -21,7 +22,7 @@ export class GenericBooleanPacket extends GenericPacket {
         return this.data;
     }
 
-    public constructor(data?: DataType) {
+    public constructor(data: DataType | UUID | null) {
         super(id, data);
     }
 }

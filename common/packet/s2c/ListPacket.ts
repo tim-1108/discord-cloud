@@ -2,6 +2,7 @@ import type { ClientFileHandle, ClientFolderHandle } from "../../client.js";
 import { patterns } from "../../patterns.js";
 import { createArraySchemaEntry, type SchemaToType } from "../../validator.js";
 import { S2CPacket } from "../S2CPacket.js";
+import type { UUID } from "../../index.js";
 
 const id = "list";
 
@@ -39,7 +40,7 @@ export class ListPacket extends S2CPacket {
         return this.data;
     }
 
-    public constructor(data?: DataType) {
+    public constructor(data: DataType | UUID | null) {
         super(id, data);
     }
 }

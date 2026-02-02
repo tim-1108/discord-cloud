@@ -1,6 +1,7 @@
 import type { SchemaToType } from "../../validator.js";
 import { U2SPacket } from "../U2SPacket.js";
 import { patterns } from "../../patterns.js";
+import type { UUID } from "../../index.js";
 
 const id = "upload-finish";
 
@@ -31,7 +32,7 @@ export class UploadFinishPacket extends U2SPacket {
         return this.data;
     }
 
-    public constructor(data?: DataType) {
+    public constructor(data: DataType | UUID | null) {
         super(id, data);
     }
 }

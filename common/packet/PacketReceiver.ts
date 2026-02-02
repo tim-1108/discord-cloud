@@ -170,7 +170,7 @@ export abstract class PacketReceiver {
      * @deprecated use `sendPacketAndReply_new`
      */
     public async sendPacketAndReply<R extends Packet>(packet: Packet, replyClass: { new (): R }, timeoutMs?: number): Promise<R | null> {
-        const uuid = packet.setRandomUUID();
+        const uuid = packet.setRandomOrGetUUID();
         const reply = this.scheduleReply(uuid, timeoutMs);
 
         const sent = await this.sendPacket(packet);
@@ -186,7 +186,7 @@ export abstract class PacketReceiver {
         replyClass: { new (): R } | { new (): R }[],
         timeoutMs?: number
     ): Promise<DataErrorFields<R, string, "packet">> {
-        const uuid = packet.setRandomUUID();
+        const uuid = packet.setRandomOrGetUUID();
         const promise = this.scheduleReply(uuid, timeoutMs);
 
         if (this.socket.readyState !== this.socket.OPEN) {

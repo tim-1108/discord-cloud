@@ -1,6 +1,7 @@
 import { patterns } from "../../patterns.js";
 import type { SchemaToType } from "../../validator.js";
 import { S2TPacket } from "../S2TPacket.js";
+import type { UUID } from "../../index.js";
 
 const id = "gen-thumbnail";
 
@@ -30,7 +31,7 @@ export class GenThumbnailPacket extends S2TPacket {
         return this.data;
     }
 
-    public constructor(data?: DataType) {
+    public constructor(data: DataType | UUID | null) {
         super(id, data);
     }
 }

@@ -1,5 +1,6 @@
 import { C2SPacket } from "../C2SPacket.js";
 import type { SchemaToType } from "../../validator.js";
+import type { UUID } from "../../index.js";
 
 const id = "move-files";
 
@@ -28,7 +29,7 @@ export class MoveFilesPacket extends C2SPacket {
         return this.data;
     }
 
-    public constructor(data?: DataType) {
+    public constructor(data: DataType | UUID | null) {
         super(id, data);
     }
 }

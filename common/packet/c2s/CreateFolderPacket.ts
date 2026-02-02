@@ -1,10 +1,11 @@
 import { C2SPacket } from "../C2SPacket.js";
 import { patterns } from "../../patterns.js";
 import type { SchemaToType } from "../../validator.js";
+import type { UUID } from "../../index.js";
 
 const id = "create-folder";
 
-type DataType = SchemaToType<typeof dataStructure>;
+export type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
     path: { type: "string", required: true, pattern: patterns.stringifiedPath }
 } as const;
@@ -21,7 +22,7 @@ export class CreateFolderPacket extends C2SPacket {
         return this.data;
     }
 
-    public constructor(data?: DataType) {
+    public constructor(data: DataType | UUID | null) {
         super(id, data);
     }
 }

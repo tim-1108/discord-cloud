@@ -1,10 +1,12 @@
 import type { Packet } from "./Packet.js";
-import { safeDestr } from "destr";
+import destr from "destr";
 import type { UnknownPacketStructure } from "../packets.js";
 import { isRecord } from "../types.js";
 import { patterns } from "../patterns.js";
 import { type PacketTypeMap, type PacketWithID } from "./definitions.js";
 import PacketType from "./PacketType.js";
+import type { UUID } from "../index.js";
+import { UploadStartPacket } from "./s2u/UploadStartPacket.js";
 
 type PacketProvider<T extends PacketType> = (type: T) => PacketWithID<PacketTypeMap[T]>[];
 
@@ -22,7 +24,11 @@ type PacketProvider<T extends PacketType> = (type: T) => PacketWithID<PacketType
  * @param packetProvider A provider to get a packet list from
  * @returns The instantiated packet, or `null`, if the passed id did not meet the requirements
  */
-function getPacketClassById<T extends PacketType>(id: string, expectedType: T, packetProvider: PacketProvider<T>): Packet | null {
+function getPacketClassById<T extends PacketType>(
+    id: string,
+    expectedType: T,
+    packetProvider: PacketProvider<T>
+): { new (data: UUID | null): Packet } | null {
     if (!patterns.packetId.test(id)) return null;
     const [type, name] = id.split(":");
 
@@ -31,8 +37,7 @@ function getPacketClassById<T extends PacketType>(id: string, expectedType: T, p
 
     const list = packetProvider(expectedType);
     const classVar = list.find(({ ID }) => ID === name);
-    if (!classVar) return null;
-    return new classVar();
+    return classVar ?? null;
 }
 
 /**
@@ -63,7 +68,7 @@ export function parsePacket<T extends PacketType>(
 
     let data: UnknownPacketStructure | null = null;
     try {
-        data = safeDestr<UnknownPacketStructure>(message, { strict: true });
+        data = destr<UnknownPacketStructure>(message, { strict: true });
     } catch {
         return null;
     }
@@ -75,16 +80,18 @@ export function parsePacket<T extends PacketType>(
     // If no packet of this type (like c2s) was found, we default to parsing a generic packet.
     // This still means that no packets from other channels can get onto this channel,
     // only that everyone can used the shared generic packets to communicate.
-    const packet = getPacketClassById(data.id, type, packetProvider) ?? getPacketClassById(data.id, PacketType.Generic, packetProvider);
-    if (packet === null) return null;
+    const cls = getPacketClassById(data.id, type, packetProvider) ?? getPacketClassById(data.id, PacketType.Generic, packetProvider);
+    if (cls === null) return null;
+
+    // If a packet is missing the "uuid" field, it just cannot be replied to!
+    const uuid = (patterns.uuid.test(data.uuid) ? data.uuid : null) as UUID | null;
+    const packet = new cls(uuid);
 
     const isValidData = packet.setData(data.data);
     // TODO: optional rework for validation errors to be sent to the client
     if (!isValidData) return null;
 
-    // If a packet is missing the "uuid" field, it just cannot be replied to!
-    if (patterns.uuid.test(data.uuid)) packet.setUUID(data.uuid);
-    if (patterns.uuid.test(data.reply_uuid)) packet.setReplyUUID(data.reply_uuid);
+    if (patterns.uuid.test(data.reply_uuid) && data.reply_uuid !== data.uuid) packet.setReplyUUID(data.reply_uuid);
 
     return packet;
 }

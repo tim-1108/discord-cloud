@@ -1,5 +1,6 @@
 import type { SchemaToType } from "../../validator.js";
 import { T2SPacket } from "../T2SPacket.js";
+import type { UUID } from "../../index.js";
 
 const id = "thumbnail-data";
 
@@ -25,7 +26,7 @@ export class ThumbnailDataPacket extends T2SPacket {
         return this.data;
     }
 
-    public constructor(data?: DataType) {
+    public constructor(data: DataType | UUID | null) {
         super(id, data);
     }
 }

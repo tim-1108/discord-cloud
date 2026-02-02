@@ -4,7 +4,7 @@ Packets follow a standard format, as JSON records formatted like this:
 
 ```json
 {
-    "id": "<category>:<id>",
+    "id": "<namespace>:<id>",
     "uuid": "The uuid of this packet",
     "reply_uuid": "The uuid of the packet this packet is replying to",
     "data": {
@@ -21,7 +21,9 @@ The packet ID is formatted in kebab case.
 - `c2s`: Client to Server
 - `s2c`: Server to Client
 - `s2u`: Server to Uploader
-- `u2s`: Uploader to Service
+- `u2s`: Uploader to Server
+- `s2t`: Server to Thumbnail
+- `t2s`: Thumbnail to Server
 
 All services use the same packet protocol.
 
@@ -48,8 +50,9 @@ further might cause issues down the road.
 
 A subclass of `PacketReceiver` may call either `sendPacket`, resolving
 to a Promise with either an `Error` object or `null` in case the
-packet has been sent successfully, or `sendPacketAndReply`, allowing for
-a reply packet type to be set.
+packet has been sent successfully, or `sendPacketAndReply_new`, allowing for
+a reply packet type to be set. Use `replyToPacket` to send a reply packet to a
+receiveed packet specified as the first argument of the function.
 
 If that packet does not arrive during the specified (or default) timeout,
 that Promise resolves to `null`, otherwise to an instance of the
@@ -64,7 +67,7 @@ will automagically set one for you!
 const packet = new UploadStartPacket({
     /* some other metadata here */
 });
-const reply = await this.sendPacketAndReply(packet, UploadStartConfirmPacket);
+const reply = await this.sendPacketAndReply_new(packet, UploadStartConfirmPacket);
 // Resolves to either null or an instance of UploadStartConfirmPacket (with data set)
 ```
 
@@ -147,7 +150,7 @@ export class UploadQueueAddPacket extends C2SPacket {
         return this.data;
     }
 
-    public constructor(data?: DataType) {
+    public constructor(data: DataType | UUID | null) {
         super(id, data);
     }
 }

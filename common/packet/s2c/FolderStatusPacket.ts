@@ -1,6 +1,7 @@
 import { patterns } from "../../patterns.js";
 import type { SchemaToType } from "../../validator.js";
 import { S2CPacket } from "../S2CPacket.js";
+import type { UUID } from "../../index.js";
 
 const id = "folder-status";
 
@@ -33,7 +34,7 @@ export class FolderStatusPacket extends S2CPacket {
         return this.data;
     }
 
-    public constructor(data?: DataType) {
+    public constructor(data: DataType | UUID | null) {
         super(id, data);
     }
 }

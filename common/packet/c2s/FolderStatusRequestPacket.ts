@@ -1,6 +1,7 @@
 import { C2SPacket } from "../C2SPacket.js";
 import { patterns } from "../../patterns.js";
 import type { SchemaToType } from "../../validator.js";
+import type { UUID } from "../../index.js";
 
 const id = "folder-status-request";
 
@@ -25,7 +26,7 @@ export class FolderStatusRequestPacket extends C2SPacket {
         return this.data;
     }
 
-    public constructor(data?: DataType) {
+    public constructor(data: DataType | UUID | null) {
         super(id, data);
     }
 }
