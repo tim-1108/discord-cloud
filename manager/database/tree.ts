@@ -94,6 +94,7 @@ async function getOrCreateStructForPath(route: string[]): Promise<RootBranch | B
         }
         const struct = createStruct(handle.name, handle.id, parent);
         parent.subfolders.set(handle.name, struct);
+        ids.set(handle.id, struct);
         parent = struct;
     }
     return parent;
