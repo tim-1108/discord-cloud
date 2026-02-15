@@ -101,5 +101,7 @@ watch(PendingAuthenticationState, (val) => {
             v-if="dropPreview.enabled.value"
             @hide="dropPreview.enabled.value = false"
             subtitle="Dropping files will open a view"></UploadDropOverlay>
+
+        <NotificationWrapper></NotificationWrapper>
     </div>
 </template>

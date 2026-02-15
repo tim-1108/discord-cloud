@@ -1,7 +1,7 @@
 import type { ResolveFunction, UUID } from "../../../common";
 import { attemptRepairFolderOrFileName, combinePaths, convertPathToRoute, convertRouteToPath, useCurrentRoute } from "./path";
 import { logDebug, logError, logWarn } from "../../../common/logging";
-import { reactive, ref, watch, type Ref } from "vue";
+import { computed, reactive, ref, watch, type Ref } from "vue";
 import { getOrCreateCommunicator } from "./authentication";
 import { UploadServicesReleasePacket } from "../../../common/packet/c2s/UploadServicesReleasePacket";
 import { GenericBooleanPacket } from "../../../common/packet/generic/GenericBooleanPacket";
@@ -19,6 +19,7 @@ import { streamFromFile, type StreamFromFileReturn } from "./stream-from-file";
 import type { UploadOverwriteRequestPacket } from "../../../common/packet/s2c/UploadOverwriteRequestPacket";
 import type { UploadOverwriteCancelPacket } from "../../../common/packet/s2c/UploadOverwriteCancelPacket";
 import { UploadOverwriteResponsePacket } from "../../../common/packet/c2s/UploadOverwriteResponsePacket";
+import { addNotification } from "./notifications";
 
 export interface UploadRelativeFileHandle {
     file: File;
@@ -403,7 +404,7 @@ function createChunkConcurrency(chunkCount: number) {
 }
 
 function handleUploadFinish(packet: UploadFinishInfoPacket) {
-    const { success, upload_id, reason } = packet.getData();
+    const { success, upload_id, reason, rename_target } = packet.getData();
     const handle = activeUploads.get(upload_id as UUID);
     if (!handle) {
         logWarn("Received finish packet for unknown upload:", upload_id);
@@ -417,7 +418,20 @@ function handleUploadFinish(packet: UploadFinishInfoPacket) {
     if (!success) {
         logError(`Upload failed due to ${reason ?? "unknown"}`);
         console.error(`${handle.path} | ${handle.name}`);
+        addNotification({
+            title: "Upload failed",
+            description: `File "${handle.name}" at "${handle.path}" failed to upload: ${reason ?? "unknown"}`
+        });
     }
+
+    if (rename_target) {
+        addNotification({
+            title: "Upload renamed",
+            description: `File "${handle.name}" at "${handle.path}" has been renamed to "${rename_target}"`,
+            timeout: 3000
+        });
+    }
+
     // We rely entirely on this function to check when an upload is "done".
     // If we were to go by the metric that all chunks have been sent, the
     // data might not yet be stored in the DB and a new upload start request
@@ -576,23 +590,49 @@ function resetPreviews() {
 }
 
 // === overwrites ===
-const overwrites = new Set<UUID>();
+export type OverwriteAction = "overwrite" | "skip" | "rename";
+const overwrites = ref(new Set<UUID>());
+const isOverwriteDialogOpen = ref(false);
 async function handleUploadOverwriteRequest(packet: UploadOverwriteRequestPacket) {
     const { upload_id } = packet.getData();
     const id = upload_id as UUID;
     const handle = activeUploads.get(id);
     if (!handle) return;
 
-    //overwrites.add(id);
-    const doOverwrite = confirm(`Do you want to overwrite (OK) file "${handle.name}" at "${handle.path}" or find a new name (Cancel)?`);
-    const action = doOverwrite ? "overwrite" : "rename";
-    const com = await getOrCreateCommunicator();
-    com.sendPacket(new UploadOverwriteResponsePacket({ upload_id, action, use_on_all_uploads: false }));
+    overwrites.value.add(id);
+    if (isOverwriteDialogOpen.value) return;
+    showOverwriteDialog(id);
+}
+
+function showOverwriteDialog(uploadId: UUID) {
+    const handle = activeUploads.get(uploadId);
+    if (!handle) return;
+    async function callback(action: OverwriteAction, flag: boolean) {
+        Dialogs.unmount("overwrite");
+        const com = await getOrCreateCommunicator();
+        com.sendPacket(new UploadOverwriteResponsePacket({ upload_id: uploadId, action, use_on_all_uploads: flag }));
+        isOverwriteDialogOpen.value = false;
+
+        if (flag) {
+            overwrites.value.clear();
+        } else {
+            overwrites.value.delete(uploadId);
+        }
+
+        const next = overwrites.value.keys().next().value;
+        if (next) {
+            showOverwriteDialog(next);
+        }
+    }
+
+    isOverwriteDialogOpen.value = true;
+    Dialogs.mount("overwrite", { callback, cfg: { uploadId: handle.id, fileName: handle.name, path: handle.path } });
 }
 
 function handleUploadOverwriteCancel(packet: UploadOverwriteCancelPacket) {
-    overwrites.clear();
+    overwrites.value.clear();
 }
+const overwritesCount = computed(() => overwrites.value.size);
 
 export const Uploads = {
     submit: submitUpload,
@@ -604,6 +644,9 @@ export const Uploads = {
         getAllAndReset: getAllPreviewsAndReset,
         count: previewTotal,
         reset: resetPreviews
+    },
+    overwrites: {
+        amount: overwritesCount
     },
     booking: {
         desired: desiredUploaderCount,

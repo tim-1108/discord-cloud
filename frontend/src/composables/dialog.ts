@@ -6,6 +6,8 @@ import UploadSubmitDialog from "@/components/dialog/UploadSubmitDialog.vue";
 import { h, ref, type DefineComponent, type VNode } from "vue";
 import { createResolveFunction } from "../../../common/useless";
 import UploadsDialog from "@/components/dialog/UploadsDialog.vue";
+import OverwriteDialog from "@/components/dialog/OverwriteDialog.vue";
+import type { UUID } from "../../../common";
 
 const components = {
     "upload-submit": UploadSubmitDialog,
@@ -13,7 +15,8 @@ const components = {
     confirm: ConfirmDialog,
     login: LoginDialog,
     alert: AlertDialog,
-    uploads: UploadsDialog
+    uploads: UploadsDialog,
+    overwrite: OverwriteDialog
 } as const;
 type ComponentName = keyof typeof components;
 const list = ref(new Map<ComponentName, VNode>());
@@ -58,6 +61,11 @@ export interface AlertDialogConfig {
     title?: string;
     body: string;
     confirm?: string;
+}
+export interface OverwriteDialogConfig {
+    uploadId: UUID;
+    fileName: string;
+    path: string;
 }
 async function confirmDialog(cfg: ConfirmDialogConfig): Promise<boolean> {
     const { promise, resolve } = createResolveFunction<boolean>();
