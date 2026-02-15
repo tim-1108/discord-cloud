@@ -32,6 +32,9 @@ export async function addFolder(name: string, parent: FolderOrRoot, isFromTreeLo
         if (!parentFolder) return null;
     }
 
+    // This function should ALWAYS return an existing folder and NOT search
+    // for a replacement name. That is not what we want when we create a folder.
+    // On renaming and the such, this is fine, but not here.
     const existingFolder = Database.folderHandle.getByNameAndParentId(parent, name);
     if (existingFolder) return existingFolder;
 
@@ -119,15 +122,17 @@ export async function deleteFolder_Recursive(folderId: FolderOrRoot): Promise<st
     throw new Error("Not implemented");
 }
 
-async function moveFolder(folderId: number, targetId: FolderOrRoot) {
-    const parent = targetId !== "root" ? Database.folderHandle.getById(targetId) : true;
+async function moveFolder(folderId: number, targetParentId: FolderOrRoot) {
+    const parent = targetParentId !== "root" ? Database.folderHandle.getById(targetParentId) : true;
     if (!parent) {
-        throw new ReferenceError("This target parent folder does not exist: " + targetId);
+        throw new ReferenceError("This target parent folder does not exist: " + targetParentId);
     }
     const response = await supabase
         .from("folders")
-        .update({ parent_folder: targetId === "root" ? null : targetId })
+        .update({ parent_folder: targetParentId === "root" ? null : targetParentId })
         .eq("id", folderId);
+
+    // TODO: tree move and such
 }
 
 /**

@@ -8,20 +8,23 @@ import { logDebug, logError } from "../common/logging.js";
 import { ClientList } from "./client/list.js";
 import { ServiceRegistry } from "./services/list.js";
 import { Database } from "./database/index.js";
-import { ROOT_FOLDER_ID } from "./database/core.js";
+import { ROOT_FOLDER_ID, type FolderOrRoot } from "./database/core.js";
 import type { FileHandle } from "../common/supabase.js";
 import { Authentication } from "./authentication.js";
 import type { UploadServicesRequestPacket } from "../common/packet/c2s/UploadServicesRequestPacket.js";
 import { UploadServicesPacket } from "../common/packet/s2c/UploadServicesPacket.js";
 import type { UploadService } from "./services/UploadService.js";
 import type { UploadRequestPacket } from "../common/packet/c2s/UploadRequestPacket.js";
-import { Locks } from "./lock.js";
+import { Locks, type FileLockUUID } from "./lock.js";
 import { UploadResponsePacket } from "../common/packet/s2c/UploadResponsePacket.js";
 import { UploadBookingModifyPacket } from "../common/packet/s2c/UploadBookingModifyPacket.js";
 import type { UploadServicesReleasePacket } from "../common/packet/c2s/UploadServicesReleasePacket.js";
 import { GenericBooleanPacket } from "../common/packet/generic/GenericBooleanPacket.js";
 import { pingServices } from "./pinging.js";
 import type { UploadAbortRequestPacket } from "../common/packet/c2s/UploadAbortRequestPacket.js";
+import type { UploadOverwriteResponsePacket } from "../common/packet/c2s/UploadOverwriteResponsePacket.js";
+import { UploadOverwriteCancelPacket } from "../common/packet/s2c/UploadOverwriteCancelPacket.js";
+import { UploadOverwriteRequestPacket } from "../common/packet/s2c/UploadOverwriteRequestPacket.js";
 
 const Constants = {
     /**
@@ -33,18 +36,26 @@ const Constants = {
      * Note that 1kb is most likely too large, but this does
      * not have any real impact.
      */
-    chunkSize: 10 * 1024 * 1024 - 1024
+    chunkSize: 10 * 1024 * 1024 - 1024,
+    /**
+     * If the client has kept more than this amount of files
+     * within their overwrite queue without clearing it, any
+     * other uploads above this count will just be aborted
+     * if they also need to be overwritten.
+     */
+    maxOverwriteQueueSize: 512
 };
 
 export const Uploads = {
     request: requestUploadStart,
     fail: failUpload,
-    finish: finishUpload,
+    finish: handleServiceUploadDone,
     chunkSize: () => Constants.chunkSize,
     handlers: {
         client: {
             disconnect: handleClientDisconnect,
-            requestAbort: handleClientAbortRequest
+            requestAbort: handleClientAbortRequest,
+            overwriteResponse: handleClientOverwriteResponse
         },
         service: {
             initOrRelease: handleServiceInitOrRelease,
@@ -56,6 +67,8 @@ export const Uploads = {
         release: handleClientRelease
     }
 } as const;
+
+export type UploadOverwriteDefaultAction = "overwrite" | "rename" | "skip";
 
 type BookingDetails = {
     desired_amount: number;
@@ -155,74 +168,44 @@ async function requestUploadServices(client: Client, packet: UploadServicesReque
 }
 
 async function requestUploadStart(client: Client, packet: UploadRequestPacket) {
-    const { name: name_doNotUseMe, path, size, is_public, do_overwrite } = packet.getData();
+    const { name: desiredName, path, size, is_public, do_overwrite } = packet.getData();
 
     const fail = (reason?: string) => {
         const packet = new UploadResponsePacket({
             upload_id: crypto.randomUUID() /* utterly pointless */,
             accepted: false,
             chunk_size: Constants.chunkSize,
-            name: name_doNotUseMe,
+            name: desiredName,
             path,
             rejection_reason: reason
         });
         client.sendPacket(packet);
     };
 
-    const existingFile = await Database.file.get(path, name_doNotUseMe);
-
-    const isLocked = Locks.file.status(path, name_doNotUseMe);
-
-    let targetName = name_doNotUseMe;
-    let overwriteFileId: number | null = null;
-    let overwriteUserId: number | null = null;
-    existing: if (existingFile !== null) {
-        if (do_overwrite) {
-            if (isLocked) {
-                fail("File is locked");
-                return;
-            }
-            const ownership = await Authentication.permissions.ownership(client.getUserId(), existingFile);
-            if (!Authentication.permissions.canWriteFile(ownership)) {
-                fail("You cannot overwrite this file");
-                return;
-            }
-            overwriteFileId = existingFile.id;
-            overwriteUserId = existingFile.owner;
-            break existing;
-        }
-        if (!isLocked) Locks.file.lock(path, name_doNotUseMe);
-        const attempt = await Database.replacement.file(name_doNotUseMe, existingFile.folder ?? "root", path);
-        if (attempt === null) {
-            // Only if it was previously unlocked, we unlock it again!
-            if (!isLocked) Locks.file.unlock(path, name_doNotUseMe);
-            fail("No possible replacement file name found");
-            return;
-        }
-        targetName = attempt;
-    }
-
-    Locks.file.lock(path, targetName);
-
     const service = ServiceRegistry.random.predicated("upload", (s) => !s.isBusy() && s.isBookedForClient(client));
     if (!service) {
         fail("No available service found. Have you booked any or are they still busy?");
-        Locks.file.unlock(path, targetName);
         return;
     }
 
     const uuid = crypto.randomUUID();
 
+    // By this point, we have neither performed a lookup whether the folder actually
+    // exists, nor have we created the folder. That is so, if the upload is cancelled,
+    // the folder does not just sit around. It is actually created whence the upload
+    // is finished.
+    const folderLockId = Locks.folder.lock(path);
+
     const metadata: UploadMetadata = {
+        folder_lock_id: folderLockId,
         upload_id: uuid,
         chunk_size: Constants.chunkSize,
-        overwrite_target: overwriteFileId,
-        overwrite_user_id: overwriteUserId,
         client: client.getUUID(),
-        name: targetName,
+        desired_name: desiredName,
         is_public,
         size,
-        path
+        path,
+        do_overwrite
     };
 
     const request = await service.requestUploadStart(metadata);
@@ -230,17 +213,15 @@ async function requestUploadStart(client: Client, packet: UploadRequestPacket) {
         fail(request.error ?? "An unknown error whilst prompting upload service");
         return;
     }
-    const renameTarget = targetName !== name_doNotUseMe ? targetName : undefined;
     client.replyToPacket(
         packet,
         new UploadResponsePacket({
             upload_id: uuid,
             upload_address: service.getAddress(),
-            rename_target: renameTarget,
             accepted: request.data === true,
             rejection_reason: request.error ?? undefined,
             chunk_size: Constants.chunkSize,
-            name: targetName,
+            name: desiredName,
             path
         })
     );
@@ -263,6 +244,7 @@ function handleClientDisconnect(client: Client) {
     if (!booking) return;
     // here, there is of course no need to decrement current_amount
     bookings.delete(client.getUUID());
+    overwriteRequests.delete(client.getUUID());
     const services = ServiceRegistry.predicatedList("upload", (s) => s.isBookedForClient(client));
     if (services.length !== booking.current_amount) {
         throw new Error("current_amount incorrect upon client disconnect");
@@ -351,41 +333,173 @@ function handleClientRelease(client: Client, packet: UploadServicesReleasePacket
     }
     services.forEach(internal_serviceReleaseAndRedistribution);
     bookings.delete(client.getUUID());
+    overwriteRequests.delete(client.getUUID());
+    client.clearDefaultOverwriteAction();
     client.replyToPacket(packet, new GenericBooleanPacket({ success: true }));
 }
 
-async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket) {
+// === Overwrite request queue ===
+
+type UploadServiceOriginatingData = {
+    messages: string[];
+    type: string;
+    hash: string;
+    is_encrypted: boolean;
+    channel: string;
+};
+type OverwriteData = {
+    previousFileId: number;
+    folderId: FolderOrRoot;
+    lockId: FileLockUUID;
+};
+type OverwriteQueueItem = { metadata: UploadMetadata; uploadServiceData: UploadServiceOriginatingData; overwriteData: OverwriteData };
+const overwriteRequests = new Map<UUID, Map<UUID, OverwriteQueueItem>>();
+/**
+ * This map contains the data for uploads that are currently in the process of saving
+ * to the database. The idea behind this is to not have to pass `overwriteData` manually
+ * to {@link failUpload} and {@link finalizeUpload} in so many places. These functions
+ * will just look it up via {@link getAndDeleteRunningOverwrite}.
+ */
+const runningOverwrites = new Map<UUID, OverwriteData>();
+
+async function handleClientOverwriteResponse(client: Client, packet: UploadOverwriteResponsePacket) {
+    const { upload_id, use_on_all_uploads, action } = packet.getData();
+
+    const map = overwriteRequests.get(client.getUUID());
+    const item = map?.get(upload_id as UUID);
+    if (!map || !item) return;
+
+    map.delete(upload_id as UUID);
+    runningOverwrites.set(item.metadata.upload_id, item.overwriteData);
+    await submitFileToDatabase(item.metadata, item.uploadServiceData, action, item.overwriteData);
+
+    if (!use_on_all_uploads) return;
+    client.setDefaultOverwriteAction(action);
+    client.sendPacket(new UploadOverwriteCancelPacket({}));
+    // If we were to remove the items from map still stored there one at a time,
+    // we would run the possiblity of the client sending another overwrite response
+    // for something that is already being processed in this for loop.
+    overwriteRequests.delete(client.getUUID());
+    for (const { metadata, uploadServiceData, overwriteData } of map.values()) {
+        runningOverwrites.set(metadata.upload_id, overwriteData);
+        await submitFileToDatabase(metadata, uploadServiceData, action, overwriteData);
+    }
+}
+
+function addOverwriteRequest(metadata: UploadMetadata, uploadServiceData: UploadServiceOriginatingData, overwriteData: OverwriteData): boolean {
+    const clientId = metadata.client;
+    let map = overwriteRequests.get(clientId);
+
+    if (map && map.size >= Constants.maxOverwriteQueueSize) {
+        return false;
+    }
+
+    if (!map) {
+        map = new Map();
+        overwriteRequests.set(clientId, map);
+    }
+    map.set(metadata.upload_id, { metadata, uploadServiceData, overwriteData });
+    return true;
+}
+
+function getAndDeleteRunningOverwrite(uploadId: UUID): OverwriteData | null {
+    const value = runningOverwrites.get(uploadId);
+    if (!value) return null;
+    runningOverwrites.delete(uploadId);
+    return value;
+}
+
+// === Finish handling ===
+
+async function handleServiceUploadDone(metadata: UploadMetadata, packet: UploadFinishPacket) {
     const client = ClientList.get(metadata.client);
     if (!client) return;
 
-    logDebug("Finished upload for", metadata.path, metadata.name);
-
     const data = packet.getData();
-
-    // TODO: Make channel required
-    if (typeof data.hash !== "string" || typeof data.type !== "string" || typeof data.channel !== "string") {
+    if (
+        typeof data.hash !== "string" ||
+        typeof data.type !== "string" ||
+        typeof data.channel !== "string" ||
+        data.messages === undefined ||
+        data.is_encrypted === undefined
+    ) {
         failUpload(metadata, "Invalid metadata exchange between manager and service");
         return;
     }
+    const uploadServiceData: UploadServiceOriginatingData = {
+        hash: data.hash,
+        type: data.type,
+        channel: data.channel,
+        messages: data.messages,
+        is_encrypted: data.is_encrypted
+    };
 
-    const { name, path, size } = metadata;
-    const folderId = await Database.folderId.getOrCreate(path);
+    const folderId = Database.folderId.get(metadata.path);
     if (folderId === null) {
-        failUpload(metadata, "Failed to create folder in database");
+        return submitFileToDatabase(metadata, uploadServiceData, "default");
+    }
+
+    const existingFile = await Database.file.get(folderId, metadata.desired_name);
+    if (existingFile) {
+        const lockId = Locks.file.lock(metadata.path, metadata.desired_name);
+        const overwriteData: OverwriteData = { lockId, previousFileId: existingFile.id, folderId };
+        const defaultAction = client.getDefaultOverwriteAction();
+
+        if (metadata.do_overwrite) {
+            return submitFileToDatabase(metadata, uploadServiceData, "overwrite", overwriteData);
+        }
+
+        if (defaultAction !== null) {
+            return submitFileToDatabase(metadata, uploadServiceData, defaultAction, overwriteData);
+        }
+        // From this point on, we can just wait for this to resolve.
+        // This is not implemented as a Promise to save resources.
+        const flag = addOverwriteRequest(metadata, uploadServiceData, overwriteData);
+        if (!flag) {
+            failUpload(metadata, "The client exceeeded the maximum amount of files that may be enqueued for an overwrite decision");
+            Locks.file.unlock(metadata.path, metadata.desired_name, lockId);
+        }
+        client.sendPacket(
+            new UploadOverwriteRequestPacket({ upload_id: metadata.upload_id, file_name: metadata.desired_name, file_path: metadata.path })
+        );
         return;
     }
 
-    // It may also be that the file, if overwritten, had no user assigned to it.
-    // If so, we assign it to them here.
-    const user = await Database.user.get(metadata.overwrite_user_id ?? client.getUserId());
-    if (!user) {
-        failUpload(metadata, "Owner of the file no longer exists");
+    return submitFileToDatabase(metadata, uploadServiceData, "default");
+}
+
+async function submitFileToDatabase(
+    metadata: UploadMetadata,
+    data: UploadServiceOriginatingData,
+    action: "overwrite" | "rename" | "skip" | "default",
+    overwriteData?: OverwriteData
+) {
+    const client = ClientList.get(metadata.client);
+    if (!client) {
+        // The client will not be informed of the failure (they no longer exist), but
+        // the necessary code for cleanup will run.
+        failUpload(metadata, "Client disconnect");
         return;
+    }
+
+    // overwrite, rename and skip all originate from a overwrite request,
+    // so they all have to have looked up an existing file at some point.
+    if (action !== "default" && !overwriteData) {
+        throw new ReferenceError("When calling with a pre-existing file, the overwriteData needs to be specified");
+    }
+
+    if (action === "skip") {
+        return failUpload(metadata, "Client-configured skip");
+    }
+
+    const folderId = await Database.folderId.getOrCreate(metadata.path);
+    if (folderId === null) {
+        return failUpload(metadata, "Failed to create a folder within the desired route in the database");
     }
 
     const handle: Omit<FileHandle, "id" | "created_at" | "updated_at"> = {
-        name,
-        size,
+        name: metadata.desired_name,
+        size: metadata.size,
         folder: folderId === ROOT_FOLDER_ID ? null : folderId,
         is_encrypted: data.is_encrypted ?? false,
         hash: data.hash,
@@ -396,23 +510,33 @@ async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket
         // Even when overwriting, this should be false
         has_thumbnail: false,
         is_public: metadata.is_public,
-        owner: user.id
+        owner: client.getUserId()
     };
 
-    // The client is responsible for pushing a new upload once this has finished
-    void client.sendPacket(new UploadFinishInfoPacket({ success: true, upload_id: metadata.upload_id }));
-
-    let $handle: FileHandle | null;
-    if (metadata.overwrite_target !== null) {
+    if (action === "overwrite") {
         const d = new Date();
-        const previousHandle = await Database.file.getById(metadata.overwrite_target);
+        const previousHandle = await Database.file.getById(overwriteData!.previousFileId);
         if (previousHandle === null) {
-            failUpload(metadata, "Failed to acquire previous handle when overwriting file");
-            return;
+            throw new ReferenceError(`Failed to aquire previous handle whilst it should have been locked: ${overwriteData!.previousFileId}`);
         }
 
-        $handle = await Database.file.update(metadata.overwrite_target, { ...handle, updated_at: d.toUTCString() });
-        if ($handle === null) {
+        const ownership = await Authentication.permissions.ownership(client.getUserId(), previousHandle);
+        if (!ownership) {
+            throw new ReferenceError(`Failed to aquire ownership information for file: ${previousHandle.id}`);
+        }
+        const flag = Authentication.permissions.canWriteFile(ownership);
+        if (!flag) {
+            // If the user chose to overwrite a file whilst not actually
+            // being allowed to, just fail for now.
+            return failUpload(metadata, "You have insufficient permissions to overwrite this file");
+        }
+
+        // If the file was previously set as public without any owner,
+        // this user will just claim it.
+        handle.owner = previousHandle.owner ?? client.getUserId();
+
+        const createdHandle = await Database.file.update(previousHandle.id, { ...handle, updated_at: d.toUTCString() });
+        if (createdHandle === null) {
             // The file should not have been tampered with in the meantime.
             // The folder also should not have been able to be deleted,
             // as if any file within the folder is locked, the method
@@ -421,45 +545,81 @@ async function finishUpload(metadata: UploadMetadata, packet: UploadFinishPacket
             return;
         }
 
-        if (previousHandle.folder !== $handle.folder) {
+        if (previousHandle.folder !== createdHandle.folder) {
             throw new Error(
-                `Previous folder id must not be different from new folder id on update. previous: ${previousHandle.folder} | now: ${$handle.folder}`
+                `Previous folder id must not be different from new folder id on update. previous: ${previousHandle.folder} | now: ${createdHandle.folder}`
             );
         }
         // If the type has changed, of course, the size has to be fully removed from the old type.
-        if (previousHandle.type === $handle.type) {
-            Database.tree.fileTypes.modify($handle.folder, $handle.type, $handle.size - previousHandle.size);
+        if (previousHandle.type === createdHandle.type) {
+            Database.tree.fileTypes.modify(createdHandle.folder, createdHandle.type, createdHandle.size - previousHandle.size);
         } else {
-            Database.tree.fileTypes.modify($handle.folder, previousHandle.type, -previousHandle.size);
-            Database.tree.fileTypes.modify($handle.folder, $handle.type, $handle.size);
+            Database.tree.fileTypes.modify(createdHandle.folder, previousHandle.type, -previousHandle.size);
+            Database.tree.fileTypes.modify(createdHandle.folder, createdHandle.type, createdHandle.size);
         }
-        void Database.thumbnail.delete(metadata.overwrite_target);
-    } else {
-        $handle = await Database.file.add(handle);
-        if ($handle === null) {
-            failUpload(metadata, "Failed to insert file into database");
-            return;
-        }
-        Database.tree.fileTypes.modify($handle.folder, $handle.type, $handle.size);
+        void Database.thumbnail.delete(overwriteData!.previousFileId);
+        return finalizeUpload(createdHandle, metadata);
     }
 
+    let targetName = metadata.desired_name;
+    if (action === "rename") {
+        const replacement = await Database.replacement.file(metadata.desired_name, overwriteData!.folderId, metadata.path);
+        if (!replacement) {
+            return failUpload(metadata, "Failed to find a replacement name");
+        }
+        targetName = replacement;
+    }
+
+    handle.name = targetName;
+    const createdHandle = await Database.file.add(handle);
+    if (createdHandle === null) {
+        return failUpload(metadata, "Failed to insert file into database");
+    }
+    Database.tree.fileTypes.modify(createdHandle.folder, createdHandle.type, createdHandle.size);
+    finalizeUpload(createdHandle, metadata);
+}
+
+function finalizeUpload(handle: FileHandle, metadata: UploadMetadata) {
     // The file should actually only be unlocked down here.
     // Saving to db may take some time, we do not want any
     // shenanigang to be able to start in that time.
-    Locks.file.unlock(metadata.path, metadata.name);
+    if (metadata.folder_lock_id) {
+        Locks.folder.unlock(metadata.path, metadata.folder_lock_id);
+    }
+
+    const overwriteData = getAndDeleteRunningOverwrite(metadata.upload_id);
+    if (overwriteData) {
+        Locks.file.unlock(metadata.path, metadata.desired_name, overwriteData.lockId);
+    }
+
+    // At this point, the upload would not fail if the client disconnected.
+    // We still can easily process it and can be sure that the client did want it uploaded.
+    const client = ClientList.get(metadata.client);
+    if (client) {
+        // Although the actual file addition is communicated via the file-modify packet,
+        // the user could be notified via this that their file has been renamed to this new name.
+        const renameTarget = handle.name !== metadata.desired_name ? handle.name : undefined;
+        void client.sendPacket(new UploadFinishInfoPacket({ success: true, upload_id: metadata.upload_id, rename_target: renameTarget }));
+    }
 
     // Next, we contact our thumbnail service to have a screenshot generated
     // We will not be waiting here for a response, as that might get queued
     // up or take a long time. Thus, the packet receiver will handle that.
-    if (!ThumbnailService.shouldGenerateThumbnail($handle.type)) return;
-    void ThumbnailService.enqueueOrSendToRandom($handle);
+    if (!ThumbnailService.shouldGenerateThumbnail(handle.type)) return;
+    void ThumbnailService.enqueueOrSendToRandom(handle);
 }
 
 function failUpload(metadata: UploadMetadata, reason?: string) {
     const client = ClientList.get(metadata.client);
-    Locks.file.unlock(metadata.path, metadata.name);
+    if (metadata.folder_lock_id) {
+        Locks.folder.unlock(metadata.path, metadata.folder_lock_id);
+    }
+    const overwriteData = getAndDeleteRunningOverwrite(metadata.upload_id);
+    if (overwriteData) {
+        Locks.file.unlock(metadata.path, metadata.desired_name, overwriteData.lockId);
+    }
+    logDebug("Failed upload for", metadata.path, metadata.desired_name);
     if (!client) return;
-    logDebug("Failed upload for", metadata.path, metadata.name);
     // The client is responsible for pushing a new upload once this has failed
     // (depending on whether the service disconnected, that is communicated in serviceDisconnect)
     void client.sendPacket(new UploadFinishInfoPacket({ success: false, upload_id: metadata.upload_id, reason }));

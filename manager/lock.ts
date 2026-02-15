@@ -4,9 +4,9 @@
 // For purposes like deletion, the folder cannot have any of decendants locked.
 // Stuff is not stored via ID from DB as that does not yet exist on files that
 // are queued to be uploaded.
-// TODO: Renames and deletes should drop the corresponding lock entry
-//       Store a reason for the lock (upload, rename, deletion, ...)
 
+import { createPrefixedUUID } from "../common/crypto.js";
+import type { PrefixedUUIDS } from "../common/index.js";
 import { pathToRoute, routeToPath } from "./database/core.js";
 
 /**
@@ -16,17 +16,25 @@ import { pathToRoute, routeToPath } from "./database/core.js";
 export const Locks = {
     folder: {
         status: isFolderLocked,
+        status_specific: isFolderLocked_Specific,
+        status_exceptSpecific: isFolderLocked_ExceptForSpecific,
         contentStatus: isFolderContentLocked,
+        allLocks: getAllLocksForFullPath,
         lock: lockFolder,
         unlock: unlockFolder,
         drop: dropLock
     },
     file: {
-        status: isFileLocked,
+        individualStatus: isFileLocked,
+        status: isFileAndFolderLocked,
+        status_specific: isFileLocked_Specific,
         lock: lockFile,
         unlock: unlockFile
     }
 };
+
+export type FolderLockUUID = PrefixedUUIDS["folder-lock"];
+export type FileLockUUID = PrefixedUUIDS["file-lock"];
 
 function getStructForPath<C extends boolean = false>(
     path: string | string[],
@@ -52,26 +60,83 @@ function getStructForPath<C extends boolean = false>(
     return parent as LockStruct;
 }
 
-function lockFile(path: string | string[], name: string): void {
+function lockFile(path: string | string[], name: string): FileLockUUID {
     const struct = getStructForPath(path);
-    struct.locked_files.add(name);
+    const uuid = createPrefixedUUID("file-lock");
+    const lock = getOrCreateFileLock(struct, name);
+    lock.add(uuid);
+    return uuid;
 }
 
-function lockFolder(path: string | string[]): void {
+function getOrCreateFileLock(folderStruct: RootLockStruct /* more generic than LockStruct */, name: string): Set<FileLockUUID> {
+    let lock = folderStruct.locked_files.get(name);
+    if (!lock) {
+        lock = new Set<FileLockUUID>();
+        folderStruct.locked_files.set(name, lock);
+    }
+    return lock;
+}
+
+function lockFolder(path: string | string[]): FolderLockUUID | null {
     path = Array.isArray(path) ? routeToPath(path) : path;
     if (path === "/") {
-        return;
+        return null;
     }
     const struct = getStructForPath(path) as LockStruct;
-    struct.is_locked = true;
+    const uuid = createPrefixedUUID("folder-lock");
+    struct.locks.add(uuid);
+    return uuid;
 }
 
 function isFolderLocked(path: string | string[]): boolean {
-    path = Array.isArray(path) ? routeToPath(path) : path;
-    if (path === "/") {
+    const route = Array.isArray(path) ? path : pathToRoute(path);
+    return traverseRouteLockStatus(route, (struct) => struct.locks.size > 0);
+}
+
+function getAllLocksForFullPath(path: string | string[]): Map<FolderLockUUID, string | null> {
+    const route = Array.isArray(path) ? path : pathToRoute(path);
+    const map = new Map<FolderLockUUID, string | null>();
+    if (!route.length) {
+        return map;
+    }
+    let parent = lock;
+    for (let i = 0; i < route.length; i++) {
+        const name = route[i];
+        let struct = parent.subfolders.get(name);
+        if (!struct) {
+            // Even if the lowest level of folder (or anything above it)
+            // does not actually exist, we'll still return the set.
+            return map;
+        }
+        struct.locks.entries().forEach(([key, value]) => map.set(key, value));
+    }
+    return map;
+}
+
+function isFolderLocked_ExceptForSpecific(path: string | string[], lockUUID: FolderLockUUID): boolean {
+    const locks = getAllLocksForFullPath(path);
+    if (!locks.size) return false;
+    return locks.size > 1 ? true : locks.has(lockUUID);
+}
+
+/**
+ * Not only checks whether the folder at the end of the path is locked
+ * with the specified UUID, but for any folder within the chain. This
+ * means that if the parent folder is locked with that UUID, the child
+ * is also considered locked with it.
+ */
+function isFolderLocked_Specific(path: string | string[], lockUUID: FolderLockUUID): boolean {
+    const route = Array.isArray(path) ? path : pathToRoute(path);
+    return traverseRouteLockStatus(route, (struct) => struct.locks.has(lockUUID));
+}
+
+/**
+ * Internal helper function for the wrappers {@link isFolderLocked} and {@link isFolderLocked_Specific}.
+ */
+function traverseRouteLockStatus(route: string[], accessor: (struct: LockStruct) => boolean): boolean {
+    if (!route.length) {
         return false;
     }
-    const route = pathToRoute(path);
     let parent = lock;
     for (let i = 0; i < route.length; i++) {
         const name = route[i];
@@ -83,7 +148,7 @@ function isFolderLocked(path: string | string[]): boolean {
         }
         // Only one folder within the chain needs to be locked for
         // everything below to be locked too.
-        if (struct.is_locked) {
+        if (accessor(struct)) {
             return true;
         }
         parent = struct;
@@ -117,7 +182,7 @@ function isFolderContentLocked(path: string | string[]): boolean {
     return recursive(struct);
 }
 
-function isFileLocked(path: string | string[], name: string): boolean {
+function isFileAndFolderLocked(path: string | string[], name: string): boolean {
     const folderFlag = isFolderLocked(path);
     if (folderFlag) {
         return true;
@@ -126,31 +191,57 @@ function isFileLocked(path: string | string[], name: string): boolean {
     return struct.locked_files.has(name);
 }
 
-function unlockFolder(path: string | string[]): boolean {
+function isFileLocked(path: string | string[], name: string): boolean {
+    const struct = getStructForPath(path, true);
+    return struct?.locked_files.has(name) ?? false;
+}
+
+function isFileLocked_Specific(path: string | string[], name: string, lockUUID: FileLockUUID): boolean {
+    const struct = getStructForPath(path, true);
+    return struct?.locked_files.get(name)?.has(lockUUID) ?? false;
+}
+
+function unlockFolder(path: string | string[], lockUUID: FolderLockUUID | "all"): boolean {
     const struct = getStructForPath(path, true);
     if (!struct) {
         return false;
     }
     // is root
-    if (!("is_locked" in struct)) {
+    if (!("parent" in struct)) {
         return false;
     }
-    const val = struct.is_locked;
-    struct.is_locked = false;
+
+    if (lockUUID === "all") {
+        struct.locks.clear();
+        destroyLockIfEmpty(struct);
+        return true;
+    }
+
+    const flag = struct.locks.delete(lockUUID);
     destroyLockIfEmpty(struct);
-    return val;
+    return flag;
 }
 
-function unlockFile(path: string | string[], name: string): boolean {
+function unlockFile(path: string | string[], name: string, lockUUID: FileLockUUID | "all"): boolean {
     const struct = getStructForPath(path, true);
     if (!struct) {
         return false;
     }
-    const val = struct.locked_files.delete(name);
+    let flag: boolean;
+    if (lockUUID === "all") {
+        flag = struct.locked_files.delete(name);
+    } else {
+        const locks = struct.locked_files.get(name);
+        // If the set does not even exist for the file, we'll return false
+        flag = locks?.delete(lockUUID) ?? false;
+        if (locks && locks.size === 0) {
+            struct.locked_files.delete(name);
+        }
+    }
     if ("name" in struct) {
         destroyLockIfEmpty(struct);
     }
-    return val;
+    return flag;
 }
 
 /**
@@ -177,7 +268,7 @@ function dropLock(path: string | string[]): boolean {
 }
 
 function destroyLockIfEmpty(struct: LockStruct /* root should not be destroyed */): boolean {
-    const isInUse = (target: LockStruct): boolean => target.is_locked || target.locked_files.size > 0 || target.subfolders.size > 0;
+    const isInUse = (target: LockStruct): boolean => target.locks.size > 0 || target.locked_files.size > 0 || target.subfolders.size > 0;
     if (isInUse(struct)) {
         return false;
     }
@@ -204,12 +295,12 @@ function destroyLockIfEmpty(struct: LockStruct /* root should not be destroyed *
 
 // The root cannot be locked for editing (it cannot be deleted, modified, and so on)
 type RootLockStruct = {
-    locked_files: Set<string>;
+    locked_files: Map<string, Set<FileLockUUID>>;
     subfolders: Map<string, LockStruct>;
 };
 
 type LockStruct = RootLockStruct & {
-    is_locked: boolean;
+    locks: Set<FolderLockUUID>;
     parent: RootLockStruct | LockStruct;
     name: string;
 };
@@ -220,13 +311,13 @@ function createEmptyStruct<T extends boolean = false>(
     isRoot?: T
 ): T extends true ? RootLockStruct : LockStruct {
     const base = {
-        locked_files: new Set<string>(),
+        locked_files: new Map<string, Set<FileLockUUID>>(),
         subfolders: new Map<string, LockStruct>()
     };
     if (isRoot) {
         return base as any;
     }
-    return { is_locked: false, parent, name, ...base } as any;
+    return { parent, name, locks: new Set(), ...base } as any;
 }
 
 let lock = createEmptyStruct(null, null, true);

@@ -10,6 +10,8 @@ import { Connection } from "@/composables/connection.js";
 import { PendingAuthenticationState } from "@/composables/state.js";
 import { UploadBookingModifyPacket } from "../../../common/packet/s2c/UploadBookingModifyPacket.js";
 import { UploadFinishInfoPacket } from "../../../common/packet/s2c/UploadFinishInfoPacket.js";
+import { UploadOverwriteRequestPacket } from "../../../common/packet/s2c/UploadOverwriteRequestPacket.js";
+import { UploadOverwriteCancelPacket } from "../../../common/packet/s2c/UploadOverwriteCancelPacket.js";
 
 /**
  * The class that communicates with the manager using a web socket.
@@ -46,6 +48,10 @@ export class Communicator extends PacketReceiver {
             Uploads.packets.uploadFinish(packet);
         } else if (packet instanceof FileModifyPacket) {
             //return listingFileModify(packet);
+        } else if (packet instanceof UploadOverwriteRequestPacket) {
+            Uploads.packets.overwriteRequest(packet);
+        } else if (packet instanceof UploadOverwriteCancelPacket) {
+            Uploads.packets.overwriteCancel(packet);
         }
     }
 }

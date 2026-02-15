@@ -130,9 +130,12 @@ export class UploadService extends Service {
      * @param metadata The upload metadata to send along.
      */
     public async requestUploadStart(metadata: UploadMetadata): Promise<DataErrorFields<boolean>> {
-        const { overwrite_target, overwrite_user_id, is_public, ...rest } = metadata;
+        const { desired_name: name, path, size, upload_id, chunk_size } = metadata;
         this.markBusy();
-        const result = await this.sendPacketAndReply_new(new UploadStartPacket(rest), GenericBooleanPacket);
+        const result = await this.sendPacketAndReply_new(
+            new UploadStartPacket({ name, path, size, upload_id, chunk_size, client: metadata.client }),
+            GenericBooleanPacket
+        );
         if (!result.packet) {
             logInfo(`Failed to submit upload to ${this.address}: ${result.error}`);
             this.markNotBusy();

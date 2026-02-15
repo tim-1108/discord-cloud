@@ -16,6 +16,9 @@ import type { UploadFinishInfoPacket } from "../../../common/packet/s2c/UploadFi
 import { UploadAbortRequestPacket } from "../../../common/packet/c2s/UploadAbortRequestPacket";
 import { createResolveFunction, formatByteString } from "../../../common/useless";
 import { streamFromFile, type StreamFromFileReturn } from "./stream-from-file";
+import type { UploadOverwriteRequestPacket } from "../../../common/packet/s2c/UploadOverwriteRequestPacket";
+import type { UploadOverwriteCancelPacket } from "../../../common/packet/s2c/UploadOverwriteCancelPacket";
+import { UploadOverwriteResponsePacket } from "../../../common/packet/c2s/UploadOverwriteResponsePacket";
 
 export interface UploadRelativeFileHandle {
     file: File;
@@ -189,7 +192,7 @@ async function upload(handle: UploadAbsoluteFileHandle) {
         checkInQueueAndStart();
         return;
     }
-    const { accepted, upload_address, chunk_size, rejection_reason, rename_target, upload_id } = reply.packet.getData();
+    const { accepted, upload_address, chunk_size, rejection_reason, upload_id } = reply.packet.getData();
     if (!accepted) {
         await Dialogs.alert({ body: `File ${name} at ${handle.path} was not accepted due to: ${rejection_reason ?? "unknown"}` });
         checkInQueueAndStart();
@@ -197,11 +200,6 @@ async function upload(handle: UploadAbsoluteFileHandle) {
     }
 
     const uploadAddress = upload_address as string;
-
-    if (rename_target) {
-        // TODO: notify user when the file name was changed!
-        //       is already adjusted for display down below
-    }
 
     const abortController = new AbortController();
     const { signal } = abortController;
@@ -216,7 +214,7 @@ async function upload(handle: UploadAbsoluteFileHandle) {
         processed_chunks: ref(0),
         processed_bytes: ref(0),
         file: handle.file,
-        name: rename_target ?? handle.file.name,
+        name: handle.file.name,
         path: handle.path,
         start_timestamp: performance.now(),
         speed: ref(0),
@@ -258,8 +256,8 @@ async function upload(handle: UploadAbsoluteFileHandle) {
         const { promise: sentPromise, resolve: sentResolve } = createResolveFunction<boolean>();
         const resultPromise = prepareAndRetryChunk(cfg, chunkIndex, sentResolve);
 
-        sentPromise.then(() => {
-            if (!concurrency.canStartNext()) return;
+        sentPromise.then((status) => {
+            if (!concurrency.canStartNext() || !status) return;
             // This does not use "chunkIndex + 1" due to the fact that this might be chunk 1
             // here, but chunk 2 is already finished and has started chunk 3 by now. Then, we'd
             // want this to start chunk 4.
@@ -340,6 +338,7 @@ async function prepareAndRetryChunk(cfg: PrepareChunkConfig, chunkIndex: number,
     }
 
     logError("Failed to upload the file after too many failed attempts to upload the chunk");
+    sentResolve(false);
     // To continue with the next file instead of waiting for the service
     // to terminate us, we request an abort here.
     return { success: false, sendAbortPacket: true };
@@ -486,7 +485,10 @@ function sendChunk(cfg: SendConfig, signal?: AbortSignal) {
             responsePromise.resolve(flag);
             signal?.removeEventListener("abort", xhrAbort);
         }
-        const resolveWithFalse = () => resolve(false);
+        const resolveWithFalse = () => {
+            cfg.progressRef.value -= loaded_lastValue;
+            resolve(false);
+        };
         xhr.onerror = resolveWithFalse;
         xhr.onabort = resolveWithFalse;
 
@@ -573,6 +575,25 @@ function resetPreviews() {
     previewTotal.value = 0;
 }
 
+// === overwrites ===
+const overwrites = new Set<UUID>();
+async function handleUploadOverwriteRequest(packet: UploadOverwriteRequestPacket) {
+    const { upload_id } = packet.getData();
+    const id = upload_id as UUID;
+    const handle = activeUploads.get(id);
+    if (!handle) return;
+
+    //overwrites.add(id);
+    const doOverwrite = confirm(`Do you want to overwrite (OK) file "${handle.name}" at "${handle.path}" or find a new name (Cancel)?`);
+    const action = doOverwrite ? "overwrite" : "rename";
+    const com = await getOrCreateCommunicator();
+    com.sendPacket(new UploadOverwriteResponsePacket({ upload_id, action, use_on_all_uploads: false }));
+}
+
+function handleUploadOverwriteCancel(packet: UploadOverwriteCancelPacket) {
+    overwrites.clear();
+}
+
 export const Uploads = {
     submit: submitUpload,
     active: activeUploads,
@@ -590,7 +611,9 @@ export const Uploads = {
     },
     packets: {
         bookingModify: handleBookingModification,
-        uploadFinish: handleUploadFinish
+        uploadFinish: handleUploadFinish,
+        overwriteRequest: handleUploadOverwriteRequest,
+        overwriteCancel: handleUploadOverwriteCancel
     }
 } as const;
 

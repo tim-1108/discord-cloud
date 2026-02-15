@@ -2,6 +2,7 @@ import crypto, { getRandomValues, type BinaryLike } from "node:crypto";
 import { createReadStream } from "node:fs";
 import { getEnvironmentVariables } from "./environment.js";
 import { logDebug } from "./logging.js";
+import type { PrefixedUUID, UUIDPrefix } from "./index.js";
 
 function createEncryptionKey() {
     const encodedKey = getEnvironmentVariables("common").CRYPTO_KEY;
@@ -69,6 +70,10 @@ export function createHashFromFile(path: string) {
         readStream.pipe(hash);
         readStream.on("error", () => resolve(null));
     });
+}
+
+export function createPrefixedUUID<T extends UUIDPrefix>(prefix: T): PrefixedUUID<T> {
+    return `${prefix}:${crypto.randomUUID()}`;
 }
 
 type GetRandomValuesTypedArray =

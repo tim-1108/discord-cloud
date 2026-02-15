@@ -4,6 +4,7 @@ import type { DataErrorFields, UUID } from "../index.js";
 import { isServerside } from "../types.js";
 import { logWarn } from "../logging.js";
 import { createResolveFunction } from "../useless.js";
+import type { SchemaToType } from "../validator.js";
 
 interface ResolveFunction {
     /**
@@ -54,11 +55,7 @@ type MessageEventType<T extends ServerOrClientSocket> = T extends WebSocket ? Me
  * subclass has to implement, make sure to call `resolveReplies`, to check if the packet that
  * has just been received might have been meant as a reply to something else. This then gets
  * handled and should eliminate all reasons to process this packet further (as a Promise at
- * another location will have been resolved with that incoming packet).
- *
- * It is important to call `initialize` to load all listeners for the socket
- * (optimally inside the constructor). This methods return value indicates success
- * in opening the socket connection.
+ * another location will have been resolved with that incoming packet).y
  */
 export abstract class PacketReceiver {
     protected socket: ServerOrClientSocket;
@@ -183,7 +180,7 @@ export abstract class PacketReceiver {
 
     public async sendPacketAndReply_new<R extends Packet>(
         packet: Packet,
-        replyClass: { new (): R } | { new (): R }[],
+        replyClass: { new (data: any): R } | { new (): R }[],
         timeoutMs?: number
     ): Promise<DataErrorFields<R, string, "packet">> {
         const uuid = packet.setRandomOrGetUUID();

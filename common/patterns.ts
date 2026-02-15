@@ -88,3 +88,12 @@ export const patterns = {
     rangeHeader: /^(?:bytes=)((\d+-\d+)|(-\d+)|(\d+-))((?:, )((\d+-\d+)|(-\d+)|(\d+-)))*$/,
     jwt: /^[A-Za-z0-9-_]*\.[A-Za-z0-9-_]*\.[A-Za-z0-9-_]*$/
 };
+
+/**
+ * The prefix for the pattern should only include alphanumerical characters
+ * and hyphens, or else the pattern may be corrupted as special characters are
+ * **not manually escaped**.
+ */
+export function createPrefixedUUIDPattern(prefix: string): RegExp {
+    return new RegExp(`^${prefix}:[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$`);
+}

@@ -1,3 +1,4 @@
+import type { UUID } from "../index.js";
 import { C2SPacket } from "./C2SPacket.js";
 import { GenericPacket } from "./GenericPacket.js";
 import type { Packet } from "./Packet.js";
@@ -37,4 +38,4 @@ export type PacketTypeMap = {
     [K in keyof typeof Enum2Class]: (typeof Enum2Class)[K]["prototype"];
 };
 
-export type PacketWithID<T extends Packet> = { new (): T; ID: string };
+export type PacketWithID<T extends Packet> = { new (data: any): T; ID: string };

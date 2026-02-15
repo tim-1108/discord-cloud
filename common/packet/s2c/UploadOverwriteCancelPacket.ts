@@ -1,22 +1,19 @@
 import type { SchemaToType } from "../../validator.js";
 import { S2CPacket } from "../S2CPacket.js";
-import { patterns } from "../../patterns.js";
 import type { UUID } from "../../index.js";
 
-const id = "upload-finish-info";
+const id = "upload-overwrite-cancel";
 
 type DataType = SchemaToType<typeof dataStructure>;
-const dataStructure = {
-    success: { type: "boolean", required: true },
-    upload_id: { type: "string", required: true, pattern: patterns.uuid },
-    rename_target: { type: "string", required: false },
-    /**
-     * Optional: (if known) why an upload completely failed
-     */
-    reason: { type: "string", required: false }
-} as const;
+const dataStructure = {} as const;
 
-export class UploadFinishInfoPacket extends S2CPacket {
+/**
+ * Tells the client to clear all overwrites in the queue as the
+ * client has presumbably told the server to use either `rename`
+ * or `overwrite` for all files within the current booking by
+ * previosly transmitting that within the response packet.
+ */
+export class UploadOverwriteCancelPacket extends S2CPacket {
     declare protected data: DataType;
     public static readonly ID = id;
 

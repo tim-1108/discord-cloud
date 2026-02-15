@@ -13,7 +13,7 @@ import { fileTypeFromBuffer } from "file-type";
 import { createHashFromBinaryLike, encryptBuffer } from "../common/crypto.js";
 import { formatJSON } from "../common/useless.js";
 import { Discord } from "../common/discord_new.js";
-import type { DataErrorFields } from "../common/index.js";
+import type { DataErrorFields, UUID } from "../common/index.js";
 import { combineHashes } from "./utils.js";
 import { initNetwork } from "./network.js";
 import { loadPackets } from "../common/packet/reader.js";
@@ -26,7 +26,14 @@ initNetwork();
  * The metadata that the upload service knows about
  * via the {@link UploadStartPacket}.
  */
-type UploadMetadataInService = Omit<UploadMetadata, "overwrite_target" | "overwrite_user_id" | "is_public">;
+type UploadMetadataInService = {
+    name: string;
+    path: string;
+    size: number;
+    client: UUID;
+    upload_id: UUID;
+    chunk_size: number;
+};
 export interface Data {
     metadata: UploadMetadataInService;
     chunk_count: number;

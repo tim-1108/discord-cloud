@@ -30,6 +30,8 @@ import { EmptyFileUploadPacket } from "../../../common/packet/c2s/EmptyFileUploa
 import { FileSharePacket } from "../../../common/packet/c2s/FileSharePacket.js";
 import { FolderSizeRequestPacket } from "../../../common/packet/c2s/FolderSizeRequestPacket.js";
 import { FolderStatusRequestPacket } from "../../../common/packet/c2s/FolderStatusRequestPacket.js";
+import { UploadOverwriteRequestPacket } from "../../../common/packet/s2c/UploadOverwriteRequestPacket.js";
+import { UploadOverwriteCancelPacket } from "../../../common/packet/s2c/UploadOverwriteCancelPacket.js";
 
 // As we cannot just scan directories, this requires manual registering
 
@@ -45,7 +47,9 @@ const clientboundPackets: PacketWithID<PacketTypeMap[PacketType.Server2Client]>[
     UploadResponsePacket,
     UploadServicesPacket,
     ServiceRegistryPacket,
-    FolderSizePacket
+    FolderSizePacket,
+    UploadOverwriteRequestPacket,
+    UploadOverwriteCancelPacket
 ];
 const serverboundPackets: PacketWithID<PacketTypeMap[PacketType.Client2Server]>[] = [
     ListRequestPacket,

@@ -8,7 +8,7 @@ import { ListRequestPacket } from "../../common/packet/c2s/ListRequestPacket.js"
 import { ListingClientOperations } from "../client-operations/listing.js";
 import { getServersidePacketList } from "../../common/packet/reader.js";
 import PacketType from "../../common/packet/PacketType.js";
-import { Uploads } from "../uploads.js";
+import { Uploads, type UploadOverwriteDefaultAction } from "../uploads.js";
 import { CreateFolderPacket } from "../../common/packet/c2s/CreateFolderPacket.js";
 import { ThumbnailRequestPacket } from "../../common/packet/c2s/ThumbnailRequestPacket.js";
 import { performThumbnailRequestOperation } from "../client-operations/thumbnail.js";
@@ -29,10 +29,12 @@ import { ServiceRegistryPacket } from "../../common/packet/s2c/ServiceRegistryPa
 import { UploadService } from "../services/UploadService.js";
 import { sleep } from "../../common/useless.js";
 import { UploadAbortRequestPacket } from "../../common/packet/c2s/UploadAbortRequestPacket.js";
+import { UploadOverwriteResponsePacket } from "../../common/packet/c2s/UploadOverwriteResponsePacket.js";
 
 export class Client extends PacketReceiver {
     private readonly uuid: UUID;
     private readonly userId: number;
+    private defaultOverwriteAction: UploadOverwriteDefaultAction | null;
 
     public getUserId() {
         return this.userId;
@@ -46,12 +48,28 @@ export class Client extends PacketReceiver {
         super(ws);
         this.uuid = crypto.randomUUID();
         this.userId = userId;
+        this.defaultOverwriteAction = null;
 
         logInfo("Connected:", this.userId, this.uuid);
         pingServices();
         this.socket.readyState === this.socket.OPEN
             ? this.emitServiceRegistryList()
             : this.socket.addEventListener("open", () => this.emitServiceRegistryList());
+    }
+
+    public setDefaultOverwriteAction(action: UploadOverwriteDefaultAction) {
+        this.defaultOverwriteAction = action;
+    }
+
+    /**
+     * Explicit call to not have to use `setDefaultOverwriteAction(null)`.
+     */
+    public clearDefaultOverwriteAction() {
+        this.defaultOverwriteAction = null;
+    }
+
+    public getDefaultOverwriteAction(): UploadOverwriteDefaultAction | null {
+        return this.defaultOverwriteAction;
     }
 
     private async emitServiceRegistryList() {
@@ -109,6 +127,8 @@ export class Client extends PacketReceiver {
             void ListingClientOperations.folderSize(this, packet);
         } else if (packet instanceof UploadAbortRequestPacket) {
             void Uploads.handlers.client.requestAbort(this, packet);
+        } else if (packet instanceof UploadOverwriteResponsePacket) {
+            void Uploads.handlers.client.overwriteResponse(this, packet);
         }
     }
 }

@@ -1,4 +1,4 @@
-import { logWarn } from "../../common/logging.js";
+import { logError, logWarn } from "../../common/logging.js";
 import type { FolderHandle } from "../../common/supabase.js";
 import { pathToRoute, type FolderOrRoot } from "./core.js";
 import { Database } from "./index.js";
@@ -57,7 +57,7 @@ function getStructForPath(path: string | string[]): RootBranch | Branch | null {
     return parent;
 }
 
-async function getOrCreateStructForPath(route: string[]): Promise<RootBranch | Branch> {
+async function getOrCreateStructForPath(route: string[]): Promise<RootBranch | Branch | null> {
     if (route.length === 0) {
         return root;
     }
@@ -73,13 +73,14 @@ async function getOrCreateStructForPath(route: string[]): Promise<RootBranch | B
             continue;
         }
         // The child does not exist yet, we will
-        // create it. And if we fail, we throw.
-        // This is a tradeoff. We'd rather have it throw
-        // an error to know for sure that something that
-        // ought to never go wrong has.
+        // create it. And if we fail, we have to fail the
+        // entire function. This will cause irritation for
+        // the user (their upload will fail because we couldn't
+        // create a folder, but hey).
         const handle = await Database.folder.add(name, helper_getFolderId(parent), true);
         if (handle === null) {
-            throw new Error(`Failed to create folder "${name}" in ${helper_getFolderId(parent)} - cannot continue lookup`);
+            logError(`Failed to create folder "${name}" in ${helper_getFolderId(parent)} - cannot continue lookup`);
+            return null;
         }
         // Although this might happen when we just call Database.folder.add
         // (that function also returns an existing folder), we can be sure
@@ -89,6 +90,8 @@ async function getOrCreateStructForPath(route: string[]): Promise<RootBranch | B
         if (ids.has(handle.id)) {
             throw new Error(`Impossible condition: The id ${handle.id} had just a folder created, but it already existed in the tree!`);
         }
+        // Currently, this condition is impossible as Database.folder.add does not search
+        // for replacement names. It should stay that way.
         if (handle.name !== name) {
             throw new Error(`Name has changed from "${name}" to "${handle.name}" upon creation`);
         }
@@ -116,16 +119,16 @@ function getFolderHandleForPath(path: string | string[]): FolderHandle | null {
     return helper_structToFolderHandle(struct as Branch);
 }
 
-async function getOrCreateFolderIdForPath(path: string | string[]): Promise<FolderOrRoot> {
+async function getOrCreateFolderIdForPath(path: string | string[]): Promise<FolderOrRoot | null> {
     const route = typeof path === "string" ? pathToRoute(path) : path;
     const preExistingStruct = getStructForPath(path);
     if (preExistingStruct) return helper_getFolderId(preExistingStruct);
 
     const struct = await getOrCreateStructForPath(route);
-    return helper_getFolderId(struct);
+    return struct ? helper_getFolderId(struct) : null;
 }
 
-async function getOrCreateFolderHandleForPath(path: string | string[]): Promise<FolderHandle> {
+async function getOrCreateFolderHandleForPath(path: string | string[]): Promise<FolderHandle | null> {
     const route = typeof path === "string" ? pathToRoute(path) : path;
     if (route.length === 0) {
         throw new Error("Attempted to lookup root folder in getOrCreateFolderHandleForPath");
@@ -134,6 +137,9 @@ async function getOrCreateFolderHandleForPath(path: string | string[]): Promise<
     if (preExistingStruct) return helper_structToFolderHandle(preExistingStruct as Branch);
 
     const struct = await getOrCreateStructForPath(route);
+    if (struct === null) {
+        return null;
+    }
     return helper_structToFolderHandle(struct as Branch);
 }
 

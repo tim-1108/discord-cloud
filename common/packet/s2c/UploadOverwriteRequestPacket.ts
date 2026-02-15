@@ -3,20 +3,16 @@ import { S2CPacket } from "../S2CPacket.js";
 import { patterns } from "../../patterns.js";
 import type { UUID } from "../../index.js";
 
-const id = "upload-finish-info";
+const id = "upload-overwrite-request";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
-    success: { type: "boolean", required: true },
-    upload_id: { type: "string", required: true, pattern: patterns.uuid },
-    rename_target: { type: "string", required: false },
-    /**
-     * Optional: (if known) why an upload completely failed
-     */
-    reason: { type: "string", required: false }
+    file_name: { type: "string", required: true, pattern: patterns.fileName },
+    file_path: { type: "string", required: true, pattern: patterns.stringifiedPath },
+    upload_id: { type: "string", required: true, pattern: patterns.uuid }
 } as const;
 
-export class UploadFinishInfoPacket extends S2CPacket {
+export class UploadOverwriteRequestPacket extends S2CPacket {
     declare protected data: DataType;
     public static readonly ID = id;
 
