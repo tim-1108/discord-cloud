@@ -23,3 +23,7 @@ export async function insertFileShare(user: number, file: number, canWrite: bool
     }
     return parsePostgrestResponse<FileShareHandle>(supabase.from("file-share").insert({ user, file, can_write: canWrite }).select().single());
 }
+
+export function deleteAllFileShares(file: number) {
+    return parsePostgrestResponse<FileShareHandle[]>(supabase.from("file-share").delete().eq("file", file).select());
+}

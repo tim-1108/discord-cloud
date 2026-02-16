@@ -1,4 +1,4 @@
-import { deleteFileShare, getFileShare, insertFileShare, updateFileShare } from "./file-share.js";
+import { deleteAllFileShares, deleteFileShare, getFileShare, insertFileShare, updateFileShare } from "./file-share.js";
 import {
     addFileHandle,
     deleteFileHandle,
@@ -73,7 +73,8 @@ export const Database = {
             get: getFileShare,
             insert: insertFileShare,
             delete: deleteFileShare,
-            update: updateFileShare
+            update: updateFileShare,
+            deleteAll: deleteAllFileShares
         }
     },
     folderId: Database$FolderId,
