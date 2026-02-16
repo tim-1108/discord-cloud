@@ -5,7 +5,7 @@ import { Database } from "./database/index.js";
 import { Network } from "./Network.js";
 import { pingServices } from "./pinging.js";
 
-validateEnvironmentVariables("common", "manager", "discord", "crypto");
+validateEnvironmentVariables("manager", "discord", "user-authentication");
 await loadPackets();
 
 const pinging = getEnvironmentVariables("service-pinger", true);

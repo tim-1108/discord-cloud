@@ -12,6 +12,7 @@ import { UploadBookingModifyPacket } from "../../../common/packet/s2c/UploadBook
 import { UploadFinishInfoPacket } from "../../../common/packet/s2c/UploadFinishInfoPacket.js";
 import { UploadOverwriteRequestPacket } from "../../../common/packet/s2c/UploadOverwriteRequestPacket.js";
 import { UploadOverwriteCancelPacket } from "../../../common/packet/s2c/UploadOverwriteCancelPacket.js";
+import { UploadStageFinishPacket } from "../../../common/packet/s2c/UploadStageFinishPacket.js";
 
 /**
  * The class that communicates with the manager using a web socket.
@@ -52,6 +53,8 @@ export class Communicator extends PacketReceiver {
             Uploads.packets.overwriteRequest(packet);
         } else if (packet instanceof UploadOverwriteCancelPacket) {
             Uploads.packets.overwriteCancel(packet);
+        } else if (packet instanceof UploadStageFinishPacket) {
+            Uploads.packets.uploadFinishStage(packet);
         }
     }
 }

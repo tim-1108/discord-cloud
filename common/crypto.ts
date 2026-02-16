@@ -5,7 +5,7 @@ import { logDebug } from "./logging.js";
 import type { PrefixedUUID, UUIDPrefix } from "./index.js";
 
 function createEncryptionKey() {
-    const encodedKey = getEnvironmentVariables("common").CRYPTO_KEY;
+    const encodedKey = getEnvironmentVariables("discord").CRYPTO_KEY;
     return Buffer.from(encodedKey, "base64");
 }
 

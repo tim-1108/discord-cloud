@@ -42,7 +42,7 @@ export class UploadService extends Service {
             Uploads.handlers.service.disconnect(this.booking);
         }
         if (this.uploadMetadata) {
-            Uploads.fail(this.uploadMetadata, "The upload service disconnected");
+            Uploads.finish(this.uploadMetadata, "The upload service disconnected");
         }
     }
     public config = config;
@@ -180,14 +180,8 @@ export class UploadService extends Service {
                 logWarn(`Received a finish packet when no upload was marked for this service (service ${this.getServiceUUID()}):`, packet.getData());
                 return;
             }
-            const { success, reason } = packet.getData();
-            // TODO: Remove manual validation
             this.markNotBusy();
-            if (success) {
-                Uploads.finish(this.uploadMetadata, packet);
-            } else {
-                Uploads.fail(this.uploadMetadata, reason);
-            }
+            Uploads.finish(this.uploadMetadata, packet);
             this.uploadMetadata = null;
         }
     }

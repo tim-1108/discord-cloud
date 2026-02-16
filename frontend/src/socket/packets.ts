@@ -19,11 +19,11 @@ import { ListFilesPacket } from "../../../common/packet/s2c/ListFilesPacket.js";
 import { ListFoldersPacket } from "../../../common/packet/s2c/ListFoldersPacket.js";
 import { GenericPrimitivesPacket } from "../../../common/packet/generic/GenericPrimitivesPacket.js";
 import { UploadRequestPacket } from "../../../common/packet/c2s/UploadRequestPacket.js";
-import { UploadServicesReleasePacket } from "../../../common/packet/c2s/UploadServicesReleasePacket.js";
-import { UploadServicesRequestPacket } from "../../../common/packet/c2s/UploadServicesRequestPacket.js";
+import { UploadBookingClearPacket } from "../../../common/packet/c2s/UploadBookingClearPacket.js";
+import { UploadBookingRequestPacket } from "../../../common/packet/c2s/UploadBookingRequestPacket.js";
 import { UploadBookingModifyPacket } from "../../../common/packet/s2c/UploadBookingModifyPacket.js";
 import { UploadResponsePacket } from "../../../common/packet/s2c/UploadResponsePacket.js";
-import { UploadServicesPacket } from "../../../common/packet/s2c/UploadServicesPacket.js";
+import { UploadBookingPacket } from "../../../common/packet/s2c/UploadBookingPacket.js";
 import { ServiceRegistryPacket } from "../../../common/packet/s2c/ServiceRegistryPacket.js";
 import { FolderSizePacket } from "../../../common/packet/s2c/FolderSizePacket.js";
 import { EmptyFileUploadPacket } from "../../../common/packet/c2s/EmptyFileUploadPacket.js";
@@ -32,6 +32,7 @@ import { FolderSizeRequestPacket } from "../../../common/packet/c2s/FolderSizeRe
 import { FolderStatusRequestPacket } from "../../../common/packet/c2s/FolderStatusRequestPacket.js";
 import { UploadOverwriteRequestPacket } from "../../../common/packet/s2c/UploadOverwriteRequestPacket.js";
 import { UploadOverwriteCancelPacket } from "../../../common/packet/s2c/UploadOverwriteCancelPacket.js";
+import { UploadStageFinishPacket } from "../../../common/packet/s2c/UploadStageFinishPacket.js";
 
 // As we cannot just scan directories, this requires manual registering
 
@@ -45,11 +46,12 @@ const clientboundPackets: PacketWithID<PacketTypeMap[PacketType.Server2Client]>[
     ListFoldersPacket,
     UploadBookingModifyPacket,
     UploadResponsePacket,
-    UploadServicesPacket,
+    UploadBookingPacket,
     ServiceRegistryPacket,
     FolderSizePacket,
     UploadOverwriteRequestPacket,
-    UploadOverwriteCancelPacket
+    UploadOverwriteCancelPacket,
+    UploadStageFinishPacket
 ];
 const serverboundPackets: PacketWithID<PacketTypeMap[PacketType.Client2Server]>[] = [
     ListRequestPacket,
@@ -62,8 +64,8 @@ const serverboundPackets: PacketWithID<PacketTypeMap[PacketType.Client2Server]>[
     RenameFilePacket,
     ThumbnailRequestPacket,
     UploadRequestPacket,
-    UploadServicesReleasePacket,
-    UploadServicesRequestPacket,
+    UploadBookingClearPacket,
+    UploadBookingRequestPacket,
     EmptyFileUploadPacket,
     FileSharePacket,
     FolderSizeRequestPacket,

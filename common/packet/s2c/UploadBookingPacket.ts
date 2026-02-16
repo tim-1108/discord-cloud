@@ -1,17 +1,18 @@
-import { C2SPacket } from "../C2SPacket.js";
 import type { SchemaToType } from "../../validator.js";
+import { S2CPacket } from "../S2CPacket.js";
 import type { UUID } from "../../index.js";
 
-const id = "upload-services-release";
+const id = "upload-booking";
 
 type DataType = SchemaToType<typeof dataStructure>;
-const dataStructure = {} as const;
+const dataStructure = {
+    /**
+     * The amount of services successfully booked for this client.
+     */
+    amount: { type: "number", required: true, min: 0 }
+} as const;
 
-/**
- * Frees the uploaders used by this client and releases them to be allocated
- * by other clients upon request of them.
- */
-export class UploadServicesReleasePacket extends C2SPacket {
+export class UploadBookingPacket extends S2CPacket {
     declare protected data: DataType;
     public static readonly ID = id;
 

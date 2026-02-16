@@ -10,7 +10,7 @@ import { randomBytes, createHash } from "node:crypto";
 import type { FileHandle } from "../common/supabase.js";
 import type { FileOwnershipStatus } from "../common/client.js";
 
-const env = getEnvironmentVariables("crypto");
+const env = getEnvironmentVariables("user-authentication");
 const Constants = {
     privateKey: Buffer.from(env.PRIVATE_KEY, "base64"),
     publicKey: Buffer.from(env.PUBLIC_KEY, "base64"),

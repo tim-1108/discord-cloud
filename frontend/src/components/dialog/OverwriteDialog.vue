@@ -21,8 +21,8 @@ defineProps<{ cfg: OverwriteDialogConfig; callback: (val: OverwriteAction, flag:
         </template>
         <template v-slot:footer>
             <div class="py-4">
-                <input type="checkbox" name="flag" v-model="flag" />
-                <label for="flag">Apply this action to all other files ({{ Uploads.overwrites.amount.value - 1 }})</label>
+                <input type="checkbox" name="flag" v-model="flag" id="flag" />
+                <label for="flag">Apply this action to all other files (currently {{ Uploads.overwrites.amount.value - 1 }})</label>
             </div>
             <div class="flex justify-end gap-2 py-4">
                 <StyledButton color="critical" @click="callback('overwrite', flag)">Overwrite</StyledButton>

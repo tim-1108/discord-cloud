@@ -3,10 +3,10 @@ import { attemptRepairFolderOrFileName, combinePaths, convertPathToRoute, conver
 import { logDebug, logError, logWarn } from "../../../common/logging";
 import { computed, reactive, ref, watch, type Ref } from "vue";
 import { getOrCreateCommunicator } from "./authentication";
-import { UploadServicesReleasePacket } from "../../../common/packet/c2s/UploadServicesReleasePacket";
+import { UploadBookingClearPacket } from "../../../common/packet/c2s/UploadBookingClearPacket";
 import { GenericBooleanPacket } from "../../../common/packet/generic/GenericBooleanPacket";
-import { UploadServicesRequestPacket } from "../../../common/packet/c2s/UploadServicesRequestPacket";
-import { UploadServicesPacket } from "../../../common/packet/s2c/UploadServicesPacket";
+import { UploadBookingRequestPacket } from "../../../common/packet/c2s/UploadBookingRequestPacket";
+import { UploadBookingPacket } from "../../../common/packet/s2c/UploadBookingPacket";
 import { Dialogs } from "./dialog";
 import type { UploadBookingModifyPacket } from "../../../common/packet/s2c/UploadBookingModifyPacket";
 import { UploadRequestPacket } from "../../../common/packet/c2s/UploadRequestPacket";
@@ -20,6 +20,7 @@ import type { UploadOverwriteRequestPacket } from "../../../common/packet/s2c/Up
 import type { UploadOverwriteCancelPacket } from "../../../common/packet/s2c/UploadOverwriteCancelPacket";
 import { UploadOverwriteResponsePacket } from "../../../common/packet/c2s/UploadOverwriteResponsePacket";
 import { addNotification } from "./notifications";
+import type { UploadStageFinishPacket } from "../../../common/packet/s2c/UploadStageFinishPacket";
 
 export interface UploadRelativeFileHandle {
     file: File;
@@ -45,6 +46,14 @@ const USER_INITIATED_ABORT = 0x02 as const;
 const CONNECTION_ABORT = 0x03 as const;
 
 const activeUploads = reactive(new Map<UUID, ActiveUpload>());
+/**
+ * This map contains uploads that have finished uploading, as
+ * confirmed by the manager, but are not yet saved to the database.
+ *
+ * This is used for when uploads are waiting for overwrite confirmation
+ * to allow other uploads to run simultaniously.
+ */
+const stageFinishedUploads = reactive(new Map<UUID, ActiveUpload>());
 const queue = reactive(new Array<UploadAbsoluteFileHandle>());
 
 const desiredUploaderCount = ref(10);
@@ -59,12 +68,12 @@ watch(desiredUploaderCount, (value) => {
 
 async function bookUploaders(desiredAmount: number) {
     const com = await getOrCreateCommunicator();
-    const reply = await com.sendPacketAndReply_new(new UploadServicesRequestPacket({ desired_amount: desiredAmount }), UploadServicesPacket);
+    const reply = await com.sendPacketAndReply_new(new UploadBookingRequestPacket({ desired_amount: desiredAmount }), UploadBookingPacket);
     if (!reply.packet) {
         Dialogs.alert({ title: "Failed to book upload services", body: "Upload services could not be booked due to: " + reply.error });
         return;
     }
-    const { count } = reply.packet.getData();
+    const { amount: count } = reply.packet.getData();
     availableUploaderCount.value = count;
 }
 
@@ -82,7 +91,7 @@ watch(availableUploaderCount, async (value, oldValue) => {
 async function releaseServicesIfDone() {
     if (queue.length || activeUploads.size) return;
     const com = await getOrCreateCommunicator();
-    const reply = await com.sendPacketAndReply_new(new UploadServicesReleasePacket({}), GenericBooleanPacket);
+    const reply = await com.sendPacketAndReply_new(new UploadBookingClearPacket({}), GenericBooleanPacket);
     if (!reply.packet) {
         throw new Error("Error upon releasing upload services: " + reply.error);
     }
@@ -405,7 +414,7 @@ function createChunkConcurrency(chunkCount: number) {
 
 function handleUploadFinish(packet: UploadFinishInfoPacket) {
     const { success, upload_id, reason, rename_target } = packet.getData();
-    const handle = activeUploads.get(upload_id as UUID);
+    const handle = stageFinishedUploads.get(upload_id as UUID);
     if (!handle) {
         logWarn("Received finish packet for unknown upload:", upload_id);
         return;
@@ -432,13 +441,32 @@ function handleUploadFinish(packet: UploadFinishInfoPacket) {
         });
     }
 
+    stageFinishedUploads.delete(upload_id as UUID);
+    // The finish stage packet now handles starting the next upload.
+}
+
+/**
+ * The upload stage finish packet indicates that the upload part
+ * of the process was successful and that the manager has received
+ * all the parts from the service, thus the service is now free to
+ * take another upload.
+ */
+function handleUploadStageFinish(packet: UploadStageFinishPacket) {
+    const { upload_id, service_disconnect } = packet.getData();
+    const id = upload_id as UUID;
+
+    const handle = activeUploads.get(id);
+    if (!handle) return;
+    activeUploads.delete(id);
+    stageFinishedUploads.set(id, handle);
+
     // We rely entirely on this function to check when an upload is "done".
     // If we were to go by the metric that all chunks have been sent, the
-    // data might not yet be stored in the DB and a new upload start request
-    // would be rejected by the server.
-    activeUploads.delete(upload_id as UUID);
+    // manager might not yet know that the upload is done.
     releaseServicesIfDone();
-    checkInQueueAndStart();
+    if (!service_disconnect) {
+        checkInQueueAndStart();
+    }
 }
 
 interface SendConfig {
@@ -596,7 +624,7 @@ const isOverwriteDialogOpen = ref(false);
 async function handleUploadOverwriteRequest(packet: UploadOverwriteRequestPacket) {
     const { upload_id } = packet.getData();
     const id = upload_id as UUID;
-    const handle = activeUploads.get(id);
+    const handle = stageFinishedUploads.get(id);
     if (!handle) return;
 
     overwrites.value.add(id);
@@ -605,7 +633,7 @@ async function handleUploadOverwriteRequest(packet: UploadOverwriteRequestPacket
 }
 
 function showOverwriteDialog(uploadId: UUID) {
-    const handle = activeUploads.get(uploadId);
+    const handle = stageFinishedUploads.get(uploadId);
     if (!handle) return;
     async function callback(action: OverwriteAction, flag: boolean) {
         Dialogs.unmount("overwrite");
@@ -655,6 +683,7 @@ export const Uploads = {
     packets: {
         bookingModify: handleBookingModification,
         uploadFinish: handleUploadFinish,
+        uploadFinishStage: handleUploadStageFinish,
         overwriteRequest: handleUploadOverwriteRequest,
         overwriteCancel: handleUploadOverwriteCancel
     }

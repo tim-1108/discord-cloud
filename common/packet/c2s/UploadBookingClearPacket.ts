@@ -1,18 +1,17 @@
+import { C2SPacket } from "../C2SPacket.js";
 import type { SchemaToType } from "../../validator.js";
-import { S2CPacket } from "../S2CPacket.js";
 import type { UUID } from "../../index.js";
 
-const id = "upload-services";
+const id = "upload-booking-clear";
 
 type DataType = SchemaToType<typeof dataStructure>;
-const dataStructure = {
-    /**
-     * The amount of services successfully booked for this client.
-     */
-    count: { type: "number", required: true, min: 0 }
-} as const;
+const dataStructure = {} as const;
 
-export class UploadServicesPacket extends S2CPacket {
+/**
+ * Frees the uploaders used by this client and releases them to be allocated
+ * by other clients upon request of them.
+ */
+export class UploadBookingClearPacket extends C2SPacket {
     declare protected data: DataType;
     public static readonly ID = id;
 

@@ -11,20 +11,21 @@ import { Database } from "./database/index.js";
 import { ROOT_FOLDER_ID, type FolderOrRoot } from "./database/core.js";
 import type { FileHandle } from "../common/supabase.js";
 import { Authentication } from "./authentication.js";
-import type { UploadServicesRequestPacket } from "../common/packet/c2s/UploadServicesRequestPacket.js";
-import { UploadServicesPacket } from "../common/packet/s2c/UploadServicesPacket.js";
+import type { UploadBookingRequestPacket } from "../common/packet/c2s/UploadBookingRequestPacket.js";
+import { UploadBookingPacket } from "../common/packet/s2c/UploadBookingPacket.js";
 import type { UploadService } from "./services/UploadService.js";
 import type { UploadRequestPacket } from "../common/packet/c2s/UploadRequestPacket.js";
 import { Locks, type FileLockUUID } from "./lock.js";
 import { UploadResponsePacket } from "../common/packet/s2c/UploadResponsePacket.js";
 import { UploadBookingModifyPacket } from "../common/packet/s2c/UploadBookingModifyPacket.js";
-import type { UploadServicesReleasePacket } from "../common/packet/c2s/UploadServicesReleasePacket.js";
+import type { UploadBookingClearPacket } from "../common/packet/c2s/UploadBookingClearPacket.js";
 import { GenericBooleanPacket } from "../common/packet/generic/GenericBooleanPacket.js";
 import { pingServices } from "./pinging.js";
 import type { UploadAbortRequestPacket } from "../common/packet/c2s/UploadAbortRequestPacket.js";
 import type { UploadOverwriteResponsePacket } from "../common/packet/c2s/UploadOverwriteResponsePacket.js";
 import { UploadOverwriteCancelPacket } from "../common/packet/s2c/UploadOverwriteCancelPacket.js";
 import { UploadOverwriteRequestPacket } from "../common/packet/s2c/UploadOverwriteRequestPacket.js";
+import { UploadStageFinishPacket } from "../common/packet/s2c/UploadStageFinishPacket.js";
 
 const Constants = {
     /**
@@ -48,7 +49,6 @@ const Constants = {
 
 export const Uploads = {
     request: requestUploadStart,
-    fail: failUpload,
     finish: handleServiceUploadDone,
     chunkSize: () => Constants.chunkSize,
     handlers: {
@@ -85,7 +85,7 @@ function getOrWriteBooking(client: Client) {
     return $value;
 }
 
-async function requestUploadServices(client: Client, packet: UploadServicesRequestPacket) {
+async function requestUploadServices(client: Client, packet: UploadBookingRequestPacket) {
     pingServices();
     // When a user has already booked uploaders, we only need to assign the
     // differenc between the values.
@@ -93,7 +93,7 @@ async function requestUploadServices(client: Client, packet: UploadServicesReque
     // "book" zero uploaders.
     const { desired_amount } = packet.getData();
 
-    const reply = (count: number) => void client.replyToPacket(packet, new UploadServicesPacket({ count }));
+    const reply = (count: number) => void client.replyToPacket(packet, new UploadBookingPacket({ amount: count }));
 
     let needed = desired_amount;
     const ab = bookings.get(client.getUUID());
@@ -244,6 +244,11 @@ function handleClientDisconnect(client: Client) {
     if (!booking) return;
     // here, there is of course no need to decrement current_amount
     bookings.delete(client.getUUID());
+    // We don't remove anything from runningOverwrites, as:
+    // - it is not mapped to client id
+    // - in there are only answered requests, and we can go
+    //   and save them to the DB without any issue, even if
+    //   the client disconnected.
     overwriteRequests.delete(client.getUUID());
     const services = ServiceRegistry.predicatedList("upload", (s) => s.isBookedForClient(client));
     if (services.length !== booking.current_amount) {
@@ -321,7 +326,7 @@ function handleServiceInitOrRelease(service: UploadService) {
     client.sendPacket(new UploadBookingModifyPacket({ effective_change: 1 }));
 }
 
-function handleClientRelease(client: Client, packet: UploadServicesReleasePacket) {
+function handleClientRelease(client: Client, packet: UploadBookingClearPacket) {
     const booking = bookings.get(client.getUUID());
     if (!booking) {
         client.replyToPacket(packet, new GenericBooleanPacket({ success: false, message: "No booking recorded for this client" }));
@@ -333,7 +338,8 @@ function handleClientRelease(client: Client, packet: UploadServicesReleasePacket
     }
     services.forEach(internal_serviceReleaseAndRedistribution);
     bookings.delete(client.getUUID());
-    overwriteRequests.delete(client.getUUID());
+    // Do not clear the overwrites for the user just because they released the services,
+    // as there may still be unanswered overwrite requests.
     client.clearDefaultOverwriteAction();
     client.replyToPacket(packet, new GenericBooleanPacket({ success: true }));
 }
@@ -411,11 +417,26 @@ function getAndDeleteRunningOverwrite(uploadId: UUID): OverwriteData | null {
 
 // === Finish handling ===
 
-async function handleServiceUploadDone(metadata: UploadMetadata, packet: UploadFinishPacket) {
+async function handleServiceUploadDone(metadata: UploadMetadata, packet: UploadFinishPacket | string) {
     const client = ClientList.get(metadata.client);
     if (!client) return;
 
+    // This is only used for when the service disconnected.
+    // Here, we need not bother to send a stage finish,
+    // as the upload service will disconnect anyhow.
+    if (typeof packet === "string") {
+        client.sendPacket(new UploadStageFinishPacket({ upload_id: metadata.upload_id, service_disconnect: true }));
+        return failUpload(metadata, packet);
+    }
+
     const data = packet.getData();
+
+    // This means that the client can now send a new upload
+    client.sendPacket(new UploadStageFinishPacket({ upload_id: metadata.upload_id }));
+    if (!data.success) {
+        return failUpload(metadata, data.reason);
+    }
+
     if (
         typeof data.hash !== "string" ||
         typeof data.type !== "string" ||

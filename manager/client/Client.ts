@@ -20,8 +20,8 @@ import { RenameFilePacket } from "../../common/packet/c2s/RenameFilePacket.js";
 import { ClientList } from "./list.js";
 import { FolderStatusRequestPacket } from "../../common/packet/c2s/FolderStatusRequestPacket.js";
 import { UploadRequestPacket } from "../../common/packet/c2s/UploadRequestPacket.js";
-import { UploadServicesRequestPacket } from "../../common/packet/c2s/UploadServicesRequestPacket.js";
-import { UploadServicesReleasePacket } from "../../common/packet/c2s/UploadServicesReleasePacket.js";
+import { UploadBookingRequestPacket } from "../../common/packet/c2s/UploadBookingRequestPacket.js";
+import { UploadBookingClearPacket } from "../../common/packet/c2s/UploadBookingClearPacket.js";
 import { logInfo } from "../../common/logging.js";
 import { FolderSizeRequestPacket } from "../../common/packet/c2s/FolderSizeRequestPacket.js";
 import { ServiceRegistry } from "../services/list.js";
@@ -119,9 +119,9 @@ export class Client extends PacketReceiver {
             void ActionClientOperations.renameFolder(this, packet);
         } else if (packet instanceof RenameFilePacket) {
             void ActionClientOperations.renameFile(this, packet);
-        } else if (packet instanceof UploadServicesRequestPacket) {
+        } else if (packet instanceof UploadBookingRequestPacket) {
             void Uploads.booking.request(this, packet);
-        } else if (packet instanceof UploadServicesReleasePacket) {
+        } else if (packet instanceof UploadBookingClearPacket) {
             void Uploads.booking.release(this, packet);
         } else if (packet instanceof FolderSizeRequestPacket) {
             void ListingClientOperations.folderSize(this, packet);

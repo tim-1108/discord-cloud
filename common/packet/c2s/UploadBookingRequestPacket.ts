@@ -2,7 +2,7 @@ import { C2SPacket } from "../C2SPacket.js";
 import type { SchemaToType } from "../../validator.js";
 import type { UUID } from "../../index.js";
 
-const id = "upload-services-request";
+const id = "upload-booking-request";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
@@ -16,7 +16,7 @@ const dataStructure = {
     desired_amount: { type: "number", required: true, min: 1 }
 } as const;
 
-export class UploadServicesRequestPacket extends C2SPacket {
+export class UploadBookingRequestPacket extends C2SPacket {
     declare protected data: DataType;
     public static readonly ID = id;
 
