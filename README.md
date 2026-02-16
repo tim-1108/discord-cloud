@@ -1,6 +1,6 @@
 # discord-cloud (WIP)
 
-An application for uploading, managing and downloading an infinite amount of files, with Discord as a invisible cloud storage.
+An application for uploading, managing and downloading an infinite amount of files, with Discord as an invisible and encrypted cloud storage.
 
 <img src="assets/frontend_screenshot.png" height="300">
 
@@ -154,6 +154,8 @@ Details are available in `PACKETS.md`.
 
 ## Disclaimer
 
-This is a work in progress, the frontend is still very much unpolished, but all in all, it works.
+This is a work in progress. The frontend is still very much unpolished, but all in all, it works.
+
+Although I could not find anything in the [Discord Terms of Service](https://discord.com/terms), the [Community Guidelines](https://discord.com/guidelines), the [Developer Policy](https://support-dev.discord.com/hc/en-us/articles/8563934450327-Discord-Developer-Policy), nor the [Developer Terms of Service](https://support-dev.discord.com/hc/en-us/articles/8562894815383-Discord-Developer-Terms-of-Service) that this usage of Discord is explicitly against all these terms, you may only use this on your own risk. You are fully responsible for any damages incurred. This application comes with ABSOLUTELY NO WARRANTY, to the extent permitted by applicable law.
 
 Enjoy 🎉
