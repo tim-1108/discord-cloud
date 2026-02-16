@@ -2,6 +2,8 @@
 
 An application for uploading, managing and downloading an infinite amount of files, with Discord as a invisible cloud storage.
 
+<img src="assets/frontend_screenshot.png" height="300">
+
 ## Structure
 
 This repository features one central unit, known as the manager. It is the only system with a connection to the database and communicates with clients and services. To allow for greater flexibility and faster uploads, services exist. These also communicate with the manager in a WebSocket. The terms manager and server may be used interchangeably.
