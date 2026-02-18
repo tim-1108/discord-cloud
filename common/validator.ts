@@ -1,3 +1,4 @@
+import { logWarn } from "./logging.js";
 import { isRecord } from "./types.js";
 
 /**
@@ -10,6 +11,12 @@ const MAX_POSITIVE_INTEGER = Number.MAX_SAFE_INTEGER;
 const MAX_NEGATIVE_INTEGER = Number.MIN_SAFE_INTEGER;
 
 type ValidationResponse<S extends SchemaEntryConsumer> = {
+    /**
+     * This field indicates that the input is either completely invalid
+     * (not a record), or that the amount of offenses is greater than zero.
+     * In any case, this field tells the caller whether the inputted data
+     * is valid.
+     */
     invalid: boolean;
     offenses: OffenseDetails<S>[];
     value: SchemaToType<S>;
@@ -81,6 +88,7 @@ export function validateObjectBySchema<S extends SchemaEntryConsumer>(object: an
         else if (schema.type === "record") validateRecordSchema(schema, value, invalidateKey);
         else if (schema.type === "array") validateArraySchema(schema, value, invalidateKey);
         else if (schema.type === "generic_record") validateGenericRecordSchema(schema, value, invalidateKey);
+        else if (schema.type === "conditional_record") validateConditionalRecordSchema(schema, value, invalidateKey);
         else throw new SyntaxError("Invalid type for validation");
     }
 
@@ -166,6 +174,35 @@ function validateGenericRecordSchema(schema: GenericRecordSchemaEntry, value: an
     }
 }
 
+function validateConditionalRecordSchema(schema: ConditionalRecordSchemaEntry, value: any, func: InvalidateFunction) {
+    if (!isRecord(value)) return func("incorrect_type");
+
+    if (!schema.options.length) {
+        logWarn("The options field of the schema is empty:", schema);
+        return func("schema_invalid");
+    }
+
+    // The indices of the schema options which are correct.
+    const validIndices = new Set<number>();
+    for (let i = 0; i < schema.options.length; i++) {
+        const consumer = schema.options[i];
+        const validation = validateObjectBySchema(value, consumer);
+        if (!validation.invalid) {
+            validIndices.add(i);
+        }
+    }
+
+    // We won't return the validation results for every option
+    // in the second argument because that would be nonsensical,
+    // as that might only confuse when we have so many and they are
+    // all from different options.
+    if (validIndices.size === 0) return func("items_invalid");
+
+    if (validIndices.size > 1) {
+        logWarn("Multiple options validated the inputted value for schema:", schema, "| value:", value);
+    }
+}
+
 type SchemaOffense =
     | "required_missing"
     | "too_small"
@@ -179,7 +216,8 @@ type SchemaOffense =
     | "not_expected_value"
     | "items_invalid"
     | "array_item_incorrect_type"
-    | "array_item_not_allowed";
+    | "array_item_not_allowed"
+    | "schema_invalid";
 
 export type SchemaEntryConsumer = Record<string, SchemaEntry>;
 
@@ -263,6 +301,21 @@ interface RecordSchemaEntry extends BaseSchemaEntry {
     items: SchemaEntryConsumer;
 }
 
+/**
+ * Allows multiple different record schemas to be matched. Allows for matching
+ * like `{ error: true, error_details: string }` and `{ error: false }` within
+ * the same schema, meaning that the inputted content gets matched for all possible
+ * options and the valid option is chosen. If multiple options are valid, a warning
+ * is logged, as that should ideally be prevented. If so however, the first one
+ * in the list is chosen.
+ *
+ * If the `options` array is empty, any value will always be rejected.
+ */
+interface ConditionalRecordSchemaEntry extends BaseSchemaEntry {
+    type: "conditional_record";
+    options: readonly SchemaEntryConsumer[];
+}
+
 interface GenericRecordSchemaEntry extends BaseSchemaEntry {
     type: "generic_record";
     /**
@@ -276,7 +329,7 @@ export interface ArraySchemaEntry<T = any, Allowed = any, Required extends boole
     item_type?: Primitives;
     min_length?: number;
     max_length?: number;
-    allowed_items?: Allowed[];
+    allowed_items?: readonly Allowed[];
     // FIXME: Due to the field being optional (it is never actually declared),
     //        the value when using is also T | undefined.
     /**
@@ -307,7 +360,8 @@ export type SchemaEntry =
     | BooleanSchemaEntry
     | RecordSchemaEntry
     | ArraySchemaEntry
-    | GenericRecordSchemaEntry;
+    | GenericRecordSchemaEntry
+    | ConditionalRecordSchemaEntry;
 
 interface SerializedSchemaEntry extends BaseSchemaEntry {
     pattern?: string;
@@ -326,14 +380,16 @@ type SchemaEntryType<T extends SchemaEntry> = T extends StringSchemaEntry
     : T extends NumberSchemaEntry
       ? number
       : T extends BooleanSchemaEntry
-        ? boolean
+        ? BooleanSchemaEntryTypeDetection<T>
         : T extends RecordSchemaEntry
           ? SchemaToType<T["items"]>
           : T extends GenericRecordSchemaEntry
             ? Record<string, PrimitiveNameToType<T["value_type"]>>
             : T extends ArraySchemaEntry
               ? ArraySchemaEntryTypeDetection<T>
-              : unknown;
+              : T extends ConditionalRecordSchemaEntry
+                ? SchemaToType<T["options"][number]>
+                : unknown;
 
 type PrimitiveNameToType<T extends Primitives> = T extends "object"
     ? object
@@ -352,6 +408,8 @@ type ArraySchemaEntryTypeDetection<T extends ArraySchemaEntry> = T["item_type"] 
       : T["type_declaration"] extends undefined
         ? Array<unknown>
         : Array<T["type_declaration"]>;
+
+type BooleanSchemaEntryTypeDetection<T extends BooleanSchemaEntry> = T["expected"] extends boolean ? T["expected"] : boolean;
 
 type StringSchemaEntryOptionsUnion<T extends StringSchemaEntry> = T["options"] extends readonly string[] ? T["options"][number] : string;
 

@@ -1,9 +1,8 @@
 import { logWarn } from "../../common/logging.js";
 import { patterns } from "../../common/patterns";
 import type { FileHandle, FolderHandle } from "../../common/supabase";
-import { convertPathToRoute } from "../../frontend/src/composables/path.js";
 import { Locks } from "../lock.js";
-import type { FolderOrRoot } from "./core.js";
+import { pathToRoute, type FolderOrRoot } from "./core.js";
 import { Database } from "./index.js";
 import path from "node:path";
 
@@ -22,7 +21,7 @@ import path from "node:path";
  * whether a lock is present on the folder.
  */
 function file_wrapper(name: string, folderId: FolderOrRoot, path?: string): Promise<string | null> {
-    return findReplacementName({ lock: Locks.file.status, database: Database.file.get }, name, folderId, path);
+    return findReplacementName({ lock: Locks.file.individualStatus, database: Database.file.get }, name, folderId, path);
 }
 
 /**
@@ -31,7 +30,7 @@ function file_wrapper(name: string, folderId: FolderOrRoot, path?: string): Prom
  */
 function folder_wrapper(name: string, folderId: FolderOrRoot, path?: string): Promise<string | null> {
     function isLocked_Wrapper(route_init: string[] | string, name: string): boolean {
-        const route = typeof route_init === "string" ? convertPathToRoute(route_init).concat([name]) : route_init.concat([name]);
+        const route = typeof route_init === "string" ? pathToRoute(route_init).concat([name]) : route_init.concat([name]);
         // We especially want to check contentStatus due to the possibility
         // of a upload running for a file in that folder. The folder would not
         // even have to exist yet, but would be created then. If we were to

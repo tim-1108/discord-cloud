@@ -34,24 +34,29 @@ export const ClientFileSchema = {
         type: { type: "string", required: true },
         has_thumbnail: { type: "boolean", required: true },
         ownership: {
-            type: "record",
+            type: "conditional_record",
             required: true,
-            items: {
-                status: { type: "string", required: true },
-                share: {
-                    type: "record",
-                    required: false,
-                    items: {
-                        can_write: { type: "boolean", required: true },
-                        file: { type: "number", required: true },
-                        shared_at: { type: "string", required: true },
-                        user: { type: "number", required: true }
+            options: [
+                {
+                    status: { type: "string", required: true, options: ["shared"] },
+                    share: {
+                        type: "record",
+                        required: true,
+                        items: {
+                            can_write: { type: "boolean", required: true },
+                            file: { type: "number", required: true },
+                            shared_at: { type: "string", required: true },
+                            user: { type: "number", required: true }
+                        }
                     }
+                },
+                {
+                    status: { type: "string", required: true, options: ["owned", "public", "restricted"] }
                 }
-            }
+            ]
         },
-        created_at: { type: "string" },
-        updated_at: { type: "string" },
+        created_at: { type: "string", required: true },
+        updated_at: { type: "string", required: true },
         size: { type: "number", required: true },
         thumbnail_url: { type: "string", required: false }
     }

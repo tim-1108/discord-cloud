@@ -9,7 +9,7 @@ const id = "file-modify";
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
     path: { type: "string", required: true, pattern: patterns.stringifiedPath },
-    action: { type: "string", required: true, pattern: /^(add|delete|modify)$/ },
+    action: { type: "string", required: true, options: ["add", "delete", "modify"] },
     handle: ClientFileSchema
 } as const;
 

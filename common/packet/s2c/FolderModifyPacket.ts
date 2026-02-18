@@ -10,7 +10,7 @@ type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
     path: { type: "string", required: true, pattern: patterns.stringifiedPath },
     handle: FolderHandleSchema,
-    action: { type: "string", required: true, pattern: /^(add|delete|rename)$/ },
+    action: { type: "string", required: true, options: ["add", "delete", "rename"] },
     /**
      * From what the folder has been renamed, if action is "rename".
      * This means that the client does not need to void its entire cache,

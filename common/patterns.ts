@@ -10,7 +10,8 @@ function createCharacterset(type: "allowed" | "negated") {
     return `[${type === "negated" ? "^" : ""}\\d\\w-+#.*~^°!"'’_§$%&()[\\]{}=?ß,;äöüéèêëáàâäíìîïóòôöúùûüñç ]`;
 }
 
-const ALLOWED_CHARS_NEGATIVE_LOOKAHEAD = `((?!\\.\\.)${createCharacterset("allowed")})`;
+// We either catch .., ./ or a just a dot at the end
+const ALLOWED_CHARS_NEGATIVE_LOOKAHEAD = `((?!\\.\\.)|(?!\\./)|(?!\\.$)${createCharacterset("allowed")})`;
 const ALLOWED_CHARS_WITH_LENGTH = `${ALLOWED_CHARS_NEGATIVE_LOOKAHEAD}{1,${MAX_TITLE_LENGTH}}`;
 const ALLOWED_CHARS_PATTERN = new RegExp(ALLOWED_CHARS_NEGATIVE_LOOKAHEAD, "gi");
 const NEGATED_SET = new RegExp(createCharacterset("negated"), "gi");
