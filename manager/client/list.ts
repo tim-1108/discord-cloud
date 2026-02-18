@@ -2,6 +2,8 @@ import type WebSocket from "ws";
 import { Client } from "./Client.js";
 import type { UUID } from "../../common/index.js";
 import { S2CPacket } from "../../common/packet/S2CPacket.js";
+import { Packet } from "../../common/packet/Packet.js";
+import type { GenericPacket } from "../../common/packet/GenericPacket.js";
 
 const map = new Map<UUID, Client>();
 
@@ -22,10 +24,10 @@ function get(uuid: UUID) {
     return map.get(uuid);
 }
 
-type BroadcastValue = S2CPacket | null;
-async function broadcast(handler: ((user: number) => Promise<BroadcastValue> | BroadcastValue) | S2CPacket) {
+type BroadcastValue = S2CPacket | GenericPacket;
+async function broadcast(handler: ((user: number) => Promise<BroadcastValue | null> | BroadcastValue | null) | BroadcastValue) {
     for (const client of map.values()) {
-        const packet = handler instanceof S2CPacket ? handler : await handler(client.getUserId());
+        const packet = handler instanceof Packet ? handler : await handler(client.getUserId());
         if (packet) {
             client.sendPacket(packet);
         }

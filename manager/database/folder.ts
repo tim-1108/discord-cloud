@@ -43,7 +43,7 @@ export async function addFolder(name: string, parent: FolderOrRoot, isFromTreeLo
         if (!isFromTreeLookup) {
             Database.tree.add(data);
         }
-        broadcastToClients("add", data);
+        broadcastToClients("add", data, {});
     }
     return data;
 }
@@ -88,7 +88,7 @@ export async function renameFolder(folderId: number, desiredName: string): Promi
     if (data) {
         Database.tree.rename(folderId, targetName);
         Database.cache.dropFolderIdFromFileCache(folderId);
-        void broadcastToClients("rename", data, handle.name);
+        void broadcastToClients("rename", data, { rename: handle.name });
     }
     return data ? { error: null, data } : { data: null, error: "Failed to update folder handle in database" };
 }
@@ -133,6 +133,7 @@ async function moveFolder(folderId: number, targetParentId: FolderOrRoot) {
         .eq("id", folderId);
 
     // TODO: tree move and such
+    //void broadcastToClients
 }
 
 /**
@@ -227,13 +228,13 @@ export async function mergeFolders_Recursive(a: number, b: number, targetParentP
     return { data: true, error: null };
 }
 
-async function broadcastToClients(action: FolderModifyAction, handle: FolderHandle, renameOrigin?: string) {
+async function broadcastToClients(action: FolderModifyAction, handle: FolderHandle, origins: { rename?: string; parentFolder?: number | null }) {
     const route = await Database.folder.resolveRouteById(handle.id);
     if (!route) {
         return;
     }
     const path = routeToPath(route);
-    const packet = new FolderModifyPacket({ action, path, handle, rename_orgin: renameOrigin });
+    const packet = new FolderModifyPacket({ action, path, handle, rename_origin: origins.rename, parent_folder_origin: origins.parentFolder });
     ClientList.broadcast(packet);
 }
 

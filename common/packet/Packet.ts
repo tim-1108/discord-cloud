@@ -20,6 +20,10 @@ export abstract class Packet {
     private replyTo: UUID | null;
 
     private readonly isReceivedPacket: boolean;
+    private isDebugPacket: boolean;
+    public markAsDebugPacket(): void {
+        this.isDebugPacket = true;
+    }
 
     /**
      * Initializes the `Packet`. The `id` field describes a namespaced packet
@@ -52,6 +56,7 @@ export abstract class Packet {
         this.id = id;
         this.uuid = hasSetUUID ? data : null;
         this.replyTo = null;
+        this.isDebugPacket = false;
 
         this.isReceivedPacket = hasSetUUID;
         if (!hasSetUUID) {
@@ -91,7 +96,7 @@ export abstract class Packet {
      * Serializes a packet by creating a JSON structure and stringify-ing that.
      */
     public serialize() {
-        if (this.isReceivedPacket) throw new SyntaxError("Cannot send a received packet");
+        if (this.isReceivedPacket && !this.isDebugPacket) throw new SyntaxError("Cannot send a received packet");
         return JSON.stringify({
             id: this.id,
             data: this.data ?? {},

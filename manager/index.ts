@@ -4,6 +4,7 @@ import { loadPackets } from "../common/packet/reader.js";
 import { Database } from "./database/index.js";
 import { Network } from "./Network.js";
 import { pingServices } from "./pinging.js";
+import "./debug.js";
 
 validateEnvironmentVariables("manager", "discord", "user-authentication");
 await loadPackets();
