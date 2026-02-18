@@ -145,7 +145,7 @@ Details are available in `PACKETS.md`.
 {
     "id": "namespace:packet-id",
     "uuid": "id of this packet for identification",
-    "reply_to": "optional, specifies the uuid of the packet this is replying to"
+    "reply_uuid": "optional, specifies the uuid of the packet this is replying to"
     "data": {
         // a record of pre-defined data
     }
