@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { clearAuthentication } from "@/composables/authentication";
 import { Dialogs } from "@/composables/dialog";
+import { useListingMetadata } from "@/composables/listing_uncached";
 import { Uploads } from "@/composables/uploads";
-import { faArrowRightFromBracket, faPlus } from "@fortawesome/free-solid-svg-icons";
+import { faArrowRightFromBracket, faFolderPlus, faPlus } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { computed } from "vue";
 
@@ -12,21 +13,19 @@ function logOff() {
 }
 
 const uploadCount = computed(() => Uploads.queue.length + Uploads.active.size);
-const props = defineProps<{ folderId?: number | null }>();
+const listingMetadata = useListingMetadata();
 </script>
 
 <template>
     <aside class="px-4">
-        <button
-            class="p-4 bg-(--text-selected-color) text-(--selected-color) items-center flex gap-4 drop-shadow transition-all rounded-xl hover:shadow-lg hover:bg-(--text-selected-color-lighter)"
-            @click="Dialogs.mount('upload-submit', {})">
-            <FontAwesomeIcon :icon="faPlus"></FontAwesomeIcon>
-            <span>Upload</span>
-        </button>
+        <div class="flex flex-wrap">
+            <ThemedButton color="blueish" padding="default"><FontAwesomeIcon :icon="faPlus"></FontAwesomeIcon></ThemedButton>
+            <ThemedButton color="blueish" padding="default"><FontAwesomeIcon :icon="faFolderPlus"></FontAwesomeIcon></ThemedButton>
+        </div>
         <GrayHighlightButton @click="Dialogs.mount('uploads', {})" v-if="uploadCount >= 0" styling="default"
             >View {{ uploadCount }} upload{{ uploadCount === 1 ? "" : "s" }}</GrayHighlightButton
         >
         <GrayHighlightButton styling="default" @click="logOff" :icon="faArrowRightFromBracket">Log out</GrayHighlightButton>
-        <SidebarSizeChart :folder-id="props.folderId" v-if="props.folderId !== undefined"></SidebarSizeChart>
+        <SidebarSizeChart v-if="listingMetadata" :folder-id="listingMetadata.folder_id"></SidebarSizeChart>
     </aside>
 </template>

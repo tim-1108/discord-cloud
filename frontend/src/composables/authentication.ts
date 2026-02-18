@@ -14,13 +14,15 @@ import { patterns } from "../../../common/patterns";
 import { logError } from "../../../common/logging";
 import { createResolveFunction, sleep } from "../../../common/useless";
 import { PendingAuthenticationState } from "./state";
+import type { DataErrorFields } from "../../../common";
 
 const authenticationSchema = {
     address: { type: "string", required: true, validator_function: validateSocketUrl },
     username: { type: "string", required: true },
-    password: { type: "string", required: true, min_length: 1 }
+    password: { type: "string", required: true, min_length: 1 },
+    token: { type: "string", required: true, pattern: patterns.jwt }
 } as const;
-type Authentication = SchemaToType<typeof authenticationSchema>;
+export type Authentication = SchemaToType<typeof authenticationSchema>;
 
 function validateSocketUrl(input: any) {
     if (typeof input !== "string") return false;
@@ -75,9 +77,9 @@ export async function getServerAddress(protocol: string = window.location.protoc
  * are already authenticated.
  */
 export function getAuthenticationToken(): string {
-    const token = readRawFromStorage(LocalStorageKey.Token, { type: "string", required: true, pattern: patterns.jwt });
-    if (!token) throw new ReferenceError("Failed to read token from local storage");
-    return token;
+    const obj = readObjectFromStorage(LocalStorageKey.Authentication, authenticationSchema);
+    if (!obj) throw new ReferenceError("Failed to read token from local storage");
+    return obj.token;
 }
 
 export function clearAuthentication() {
@@ -85,7 +87,7 @@ export function clearAuthentication() {
     deleteObjectFromStorage(LocalStorageKey.Token);
 }
 
-async function isServerAvailable(url: URL): Promise<boolean> {
+export async function isServerAvailable(url: URL): Promise<boolean> {
     // Cloned to not overwrite previously used url
     url = new URL(url);
     url.protocol = window.location.protocol;
@@ -100,34 +102,52 @@ async function isServerAvailable(url: URL): Promise<boolean> {
     }
 }
 
-let stored_communicator: Communicator | null = null;
-export async function getOrCreateCommunicator(): Promise<Communicator> {
-    if (stored_communicator) {
-        return stored_communicator;
-    }
-    let token = readRawFromStorage(LocalStorageKey.Token, { type: "string", required: true, pattern: patterns.jwt });
-    const auth = await getAuthentication();
-
-    let a = `${auth.address}`;
+export function getAndFixAddress(input: string): URL | null {
+    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+    let a = `${input.trim()}`;
     let u = URL.parse(a);
 
+    // "localhost:4000" would get parsed as "localhost:" for protocol and "4000" as pathname.
+    // Thus, we also require a host to just accept the raw input string as valid.
+    if (u && u.host) {
+        u.protocol = protocol;
+        return u;
+    }
+
     const hasProtocol = /^[^:]+:\/\//.test(a);
-    const protocol = location.protocol === "https:" ? "wss:" : "ws:";
+    console.log(a, hasProtocol);
     // The url can still be parsed even if no protocol is specified (becomes relative)
     if (!hasProtocol) {
         a = `${protocol}//${a}`;
         u = URL.parse(a);
     }
+    return u;
+}
+
+let stored_communicator: Communicator | null = null;
+export async function getOrCreateCommunicator(token?: string): Promise<Communicator> {
+    if (stored_communicator) {
+        return stored_communicator;
+    }
+
+    if (typeof token === "string") {
+        writeRawToStorage(LocalStorageKey.Token, token);
+    } else {
+        token = readRawFromStorage(LocalStorageKey.Token, { type: "string", required: true, pattern: patterns.jwt }) ?? undefined;
+    }
+    const auth = await getAuthentication();
+
+    const u = getAndFixAddress(auth.address);
 
     // If still invalid, there may be too many edge cases to implement here
     if (!u) {
-        const cfg: AlertDialogConfig = { body: `The server address you entered appears to be invalid: ${a}` };
+        const cfg: AlertDialogConfig = { body: `The server address you entered appears to be invalid: ${auth.address}` };
         const { promise, resolve } = createResolveFunction();
         Dialogs.mount("alert", { cfg, callback: resolve });
         await promise;
         Dialogs.unmount("alert");
 
-        throw new ReferenceError("Invalid address: " + a);
+        throw new ReferenceError("Invalid address: " + auth.address);
     }
 
     // If we updated something, make sure to actually also save it.
@@ -173,7 +193,7 @@ export async function getOrCreateCommunicator(): Promise<Communicator> {
     return stored_communicator;
 }
 
-async function performLogin(authentication: Authentication) {
+async function performLogin(authentication: Omit<Authentication, "token">): Promise<DataErrorFields<string>> {
     try {
         const url = new URL(authentication.address);
         url.pathname = "/login";
@@ -197,3 +217,8 @@ async function performLogin(authentication: Authentication) {
         return { data: null, error: "Failed to fetch" };
     }
 }
+
+// TODO: Move everything here, get rid of them globals.
+export const Authentication = {
+    login: performLogin
+};
