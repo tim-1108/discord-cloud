@@ -1,5 +1,5 @@
 import type { ResolveFunction, UUID } from "../../../common";
-import { attemptRepairFolderOrFileName, combinePaths, convertPathToRoute, convertRouteToPath, useCurrentRoute } from "./path";
+import { attemptRepairFolderOrFileName, combinePaths, convertPathToRoute, convertRouteToPath, useListingRoute } from "./path";
 import { logDebug, logError, logWarn } from "../../../common/logging";
 import { computed, reactive, ref, watch, type Ref } from "vue";
 import { getOrCreateCommunicator } from "./authentication";
@@ -146,7 +146,7 @@ function submitUpload({ file, relativePath }: UploadRelativeFileHandle): number 
     if (file.size === 0) {
         return null;
     }
-    const currentPath = convertRouteToPath(useCurrentRoute().value);
+    const currentPath = convertRouteToPath(useListingRoute().value);
     const absPath = combinePaths(currentPath, relativePath);
 
     // Thus only triggered if this is the first upload we are doing again

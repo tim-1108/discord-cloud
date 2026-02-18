@@ -3,7 +3,7 @@ import { SortingFieldOptions, type Sort } from "@/composables/listing_uncached";
 import type { ClientFileHandle, ClientFolderHandle } from "../../../../common/client";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { computed, onMounted, reactive, ref, useTemplateRef } from "vue";
-import { useCurrentPath, useCurrentRoute } from "@/composables/path";
+import { useListingPath, useListingRoute } from "@/composables/path";
 import { getIconForFileType } from "@/composables/icons";
 import { formatByteString, parseDateObjectToRelative } from "../../../../common/useless";
 import { logError } from "../../../../common/logging";
@@ -31,7 +31,7 @@ const emit = defineEmits<{
     sort: [];
     loadNext: [];
 }>();
-const isInRoot = computed(() => useCurrentRoute().value.length === 0);
+const isInRoot = computed(() => useListingRoute().value.length === 0);
 
 const target = useTemplateRef("observer");
 const observeOptions = {
@@ -214,7 +214,7 @@ function handleDoubleClick<T extends "file" | "folder">(
 async function createSignedDownloadLink_Wrapper(index: number) {
     const handle = props.files[index];
     if (!handle) return;
-    const link = await createSignedDownloadLink(useCurrentPath().value, handle.name);
+    const link = await createSignedDownloadLink(useListingPath().value, handle.name);
     if (!link) return;
     navigator.clipboard.writeText(link.toString());
 }
@@ -273,18 +273,18 @@ async function createSignedDownloadLink_Wrapper(index: number) {
             <div>{{ formatByteString(handle.size) }}</div>
             <div class="flex gap-2 items-center">
                 <template v-if="handle.ownership.status === 'public'">
-                    <img src="@/assets/icons/globe_with_meridians_color.svg" />
+                    <img class="h-6" src="@/assets/icons/globe_with_meridians_color.svg" />
                     <p>Public</p>
                 </template>
                 <template v-else-if="handle.ownership.status === 'owned'">
                     <p>Owned</p>
                 </template>
                 <template v-else-if="handle.ownership.status === 'restricted'">
-                    <img src="@/assets/icons/locked_color.svg" />
+                    <img class="h-6" src="@/assets/icons/locked_color.svg" />
                     <p>Restricted</p>
                 </template>
                 <template v-else-if="handle.ownership.status === 'shared'">
-                    <img src="@/assets/icons/link_color.svg" />
+                    <img class="h-6" src="@/assets/icons/link_color.svg" />
                     <p>Shared{{ handle.ownership.share.can_write ? "" : " (read-only)" }}</p>
                 </template>
             </div>

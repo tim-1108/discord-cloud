@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import { convertRouteToPath, navigateToAbsolutePath, navigateUpPath, useCurrentRoute } from "@/composables/path";
+import { convertRouteToPath, navigateToAbsolutePath, navigateUpPath, useListingRoute } from "@/composables/path";
 import HoverUnderlineText from "./basic/HoverUnderlineText.vue";
 import { computed, ref, toRaw } from "vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { faCheck, faPencil } from "@fortawesome/free-solid-svg-icons";
 
-const route = useCurrentRoute();
+const route = useListingRoute();
 const path = computed(() => convertRouteToPath(route.value));
 const updatedPath = ref<string>("");
 

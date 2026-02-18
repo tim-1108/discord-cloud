@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { formatByteString, parseDateObjectToRelative } from "../../../../common/useless";
 import { generateDownloadLink, getPreviewingImage, isFileImage } from "@/composables/images";
-import { convertRouteToPath, useCurrentRoute } from "@/composables/path";
+import { convertRouteToPath, useListingRoute } from "@/composables/path";
 import type { ClientFileHandle } from "../../../../common/client";
 
 const props = defineProps<{ fileList: ClientFileHandle[] }>();
-const route = useCurrentRoute();
+const route = useListingRoute();
 function openImageOrDownload(file: ClientFileHandle) {
     const link = generateDownloadLink(file.name, convertRouteToPath(route.value));
     window.open(link, "_blank");

@@ -1,6 +1,8 @@
 import { computed, ref, toRaw, watch, type ComputedRef, type Ref } from "vue";
 import { getNamingMaximumLengths, getNegatedCharacterPattern, patterns } from "../../../common/patterns";
 import { logError, logWarn } from "../../../common/logging";
+import { useRoute, useRouter } from "vue-router";
+import { router } from "@/main";
 
 const route = ref<string[]>([]);
 const computedPath = computed(() => convertRouteToPath(route.value));
@@ -17,11 +19,11 @@ export function convertRouteToPath(route: string[]): string {
     return `/${route.map((v) => v.trim()).join("/")}`;
 }
 
-export function useCurrentRoute(): Ref<string[]> {
+export function useListingRoute(): Ref<string[]> {
     return route;
 }
 
-export function useCurrentPath(): ComputedRef<string> {
+export function useListingPath(): ComputedRef<string> {
     return computedPath;
 }
 
@@ -37,16 +39,26 @@ export function useCurrentPath(): ComputedRef<string> {
  */
 watch(route, (value) => {
     const path = convertRouteToPath(value);
-    if (patterns.stringifiedPath.test(path)) return;
+    if (patterns.stringifiedPath.test(path)) {
+        writeActiveRouteToRouter();
+        return;
+    }
     logWarn("A malformed path has been inputted into the route!");
     const correctedPath = checkAndRepairStringPath(path);
     if (!correctedPath) {
         logError("The provided string seems unrepairable, reverting to / from ", path);
         route.value = [];
+        writeActiveRouteToRouter();
         return;
     }
     route.value = convertPathToRoute(correctedPath);
+    writeActiveRouteToRouter();
 });
+
+function writeActiveRouteToRouter() {
+    const encodedRoute = route.value.map((segment) => encodeURIComponent(segment));
+    router.push(convertRouteToPath(encodedRoute));
+}
 
 export function navigateToAbsolutePath(path: string) {
     const $path = checkAndRepairStringPath(path);
@@ -64,6 +76,8 @@ export function navigateToAbsoluteRoute(newRoute: string[]) {
 export function navigateUpPath(toIndex: number) {
     if (toIndex >= route.value.length - 1 || !route.value.length || toIndex < 0) return;
     route.value.splice(toIndex + 1, route.value.length - 1);
+    // .splice does not trigger the watch()?
+    writeActiveRouteToRouter();
 }
 
 export function navigateToParentFolder() {
@@ -74,6 +88,22 @@ export function navigateToParentFolder() {
     } else {
         route.value.splice(l - 1, 1);
     }
+    // .splice does not trigger the watch()?
+    writeActiveRouteToRouter();
+}
+
+export function getParentFolderRoute(route: string[]): string[] {
+    const l = route.length;
+    if (!l) return [];
+    if (l === 1) return [];
+    const copy = structuredClone(route);
+    copy.splice(l - 1);
+    return copy;
+}
+
+export function getLastFolderName(route: string[]): string | null {
+    if (!route.length) return null;
+    return route[route.length - 1];
 }
 
 export function appendToRoute(folders: string[]) {
@@ -86,6 +116,27 @@ export function areRoutesIdentical(route1: string[], route2: string[]) {
     if (route1.length !== route2.length) return false;
     if (!route1.length) return true;
     return route1.every((value, index) => value === route2[index]);
+}
+
+/**
+ * Returns `-1` when `target` is not within `parent`. If they are the same, `0` is returned.
+ * Otherwise, the steps needed to get from `parent` to `target` is returned.
+ */
+export function distanceOfRouteWithinOtherRoute(parent: string[], target: string[]): number {
+    if (target.length < parent.length) {
+        throw new Error(`Length of parent is greater than of target: "${JSON.stringify(parent)}" | "${JSON.stringify(target)}"`);
+    }
+
+    if (parent.length === target.length) {
+        return areRoutesIdentical(parent, target) ? 0 : -1;
+    }
+
+    const delta = target.length - parent.length;
+
+    const $target = structuredClone(target);
+    // This slices from the last index + 1
+    $target.splice(parent.length);
+    return areRoutesIdentical(parent, $target) ? delta : -1;
 }
 
 export function convertOptionalRouteToPath(route: string | string[]): string {
@@ -115,6 +166,8 @@ export function checkAndRepairStringPath(path: string): string | null {
     // The actual trimming of individual items is executed below
     path = path.trim();
 
+    path = path.replace(/\/{2,}/g, "/").replace(/\\{2,}/g, "/");
+
     if (!path.length || path === "/") {
         return "/";
     }
@@ -129,7 +182,7 @@ export function checkAndRepairStringPath(path: string): string | null {
     // Although backslashes are allowed in folder/file names, we cannot know whether those
     // entered by the user are intended for path seperators (like on windows).
     // Thus, if there are no forward slashes, we will replace ALL backslashes.
-    if (!path.includes("/")) path.replace(/\\/g, "/");
+    if (!path.includes("/")) path = path.replace(/\\/g, "/");
     if (path[0] !== "/") path = `/${path}`;
 
     const route = convertPathToRoute(path).map((val) => val.trim());

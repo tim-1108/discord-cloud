@@ -13,6 +13,8 @@ import { UploadFinishInfoPacket } from "../../../common/packet/s2c/UploadFinishI
 import { UploadOverwriteRequestPacket } from "../../../common/packet/s2c/UploadOverwriteRequestPacket.js";
 import { UploadOverwriteCancelPacket } from "../../../common/packet/s2c/UploadOverwriteCancelPacket.js";
 import { UploadStageFinishPacket } from "../../../common/packet/s2c/UploadStageFinishPacket.js";
+import { UncachedListing } from "@/composables/listing_uncached.js";
+import { FolderModifyPacket } from "../../../common/packet/s2c/FolderModifyPacket.js";
 
 /**
  * The class that communicates with the manager using a web socket.
@@ -47,14 +49,16 @@ export class Communicator extends PacketReceiver {
             Uploads.packets.bookingModify(packet);
         } else if (packet instanceof UploadFinishInfoPacket) {
             Uploads.packets.uploadFinish(packet);
-        } else if (packet instanceof FileModifyPacket) {
-            //return listingFileModify(packet);
         } else if (packet instanceof UploadOverwriteRequestPacket) {
             Uploads.packets.overwriteRequest(packet);
         } else if (packet instanceof UploadOverwriteCancelPacket) {
             Uploads.packets.overwriteCancel(packet);
         } else if (packet instanceof UploadStageFinishPacket) {
             Uploads.packets.uploadFinishStage(packet);
+        } else if (packet instanceof FileModifyPacket) {
+            UncachedListing.modify.file(packet);
+        } else if (packet instanceof FolderModifyPacket) {
+            UncachedListing.modify.folder(packet);
         }
     }
 }

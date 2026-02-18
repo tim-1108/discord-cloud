@@ -23,7 +23,7 @@ export type FileOwnershipStatus = { status: Exclude<ClientFileOwnership, "shared
 export type ClientFolderHandle = FolderHandle;
 export type FileModifyAction = "add" | "delete" | "modify";
 
-export type FolderModifyAction = "add" | "delete" | "rename";
+export type FolderModifyAction = "add" | "delete" | "rename" | "move";
 
 export const ClientFileSchema = {
     type: "record",

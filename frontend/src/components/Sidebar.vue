@@ -19,7 +19,9 @@ const listingMetadata = useListingMetadata();
 <template>
     <aside class="px-4">
         <div class="flex flex-wrap">
-            <ThemedButton color="blueish" padding="default"><FontAwesomeIcon :icon="faPlus"></FontAwesomeIcon></ThemedButton>
+            <ThemedButton color="blueish" padding="default" @click="Dialogs.mount('upload-submit', {})"
+                ><FontAwesomeIcon :icon="faPlus"></FontAwesomeIcon
+            ></ThemedButton>
             <ThemedButton color="blueish" padding="default"><FontAwesomeIcon :icon="faFolderPlus"></FontAwesomeIcon></ThemedButton>
         </div>
         <GrayHighlightButton @click="Dialogs.mount('uploads', {})" v-if="uploadCount >= 0" styling="default"

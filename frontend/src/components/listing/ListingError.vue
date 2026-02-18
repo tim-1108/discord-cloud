@@ -14,7 +14,7 @@ const emit = defineEmits<{ retry: []; createFolder: []; navigateUp: [] }>();
             <div class="grid md:flex gap-2">
                 <HighlightButton :icon="faLongArrowUp" styling="default" v-if="path !== '/'" @click="emit('navigateUp')">Go Up</HighlightButton>
                 <HighlightButton :icon="faRotateRight" styling="default" v-if="canRetry" @click="emit('retry')">Retry</HighlightButton>
-                <HighlightButton :icon="faFolderPlus" styling="default" v-if="canCreate" @emit="emit('createFolder')">Create</HighlightButton>
+                <HighlightButton :icon="faFolderPlus" styling="default" v-if="canCreate" @click="emit('createFolder')">Create</HighlightButton>
             </div>
         </section>
     </div>

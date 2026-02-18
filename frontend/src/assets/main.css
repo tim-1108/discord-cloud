@@ -47,3 +47,11 @@ h4 {
 button {
     @apply cursor-pointer;
 }
+
+input {
+    @apply bg-white border border-[#c2c8ce] rounded-lg text-xl px-4;
+}
+
+a {
+    @apply hover:underline text-blue-500;
+}

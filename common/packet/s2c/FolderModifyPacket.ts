@@ -10,13 +10,18 @@ type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
     path: { type: "string", required: true, pattern: patterns.stringifiedPath },
     handle: FolderHandleSchema,
-    action: { type: "string", required: true, options: ["add", "delete", "rename"] },
+    action: { type: "string", required: true, options: ["add", "delete", "rename", "move"] },
     /**
      * From what the folder has been renamed, if action is "rename".
      * This means that the client does not need to void its entire cache,
      * just rename their key inside layered a cache map.
      */
-    rename_orgin: { type: "string", required: false }
+    rename_origin: { type: "string", required: false },
+    /**
+     * If the folder has been modified, the `parent_folder` field
+     * may have been updated. If so, the old parent id is remarked here.
+     */
+    parent_folder_origin: { type: "number", required: false, min: 0, allow_null: true }
 } as const;
 
 export class FolderModifyPacket extends S2CPacket {

@@ -1,16 +1,12 @@
 <script setup lang="ts">
 import { UncachedListing, type ListingError, type ListingMetadata, type Sort } from "@/composables/listing_uncached";
-import { computed, onMounted, ref, toRaw, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, ref } from "vue";
 import type { ClientFileHandle, ClientFolderHandle } from "../../../common/client";
 import { appendToRoute, navigateToParentFolder } from "@/composables/path";
-import { formatByteString, parseDateObjectToRelative } from "../../../common/useless";
-import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
-import { faFolder } from "@fortawesome/free-solid-svg-icons";
-import { getIconForFileType } from "@/composables/icons";
 import { generateDownloadLink } from "@/composables/images";
 import { ListingSortAscendingState, ListingSortFieldState } from "@/composables/state";
 
-const { path, metadata } = defineProps<{ path: string; metadata: ListingMetadata }>();
+const { path } = defineProps<{ path: string }>();
 
 const sPageCount = ref(0);
 const fPageCount = ref(0);
@@ -35,24 +31,72 @@ type NamedMap<T extends { name: string }> = Map<string, T>;
 // There can only always be one. It has to be cleared away before more content
 // can even be loaded (by scrolling). This fits to both files and folders, as
 // all folders are always fetched first before the files get a turn.
-const listingError = ref<ListingError | null>(null);
+const listingError = ref<{ error: ListingError; retryFn: () => any | Promise<any> } | null>(null);
 const files = ref<ClientFileHandle[]>([]);
 const subfolders = ref<ClientFolderHandle[]>([]);
 
-async function init() {
-    isLocked.value = true;
-    sPageCount.value = Math.ceil(metadata.subfolder_count / metadata.page_size);
-    fPageCount.value = Math.ceil(metadata.file_count / metadata.page_size);
+const metadata = ref<ListingMetadata | null>(null);
 
-    await next();
+async function stageOne(): Promise<boolean> {
+    // This function should only be called again if it failed initially
+    if (metadata.value) {
+        throw new ReferenceError("Listing metadata is already defined, clear before calling stageOne()");
+    }
+    listingError.value = null;
+    const res = await UncachedListing.init(path);
+    if (!res.data) {
+        listingError.value = { error: res.error, retryFn: stageOne };
+        return false;
+    }
+    metadata.value = res.data;
+    listingError.value = null;
+    // TODO: These callbacks should affect something.
+    UncachedListing.register(
+        metadata.value,
+        () => {},
+        () => {}
+    );
+    void stageTwo();
+    return true;
+}
+
+function unregister(): boolean {
+    if (!metadata.value) return false;
+    UncachedListing.unregister();
+    return true;
+}
+
+async function stageTwo(): Promise<boolean> {
+    if (isLocked.value || !metadata.value) return false;
+    isLocked.value = true;
+
+    sPageCount.value = Math.ceil(metadata.value.subfolder_count / metadata.value.page_size);
+    fPageCount.value = Math.ceil(metadata.value.file_count / metadata.value.page_size);
+
+    const successOne = await next();
+    if (successOne === false) {
+        isLocked.value = false;
+        return false;
+    }
 
     // As all folders must have been fetched by now, we can also fetch the first
     // 100 files. We do not use <= 1, because 0 pages of folders means there are
     // none and that via the first next() call, files have already been fetched.
     if (sPageCount.value === 1 && (fPageCount.value ?? 0) /* we know that this cannot be null here */ > 0) {
-        await next();
+        const successTwo = await next();
+        if (successTwo === null) {
+            // This should not be able to happen because this segment of code is
+            // only called when we know that there is a next page. getAdditionFunction
+            // should always produce the same result.
+            throw new Error("Mismatch between stageTwo and next");
+        }
+        if (!successTwo) {
+            isLocked.value = false;
+            return false;
+        }
     }
     isLocked.value = false;
+    return true;
 }
 
 function wrapper_nextFromScrollEnd() {
@@ -60,19 +104,20 @@ function wrapper_nextFromScrollEnd() {
     return next();
 }
 
-async function next() {
+async function next(): Promise<boolean | null> {
     const fn = getAdditionFunction();
-    if (!fn) return;
+    if (!fn) return null;
     const wasAlreadyLocked = isLocked.value === true;
     isLocked.value = true;
-    await fn();
+    const flag = await fn();
     // If `next` was called via the `init` function, there may
     // yet be another call to this function here. Thus, we'd
     // never want to set locked to false here.
     if (!wasAlreadyLocked) isLocked.value = false;
+    return flag;
 }
 
-function getAdditionFunction(): (() => Promise<void>) | null {
+function getAdditionFunction(): (() => Promise<boolean>) | null {
     if (!hasNext.value) return null;
 
     // The listingerror is triggered on any of the two fetch functions, but just means
@@ -112,26 +157,29 @@ function getSorting(): Sort<"files"> {
     };
 }
 
-async function addSubfolderPage() {
+async function addSubfolderPage(): Promise<boolean> {
     const res = await UncachedListing.getSubfolderPage(path, sPage.value, { ...getSorting(), field: "name" });
     if (!res.data) {
-        listingError.value = res.error;
-        return;
+        listingError.value = { error: res.error, retryFn: addSubfolderPage };
+        return false;
     }
     subfolders.value = subfolders.value.concat(res.data);
     // Of course, only incremented when successful
     sPage.value++;
+    return true;
 }
 
-async function addFilePage() {
+async function addFilePage(): Promise<boolean> {
     const res = await UncachedListing.getFilesPage(path, fPage.value, getSorting());
     if (!res.data) {
-        listingError.value = res.error;
-        return;
+        listingError.value = { error: res.error, retryFn: addFilePage };
+        return false;
     }
     files.value = files.value.concat(res.data);
+    listingError.value = null;
     // Of course, only incremented when successful
     fPage.value++;
+    return true;
 }
 
 function openDownloadLink(file: ClientFileHandle) {
@@ -149,23 +197,42 @@ function openDownloadLink(file: ClientFileHandle) {
  * loading.
  */
 const isLocked = ref(false);
-async function onSortRequest() {
+function onSortRequest() {
     if (isLocked.value) return;
     subfolders.value = [];
     files.value = [];
     sPage.value = 0;
     fPage.value = 0;
-    // TODO: Do we do anything with this?
-    const status = await init();
+    void stageTwo();
 }
 
-onMounted(init);
+// === handlers for all error callbacks ===
+function error$navigateUp() {
+    navigateToParentFolder();
+}
+function error$retry() {
+    if (!listingError.value) return;
+    const { retryFn } = listingError.value;
+    void retryFn();
+}
+
+onMounted(stageOne);
+onBeforeUnmount(unregister);
 </script>
 
 <template>
+    <p v-if="!metadata && !listingError">Loading...</p>
     <!-- listing error for metadata error fields -->
-    <!--<ListingError v-else-if="error" :message="error.message" :can-create="error.can_create" :can-retry="error.can_retry" :path="path"></ListingError>-->
+    <ListingError
+        v-else-if="listingError"
+        :message="listingError.error.message"
+        :can-create="listingError.error.can_create"
+        :can-retry="listingError.error.can_retry"
+        :path="path"
+        @retry="error$retry"
+        @navigate-up="error$navigateUp"></ListingError>
     <ListingTable
+        v-else
         :files="files"
         :subfolders="subfolders"
         :locked="isLocked"
