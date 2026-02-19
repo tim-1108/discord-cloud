@@ -1,10 +1,10 @@
 <script setup lang="ts">
 const colors = {
-    red: ["#ff2535", "white"],
-    blue: ["#006aff", "white"],
-    green: ["#35aa35", "white"],
-    blueish: ["#004a77", "rgb(194, 231, 255)"],
-    default: ["#dedede", "black"]
+    red: ["#ff2535", "white", "#891119"],
+    blue: ["#006aff", "white", "#002d6d"],
+    green: ["#35aa35", "white", "#265926"],
+    blueish: ["#004a77", "rgb(194, 231, 255)", "#002942"],
+    default: ["#dedede", "black", "#757575"]
 } as const;
 type Color = keyof typeof colors;
 const { disabled, selected, color, padding } = defineProps<{
@@ -23,7 +23,7 @@ const colorEntry = colors[color ?? "default"];
         :disabled="disabled"
         :data-selected="selected ? '' : null"
         :data-padding="padding ?? 'default'"
-        :style="{ backgroundColor: colorEntry[0], color: colorEntry[1] }">
+        :style="{ backgroundColor: disabled ? colorEntry[2] : colorEntry[0], color: colorEntry[1] }">
         <span>
             <slot />
         </span>
@@ -89,13 +89,17 @@ button::after {
     display: block;
 }
 
-button:not([disabled="true"]):active::after,
+button:not([disabled]):active::after,
 button[data-selected]::after {
     box-shadow: inset 0px 0px 0px 2px rgba(230, 230, 230, 1);
     background-color: rgba(0, 0, 0, 0.08);
 }
 
-button:not([data-selected]):active,
+button[disabled] {
+    @apply cursor-not-allowed;
+}
+
+button:not([data-selected]):not([disabled]):active,
 button[data-selected] {
     padding-bottom: var(--y-padding);
     margin-top: var(--foot-height);

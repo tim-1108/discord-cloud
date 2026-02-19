@@ -104,9 +104,9 @@ function submitPreviewedUploads() {
         <template v-slot:footer>
             <div class="grid md:grid-cols-[1fr_max-content_max-content] grid-rows-3 md:grid-rows-1 gap-2 py-4">
                 <PathRenderer class="shadow"></PathRenderer>
-                <StyledButton color="critical" @click="requestClose">Abort</StyledButton>
-                <StyledButton color="submit" @click="submitPreviewedUploads" :disabled="!Uploads.preview.count.value"
-                    >Submit {{ Uploads.preview.count.value }} file{{ Uploads.preview.count.value === 1 ? "" : "s" }}</StyledButton
+                <ThemedButton color="red" @click="requestClose">Abort</ThemedButton>
+                <ThemedButton color="green" @click="submitPreviewedUploads" :disabled="!Uploads.preview.count.value"
+                    >Submit {{ Uploads.preview.count.value }} file{{ Uploads.preview.count.value === 1 ? "" : "s" }}</ThemedButton
                 >
             </div>
         </template>

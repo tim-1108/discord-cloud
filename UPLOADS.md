@@ -60,6 +60,6 @@ If `success` is true though, the upload job is now officially done. An optional 
 
 ### Clearing the booking
 
-Once the client has received the last `UploadStageFinishPacket`, with all having succeeded and it has emptied its queue, it is expected to send a `UploadBookingClearPacket` to free its booking and let the manager reclaim these services for other clients. If this is not possible because there are still uploads running, a `GenericBooleanPacket` with `false` will notify the client of such. It has to try again later.
+Once the client has received the last `UploadStageFinishPacket`, with all having succeeded and it having emptied its queue, it is expected to send a `UploadBookingClearPacket` to free its booking and let the manager reclaim these services for other clients. If this is not possible because there are still uploads running, a `GenericBooleanPacket` with `false` will notify the client of such. It has to try again later.
 
 The client does not need to wait until the last `UploadFinishInfoPacket` has been sent, as the upload service is already done on stage finish.

@@ -72,6 +72,7 @@ async function transitionStage(target: number): Promise<void> {
         throw new ReferenceError("The dialog ref for the login dialog is not defined");
     }
     const el = dialog.value.$el as HTMLDialogElement;
+    el.style.overflowY = "hidden";
     const height = el.getBoundingClientRect().height;
 
     stage.value = target;
@@ -89,6 +90,7 @@ async function transitionStage(target: number): Promise<void> {
 
     await sleep(Constants.transitionTimeMs);
     el.style.height = "";
+    el.style.overflowY = "";
     handle.cancel();
 }
 </script>
@@ -105,13 +107,13 @@ async function transitionStage(target: number): Promise<void> {
                     have a service running yet? See
                     <a target="_blank" href="https://github.com/tim-1108/discord-cloud.git">the GitHub repository</a> for setting it up.
                 </p>
-                <input v-model="address" required placeholder="example.com" />
+                <input v-model="address" spellcheck="false" required placeholder="example.com" />
                 <input required v-model="targetAddress" hidden />
                 <small v-if="targetAddress" class="text-gray-700"
                     >You will be connecting to <i>{{ targetAddress.toString() }}</i></small
                 >
                 <small v-else class="text-red-400">{{ address.length ? "Please enter a valid address" : " " }}</small>
-                <ThemedButton color="blue" type="submit">Continue</ThemedButton>
+                <ThemedButton color="blue" type="submit" :disabled="targetAddress === null">Continue</ThemedButton>
             </form>
             <div v-else-if="stage === 1">
                 <p>
@@ -123,11 +125,11 @@ async function transitionStage(target: number): Promise<void> {
             <form @submit.prevent="stageThree" v-else-if="stage === 2" class="grid gap-2">
                 <div>
                     <small>Username</small>
-                    <input v-model="username" required />
+                    <input v-model="username" spellcheck="false" required />
                     <small>Password</small>
-                    <input v-model="password" type="password" required />
+                    <input v-model="password" spellcheck="false" type="password" required />
                 </div>
-                <ThemedButton type="submit" :color="username && password ? 'blue' : 'default'" :disabled="validatingCredentials"
+                <ThemedButton type="submit" color="blue" :disabled="!(username.length && password.length) || validatingCredentials"
                     >Continue</ThemedButton
                 >
                 <ThemedButton color="red" @click="transitionStage(0)" :disabled="validatingCredentials">Go Back</ThemedButton>

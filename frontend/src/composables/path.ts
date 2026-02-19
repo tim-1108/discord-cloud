@@ -3,6 +3,7 @@ import { getNamingMaximumLengths, getNegatedCharacterPattern, patterns } from ".
 import { logError, logWarn } from "../../../common/logging";
 import { useRoute, useRouter } from "vue-router";
 import { router } from "@/main";
+import { useTitle } from "@vueuse/core";
 
 const route = ref<string[]>([]);
 const computedPath = computed(() => convertRouteToPath(route.value));
@@ -37,27 +38,34 @@ export function useListingPath(): ComputedRef<string> {
  * Anything the user clicks on - and thus handles a route change for them -
  * should always be safe.
  */
-watch(route, (value) => {
-    const path = convertRouteToPath(value);
-    if (patterns.stringifiedPath.test(path)) {
+watch(
+    route,
+    (value) => {
+        const path = convertRouteToPath(value);
+        if (patterns.stringifiedPath.test(path)) {
+            writeActiveRouteToRouter();
+            return;
+        }
+        logWarn("A malformed path has been inputted into the route!");
+        const correctedPath = checkAndRepairStringPath(path);
+        if (!correctedPath) {
+            logError("The provided string seems unrepairable, reverting to / from ", path);
+            route.value = [];
+            writeActiveRouteToRouter();
+            return;
+        }
+        route.value = convertPathToRoute(correctedPath);
         writeActiveRouteToRouter();
-        return;
-    }
-    logWarn("A malformed path has been inputted into the route!");
-    const correctedPath = checkAndRepairStringPath(path);
-    if (!correctedPath) {
-        logError("The provided string seems unrepairable, reverting to / from ", path);
-        route.value = [];
-        writeActiveRouteToRouter();
-        return;
-    }
-    route.value = convertPathToRoute(correctedPath);
-    writeActiveRouteToRouter();
-});
+    },
+    { deep: true }
+);
 
+const title = useTitle();
 function writeActiveRouteToRouter() {
     const encodedRoute = route.value.map((segment) => encodeURIComponent(segment));
-    router.push(convertRouteToPath(encodedRoute));
+    const path = convertRouteToPath(encodedRoute);
+    router.push(path);
+    title.value = `${decodeURIComponent(path)} | Discord Cloud`;
 }
 
 export function navigateToAbsolutePath(path: string) {
@@ -65,6 +73,10 @@ export function navigateToAbsolutePath(path: string) {
     // TODO: build warning/handling system
     if (!$path) return alert("This path is incorrect");
     return navigateToAbsoluteRoute(convertPathToRoute($path));
+}
+
+export function navigateToRoot() {
+    return navigateToAbsoluteRoute([]);
 }
 
 export function navigateToAbsoluteRoute(newRoute: string[]) {
@@ -76,8 +88,6 @@ export function navigateToAbsoluteRoute(newRoute: string[]) {
 export function navigateUpPath(toIndex: number) {
     if (toIndex >= route.value.length - 1 || !route.value.length || toIndex < 0) return;
     route.value.splice(toIndex + 1, route.value.length - 1);
-    // .splice does not trigger the watch()?
-    writeActiveRouteToRouter();
 }
 
 export function navigateToParentFolder() {
@@ -88,8 +98,6 @@ export function navigateToParentFolder() {
     } else {
         route.value.splice(l - 1, 1);
     }
-    // .splice does not trigger the watch()?
-    writeActiveRouteToRouter();
 }
 
 export function getParentFolderRoute(route: string[]): string[] {

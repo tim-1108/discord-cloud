@@ -23,8 +23,8 @@ const emit = defineEmits<{ rename: [name: string]; abort: [] }>();
         </template>
         <template v-slot:footer>
             <div class="flex justify-end gap-2">
-                <StyledButton color="critical" @click="emit('abort')">Abort</StyledButton>
-                <StyledButton color="submit" @click="emit('rename', newName)" :disabled="!isValid || newName === name">Submit</StyledButton>
+                <ThemedButton color="red" @click="emit('abort')">Abort</ThemedButton>
+                <ThemedButton color="green" @click="emit('rename', newName)" :disabled="!isValid || newName === name">Submit</ThemedButton>
             </div>
         </template>
     </BaseDialog>

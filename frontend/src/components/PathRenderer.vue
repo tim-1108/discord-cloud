@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { convertRouteToPath, navigateToAbsolutePath, navigateUpPath, useListingRoute } from "@/composables/path";
+import { convertRouteToPath, navigateToAbsolutePath, navigateToRoot, navigateUpPath, useListingRoute } from "@/composables/path";
 import HoverUnderlineText from "./basic/HoverUnderlineText.vue";
 import { computed, ref, toRaw } from "vue";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
@@ -25,9 +25,9 @@ const isEditing = ref(false);
     <section
         class="font-bold min-w-0 rounded-full h-14 py-2 px-4 relative transition-colors flex items-center"
         :data-editing="isEditing ? '' : null"
-        :class="{ 'border-2 border-dashed border-[var(--text-selected-color)]': isEditing }">
+        :class="{ 'border-2 border-dashed border-(--text-selected-color)': isEditing }">
         <div class="flex gap-2 text-3xl min-w-0 max-w-full h-full overflow-x-auto overflow-y-hidden items-center pr-10" v-if="!isEditing">
-            <HoverUnderlineText v-if="route.length" @click.capture="navigateToAbsolutePath('/')">~</HoverUnderlineText>
+            <HoverUnderlineText v-if="route.length" @click.capture="navigateToRoot">~</HoverUnderlineText>
             <span v-else>~</span>
             <template v-for="(entry, index) of route">
                 <span class="text-xl text-gray-400">/</span>
@@ -41,7 +41,7 @@ const isEditing = ref(false);
             <input v-model="updatedPath" class="w-full text-2xl h-full rounded-full absolute top-0 left-0 py-4 pl-6 pr-14" autofocus />
         </form>
         <button
-            class="rounded-full grid place-content-center text-xl absolute right-2 shadow h-10 w-10 aspect-square bg-[var(--component-color)]"
+            class="rounded-full grid place-content-center text-xl absolute right-2 shadow h-10 w-10 aspect-square bg-(--component-color)"
             @click="toggleEditing">
             <FontAwesomeIcon :icon="isEditing ? faCheck : faPencil"></FontAwesomeIcon>
         </button>

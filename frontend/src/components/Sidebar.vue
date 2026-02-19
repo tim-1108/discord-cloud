@@ -13,21 +13,14 @@ function logOff() {
 }
 
 const uploadCount = computed(() => Uploads.queue.length + Uploads.active.size);
-const listingMetadata = useListingMetadata();
 </script>
 
 <template>
     <aside class="px-4">
-        <div class="flex flex-wrap">
-            <ThemedButton color="blueish" padding="default" @click="Dialogs.mount('upload-submit', {})"
-                ><FontAwesomeIcon :icon="faPlus"></FontAwesomeIcon
-            ></ThemedButton>
-            <ThemedButton color="blueish" padding="default"><FontAwesomeIcon :icon="faFolderPlus"></FontAwesomeIcon></ThemedButton>
-        </div>
+        <div class="flex flex-wrap"></div>
         <GrayHighlightButton @click="Dialogs.mount('uploads', {})" v-if="uploadCount >= 0" styling="default"
             >View {{ uploadCount }} upload{{ uploadCount === 1 ? "" : "s" }}</GrayHighlightButton
         >
         <GrayHighlightButton styling="default" @click="logOff" :icon="faArrowRightFromBracket">Log out</GrayHighlightButton>
-        <SidebarSizeChart v-if="listingMetadata" :folder-id="listingMetadata.folder_id"></SidebarSizeChart>
     </aside>
 </template>

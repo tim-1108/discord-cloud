@@ -115,7 +115,6 @@ export function getAndFixAddress(input: string): URL | null {
     }
 
     const hasProtocol = /^[^:]+:\/\//.test(a);
-    console.log(a, hasProtocol);
     // The url can still be parsed even if no protocol is specified (becomes relative)
     if (!hasProtocol) {
         a = `${protocol}//${a}`;

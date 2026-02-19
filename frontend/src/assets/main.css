@@ -11,6 +11,7 @@
     --text-color: #1f1f1f;
     --component-color: #f0f4f9;
     --darker-component-color: #dbe6f4;
+    --border-color: #c2c8ce;
     color: var(--text-color);
     font-family: "Open Sans", sans-serif;
     font-weight: 400;
@@ -49,7 +50,7 @@ button {
 }
 
 input {
-    @apply bg-white border border-[#c2c8ce] rounded-lg text-xl px-4;
+    @apply bg-white border border-(--border-color) rounded-lg text-xl px-4;
 }
 
 a {

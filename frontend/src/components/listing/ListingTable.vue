@@ -221,14 +221,14 @@ async function createSignedDownloadLink_Wrapper(index: number) {
 </script>
 
 <template>
-    <main class="grid gap-x-1 relative">
+    <main class="grid gap-x-1 w-full not-md:text-xs">
         <header class="row-start-1 row-end-1 select-none" v-if="!hasSelected">
             <div></div>
-            <div class="grid place-content-center"><img src="@/assets/icons/page_facing_up_color.svg" class="h-6" /></div>
+            <div class="grid place-content-center"><img src="@/assets/icons/page_facing_up_color.svg" /></div>
             <div v-for="item of SortingFieldOptions">
                 <TableSorting :id="item.field" :display-name="item.name" @toggle="emit('sort')" :locked="locked"></TableSorting>
             </div>
-            <div class="text-gray-500 flex items-center"><p>Status</p></div>
+            <div class="text-gray-500 flex items-center"><span>Status</span></div>
         </header>
         <SelectionInfo
             class="row-start-1 row-end-1 col-span-7 sticky top-0"
@@ -239,8 +239,8 @@ async function createSignedDownloadLink_Wrapper(index: number) {
             @signed-download="createSignedDownloadLink_Wrapper"></SelectionInfo>
         <section id="parent-folder" v-if="!isInRoot" @click="emit('up')" class="hover:underline">
             <div></div>
-            <div><img src="@/assets/icons/open_file_folder_color.svg" class="h-6" /></div>
-            <div>..</div>
+            <div><img src="@/assets/icons/open_file_folder_color.svg" /></div>
+            <span>..</span>
         </section>
         <section
             v-for="(handle, index) of subfolders"
@@ -251,7 +251,7 @@ async function createSignedDownloadLink_Wrapper(index: number) {
             :data-neighbour-above="hasNeighbourAbove('folder', index)"
             :data-neighbour-below="hasNeighbourBelow('folder', index)">
             <div></div>
-            <div><img src="@/assets/icons/file_folder_color.svg" class="h-6" /></div>
+            <div><img src="@/assets/icons/file_folder_color.svg" /></div>
             <div>
                 <p class="hover:underline w-fit" @click="emit('down', handle.name)">{{ handle.name }}</p>
             </div>
@@ -259,33 +259,32 @@ async function createSignedDownloadLink_Wrapper(index: number) {
         <section
             v-for="(handle, index) of files"
             :key="handle.id"
+            aria-label="test"
             @click="(e) => handleClick(e, 'file', index)"
             @dblclick="(e) => handleDoubleClick(e, 'file', handle)"
             :class="{ 'cursor-not-allowed!': !canReadFile(handle), selected: selectedFiles.has(index) }"
             :data-neighbour-above="hasNeighbourAbove('file', index)"
             :data-neighbour-below="hasNeighbourBelow('file', index)">
             <div></div>
-            <div><FontAwesomeIcon :icon="getIconForFileType(handle.name)" class="h-6"></FontAwesomeIcon></div>
-            <div>
-                <p class="w-fit" :class="{ 'hover:underline': canReadFile(handle) }" @click="openFile(handle)">{{ handle.name }}</p>
-            </div>
-            <div>{{ handle.updated_at ? parseDateObjectToRelative(new Date(handle.updated_at)) : "Unbekannt" }}</div>
-            <div>{{ formatByteString(handle.size) }}</div>
+            <div><FontAwesomeIcon :icon="getIconForFileType(handle.name)"></FontAwesomeIcon></div>
+            <span :class="{ 'hover:underline': canReadFile(handle) }" @click="openFile(handle)">{{ handle.name }} </span>
+            <span>{{ handle.updated_at ? parseDateObjectToRelative(new Date(handle.updated_at)) : "Unbekannt" }}</span>
+            <span>{{ formatByteString(handle.size) }}</span>
             <div class="flex gap-2 items-center">
                 <template v-if="handle.ownership.status === 'public'">
-                    <img class="h-6" src="@/assets/icons/globe_with_meridians_color.svg" />
-                    <p>Public</p>
+                    <img src="@/assets/icons/globe_with_meridians_color.svg" />
+                    <span>Public</span>
                 </template>
                 <template v-else-if="handle.ownership.status === 'owned'">
-                    <p>Owned</p>
+                    <span>Owned</span>
                 </template>
                 <template v-else-if="handle.ownership.status === 'restricted'">
-                    <img class="h-6" src="@/assets/icons/locked_color.svg" />
-                    <p>Restricted</p>
+                    <img src="@/assets/icons/locked_color.svg" />
+                    <span>Restricted</span>
                 </template>
                 <template v-else-if="handle.ownership.status === 'shared'">
-                    <img class="h-6" src="@/assets/icons/link_color.svg" />
-                    <p>Shared{{ handle.ownership.share.can_write ? "" : " (read-only)" }}</p>
+                    <img src="@/assets/icons/link_color.svg" />
+                    <span>Shared{{ handle.ownership.share.can_write ? "" : " (read-only)" }}</span>
                 </template>
             </div>
         </section>
@@ -297,8 +296,19 @@ async function createSignedDownloadLink_Wrapper(index: number) {
 
 <style lang="css" scoped>
 @import "tailwindcss";
+img {
+    @apply h-4 md:h-6;
+}
 main {
-    grid-template-columns: repeat(2, 40px) 50% 10fr 4fr minmax(0, 200px);
+    grid-template-columns: repeat(2, 20px) 35% minmax(0, 100px) minmax(0, 50px) minmax(0, 200px);
+}
+span {
+    @apply min-w-0 overflow-hidden whitespace-nowrap text-ellipsis;
+}
+@media (width >= 768px) {
+    main {
+        grid-template-columns: repeat(2, 40px) 50% 2.5fr 1fr minmax(0, 200px);
+    }
 }
 header,
 section {

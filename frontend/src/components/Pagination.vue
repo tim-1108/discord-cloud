@@ -10,7 +10,6 @@ const r = computed(() => pageCount - page.value);
 const emit = defineEmits<{ navigate: [page: number] }>();
 
 function navigate($page: number) {
-    console.log(pageCount);
     page.value = $page;
     emit("navigate", $page);
 }

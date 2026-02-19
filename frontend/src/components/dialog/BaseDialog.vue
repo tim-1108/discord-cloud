@@ -11,7 +11,7 @@ onMounted(() => {
     <dialog
         class="bg-white px-6 place-self-center rounded-3xl grid gap-2 relative grid-rows-[min-content_1fr_min-content] min-w-0"
         ref="dialog"
-        @cancel.prevent="">
+        @cancel.prevent="(e) => e.preventDefault()">
         <header class="sticky top-0 bg-white z-10 pt-4 pb-2">
             <slot name="header"></slot>
         </header>
