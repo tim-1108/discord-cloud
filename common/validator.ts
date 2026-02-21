@@ -44,6 +44,13 @@ export function validateObjectBySchema<S extends SchemaEntryConsumer>(object: an
     const keys = Object.keys(object);
     for (const key of keys) {
         if (schemas.has(key)) continue;
+        const value = object[key];
+        // If the value is "undefined", then it must have been defined in this javascript instance,
+        // as undefined values cannot be transferred via JSON. This may happen for instance in
+        // conditional records, when a field that is only present in one option is explicitly
+        // marked as undefined when another option is used. This poses no danger and we only
+        // care when keys which are not in the record are defined.
+        if (typeof value === "undefined") continue;
         return { invalid: true, offenses: [], value: object as Value };
     }
 
