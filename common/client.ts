@@ -55,8 +55,8 @@ export const ClientFileSchema = {
                 }
             ]
         },
-        created_at: { type: "string", required: true },
-        updated_at: { type: "string", required: true },
+        created_at: { type: "string", required: true, allow_null: true },
+        updated_at: { type: "string", required: true, allow_null: true },
         size: { type: "number", required: true },
         thumbnail_url: { type: "string", required: false }
     }

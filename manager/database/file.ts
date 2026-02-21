@@ -268,8 +268,8 @@ function broadcastToClients(action: FileModifyAction, handle: FileHandle, target
             name: handle.name,
             type: handle.type,
             has_thumbnail: handle.has_thumbnail,
-            created_at: handle.created_at ?? undefined,
-            updated_at: handle.updated_at ?? undefined,
+            created_at: handle.created_at,
+            updated_at: handle.updated_at,
             size: handle.size,
             ownership: o.status === "shared" ? o : { status: o.status, share: undefined },
             thumbnail_url: t ?? undefined
