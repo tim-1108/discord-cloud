@@ -77,9 +77,9 @@ async function getOrCreateStructForPath(route: string[]): Promise<RootBranch | B
         // entire function. This will cause irritation for
         // the user (their upload will fail because we couldn't
         // create a folder, but hey).
-        const handle = await Database.folder.add(name, helper_getFolderId(parent), true);
+        const { data: handle, error } = await Database.folder.add(name, helper_getFolderId(parent), true);
         if (handle === null) {
-            logError(`Failed to create folder "${name}" in ${helper_getFolderId(parent)} - cannot continue lookup`);
+            logError(`Failed to create folder "${name}" in ${helper_getFolderId(parent)} - cannot continue lookup (err: ${error})`);
             return null;
         }
         // Although this might happen when we just call Database.folder.add
@@ -190,7 +190,7 @@ function throwIfUninitialized() {
 // Tree creation
 // ===
 
-function createTree(handles: FolderHandle[], sizes_input: TypeSizeArray) {
+function createTree(handles: FolderHandle[], sizes_input: { type: string | null; sum: number | null; folder: number | null }[]) {
     if (initialized || initializing) {
         throw new Error("Tree already initialized");
     }
@@ -211,6 +211,7 @@ function createTree(handles: FolderHandle[], sizes_input: TypeSizeArray) {
 
     const sizes = new Map<number | null, Map<string, number>>();
     for (const { sum, type, folder } of sizes_input) {
+        if (sum === null || type === null) continue;
         let entry = sizes.get(folder);
         if (!entry) {
             entry = new Map<string, number>();

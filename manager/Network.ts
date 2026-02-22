@@ -5,12 +5,12 @@ import { getSearchParamsForAddress } from "./utils/url.js";
 import { getEnvironmentVariables } from "../common/environment.js";
 import signedDownloadMetadataRoute from "./routes/signed-download-metadata.js";
 import signedDownloadRoute from "./routes/signed-download.js";
-import generateSignedDownloadRoute from "./routes/generate-signed-download.js";
 import downloadRoute from "./routes/download.js";
 import bulkDownloadRoute from "./routes/bulk-download.js";
 import healthRoute from "./routes/health.js";
 import loginRoute from "./routes/login.js";
 import registerRoute from "./routes/register.js";
+import updatePasswordRoute from "./routes/update-password.js";
 import { ClientList } from "./client/list.js";
 import { ServiceRegistry, type ServiceName } from "./services/list.js";
 import { logDebug, logError } from "../common/logging.js";
@@ -79,11 +79,11 @@ export class Network {
         this.app.get("/health", healthRoute);
         this.app.get("/signed-download", signedDownloadRoute);
         this.app.get("/signed-download-metadata", signedDownloadMetadataRoute);
-        this.app.get("/generate-signed-download", generateSignedDownloadRoute);
         this.app.get("/download", downloadRoute);
         this.app.get("/bulk-download", bulkDownloadRoute);
         this.app.get("/login", loginRoute);
         this.app.get("/register", registerRoute);
+        this.app.get("/update-password", updatePasswordRoute);
 
         this.hasInitializedRoutes = true;
     }

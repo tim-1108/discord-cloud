@@ -12,6 +12,10 @@ import { pathToRoute, routeToPath } from "./database/core.js";
 /**
  * A synchronous implementation of a locking system for both
  * files and folders to prevent simultanious operations.
+ *
+ * It also supplies a locking system for generic object names,
+ * for example, you may lock the string `users` when you are
+ * currently in the process of creating or deleting a user.
  */
 export const Locks = {
     folder: {
@@ -30,11 +34,18 @@ export const Locks = {
         status_specific: isFileLocked_Specific,
         lock: lockFile,
         unlock: unlockFile
+    },
+    object: {
+        lock: lockObject,
+        unlock: unlockObject,
+        status: objectStatus,
+        status_specific: objectStatus_Specific
     }
 };
 
 export type FolderLockUUID = PrefixedUUIDS["folder-lock"];
 export type FileLockUUID = PrefixedUUIDS["file-lock"];
+export type ObjectLockUUID = PrefixedUUIDS["object-lock"];
 
 function getStructForPath<C extends boolean = false>(
     path: string | string[],
@@ -293,6 +304,45 @@ function destroyLockIfEmpty(struct: LockStruct /* root should not be destroyed *
     return true;
 }
 
+function getOrCreateObjectLock(name: string): Set<ObjectLockUUID> {
+    let set = objectLocks.get(name);
+    if (!set) {
+        set = new Set();
+        objectLocks.set(name, set);
+    }
+    return set;
+}
+
+// === object locks ===
+function lockObject(name: string): ObjectLockUUID {
+    const uuid = createPrefixedUUID("object-lock");
+    const set = getOrCreateObjectLock(name);
+    set.add(uuid);
+    return uuid;
+}
+
+function objectStatus(name: string): boolean {
+    const set = objectLocks.get(name);
+    if (!set) return false;
+    return set.size > 0;
+}
+
+function objectStatus_Specific(name: string, id: ObjectLockUUID): boolean {
+    const set = objectLocks.get(name);
+    if (!set) return false;
+    return set.has(id);
+}
+
+function unlockObject(name: string, id: ObjectLockUUID): boolean {
+    const set = objectLocks.get(name);
+    if (!set) return false;
+    const flag = set.delete(id);
+    if (!set.size) {
+        objectLocks.delete(name);
+    }
+    return flag;
+}
+
 // The root cannot be locked for editing (it cannot be deleted, modified, and so on)
 type RootLockStruct = {
     locked_files: Map<string, Set<FileLockUUID>>;
@@ -321,3 +371,4 @@ function createEmptyStruct<T extends boolean = false>(
 }
 
 let lock = createEmptyStruct(null, null, true);
+const objectLocks = new Map<string, Set<ObjectLockUUID>>();

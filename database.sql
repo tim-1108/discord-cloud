@@ -40,3 +40,4 @@ CREATE TABLE public.users (
   salt text NOT NULL,
   CONSTRAINT users_pkey PRIMARY KEY (id)
 );
+CREATE VIEW get_file_type_total_size AS SELECT sum(size), type FROM files GROUP BY type;

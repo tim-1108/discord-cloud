@@ -15,12 +15,12 @@ if (pinging.SERVICE_PINGING_ENABLED === "1") {
 }
 
 logInfo("Init: Folder tree");
-const folders = await Database.folder.getAll();
-const sizes = await Database.sizes.fileTypeByFolder();
-if (!folders || !sizes) {
+const folders = await Database.getAll("folders");
+const sizes = await Database.getAll("get_folder_sizes_by_file_type");
+if (!folders.data || !sizes.data) {
     process.exit(1);
 }
-Database.tree.init(folders, sizes);
+Database.tree.init(folders.data, sizes.data);
 logInfo("Init: Folder tree done");
 
 const { MANAGER_PORT } = getEnvironmentVariables("manager");

@@ -1,31 +1,36 @@
 import { logError } from "../../common/logging.js";
 import type { FileSharePacket } from "../../common/packet/c2s/FileSharePacket.js";
+import type { SignedDownloadRequestPacket } from "../../common/packet/c2s/SignedDownloadRequestPacket.js";
 import type { TransferOwnershipPacket } from "../../common/packet/c2s/TransferOwnershipPacket.js";
 import { GenericBooleanPacket } from "../../common/packet/generic/GenericBooleanPacket.js";
+import { SignedDownloadPacket } from "../../common/packet/s2c/SignedDownloadPacket.js";
 import type { FileShareHandle } from "../../common/supabase.js";
 import { Authentication } from "../authentication.js";
 import type { Client } from "../client/Client.js";
 import { Database } from "../database/index.js";
 import { Locks } from "../lock.js";
+import { SignedDownload } from "../signed-download.js";
 
 export async function performFileShareOperation(client: Client, packet: FileSharePacket) {
     const reply = (success: boolean, message?: string) => client.replyToPacket(packet, new GenericBooleanPacket({ success, message }));
 
-    // General notice:
-    // Should a lock on certain things (like file shares or files) be enforced while we are doing things with
-    // the file. For instance, if the removal of this share is in process (request to db) and another packet
-    // comes in attempting to modify the file share, would that possibly be an issue?? (in an imaginary situation
-    // where there is a huge delay when sending requests to db)
-
     const user = client.getUserId();
     const { target_user, path, name, can_write, is_deleting } = packet.getData();
+
+    if (Locks.file.individualStatus(path, name)) {
+        return reply(false, "This file is presently locked");
+    }
+    const lockId = Locks.file.lock(path, name);
+
     const handle = await Database.file.get(path, name);
     if (!handle) {
+        Locks.file.unlock(path, name, lockId);
         return reply(false, "The file does not exist");
     }
 
     const ownership = await Authentication.permissions.ownership(user, handle);
     if (!ownership || ownership.status !== "owned") {
+        Locks.file.unlock(path, name, lockId);
         return reply(false, "You do not own this file");
     }
 
@@ -42,6 +47,7 @@ export async function performFileShareOperation(client: Client, packet: FileShar
             can_write ?? false /* typescript does not detect it, but can_write is a bool */
         );
     }
+    Locks.file.unlock(path, name, lockId);
     return reply($handle !== null);
 }
 
@@ -109,4 +115,25 @@ export async function performTransferOwnershipOperation(client: Client, packet: 
     } else {
         reply(true);
     }
+}
+
+export async function performSignedDownloadOperation(client: Client, packet: SignedDownloadRequestPacket) {
+    const reply = (payload?: string) => client.sendPacket(new SignedDownloadPacket({ payload }));
+
+    const { file_id } = packet.getData();
+
+    const handle = await Database.file.getById(file_id);
+    if (!handle) {
+        return reply();
+    }
+
+    if (handle.owner !== client.getUserId()) {
+        const { read } = await Authentication.permissions.file(client.getUserId(), handle.id);
+        if (!read) {
+            return reply();
+        }
+    }
+
+    const payload = SignedDownload.generate(handle);
+    reply(payload);
 }

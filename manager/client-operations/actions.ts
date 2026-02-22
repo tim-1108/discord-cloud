@@ -9,6 +9,7 @@ import { patterns } from "../../common/patterns.js";
 import { Authentication } from "../authentication.js";
 import type { Client } from "../client/Client.js";
 import { Database } from "../database/index.js";
+import { Replacement } from "../replacement.js";
 
 export const ActionClientOperations = { createFolder, moveFiles, deleteFile, renameFolder, renameFile } as const;
 
@@ -44,7 +45,7 @@ async function moveFiles(c: Client, p: MoveFilesPacket): Promise<void> {
         }
 
         const existingHandle = await Database.file.get(tf, name);
-        const targetName = existingHandle ? await Database.replacement.file(name, tf) : name;
+        const targetName = existingHandle ? await Replacement.file(name, tf) : name;
         // A new name just could not be found...
         if (targetName === null) {
             continue;
@@ -102,7 +103,7 @@ async function uploadEmptyFile(c: Client, p: EmptyFileUploadPacket) {
         return;
     }
     const existingFile = await Database.file.get(folder, name);
-    const targetName = existingFile ? await Database.replacement.file(name, folder) : name;
+    const targetName = existingFile ? await Replacement.file(name, folder) : name;
     if (targetName === null) {
         return;
     }

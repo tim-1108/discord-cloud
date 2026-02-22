@@ -33,6 +33,7 @@ import { FolderStatusRequestPacket } from "../../../common/packet/c2s/FolderStat
 import { UploadOverwriteRequestPacket } from "../../../common/packet/s2c/UploadOverwriteRequestPacket.js";
 import { UploadOverwriteCancelPacket } from "../../../common/packet/s2c/UploadOverwriteCancelPacket.js";
 import { UploadStageFinishPacket } from "../../../common/packet/s2c/UploadStageFinishPacket.js";
+import { SignedDownloadPacket } from "../../../common/packet/s2c/SignedDownloadPacket.js";
 
 // As we cannot just scan directories, this requires manual registering
 
@@ -51,32 +52,13 @@ const clientboundPackets: PacketWithID<PacketTypeMap[PacketType.Server2Client]>[
     FolderSizePacket,
     UploadOverwriteRequestPacket,
     UploadOverwriteCancelPacket,
-    UploadStageFinishPacket
-];
-const serverboundPackets: PacketWithID<PacketTypeMap[PacketType.Client2Server]>[] = [
-    ListRequestPacket,
-    PingServicesPacket,
-    DeleteFilePacket,
-    DeleteFolderPacket,
-    MoveFilesPacket,
-    CreateFolderPacket,
-    RenameFolderPacket,
-    RenameFilePacket,
-    ThumbnailRequestPacket,
-    UploadRequestPacket,
-    UploadBookingClearPacket,
-    UploadBookingRequestPacket,
-    EmptyFileUploadPacket,
-    FileSharePacket,
-    FolderSizeRequestPacket,
-    FolderStatusRequestPacket
+    UploadStageFinishPacket,
+    SignedDownloadPacket
 ];
 const genericPackets: PacketWithID<PacketTypeMap[PacketType.Generic]>[] = [GenericBooleanPacket, GenericPrimitivesPacket];
 
 export function getBrowserPacketList<T extends PacketType>(type: T): PacketWithID<PacketTypeMap[T]>[] {
-    if (type === PacketType.Client2Server) {
-        return serverboundPackets;
-    } else if (type === PacketType.Server2Client) {
+    if (type === PacketType.Server2Client) {
         return clientboundPackets;
     } else if (type === PacketType.Generic) {
         return genericPackets;

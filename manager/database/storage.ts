@@ -1,11 +1,19 @@
+import { getEnvironmentVariables } from "../../common/environment.js";
 import { logDebug, logError, logWarn } from "../../common/logging.js";
 import { formatByteString } from "../../common/useless.js";
 import { supabase } from "./core.js";
 import type { Bucket } from "@supabase/storage-js";
 import jwt from "jsonwebtoken";
 
-export async function uploadThumbnailToStorage(id: number, data: Buffer) {
-    const BUCKET_NAME = "thumbnails";
+const { USE_THUMBNAILS } = getEnvironmentVariables("supabase-storage", true);
+const BUCKET_NAME = "thumbnails";
+
+function isStorageEnabled(): boolean {
+    return USE_THUMBNAILS === "1";
+}
+
+export async function uploadThumbnailToStorage(id: number, data: Buffer): Promise<boolean> {
+    if (!isStorageEnabled()) return false;
     const bucket = await getOrCreateBucket(BUCKET_NAME);
     if (bucket === null) return false;
 
@@ -27,8 +35,8 @@ export async function uploadThumbnailToStorage(id: number, data: Buffer) {
 
 const idToFilePath = (id: number) => id.toString(10) + ".avif";
 
-export async function deleteThumbnailFromStorage(id: number) {
-    const BUCKET_NAME = "thumbnails";
+export async function deleteThumbnailFromStorage(id: number): Promise<boolean> {
+    if (!isStorageEnabled()) return false;
     const bucket = await getOrCreateBucket(BUCKET_NAME);
     if (bucket === null) return false;
 
@@ -53,6 +61,7 @@ async function getOrCreateBucket(id: string): Promise<Bucket | null> {
 }
 
 export async function getSignedLinkForThumbnail(id: number) {
+    if (!isStorageEnabled()) return null;
     const A_DAY_MS = 24 * 60 * 60 * 1000;
     const AN_HOUR_SEC = 60_000;
     const hit = thumbnailCache.get(id);
@@ -83,7 +92,7 @@ export async function getSignedLinkForThumbnail(id: number) {
         return hit;
     }
 
-    const response = await supabase.storage.from("thumbnails").createSignedUrl(idToFilePath(id), A_DAY_MS);
+    const response = await supabase.storage.from(BUCKET_NAME).createSignedUrl(idToFilePath(id), A_DAY_MS);
     if (response.error) {
         // TODO: parse what error? here, that may not be necessary
         return null;

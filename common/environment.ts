@@ -53,7 +53,8 @@ const ENV_SUBSETS = {
      * to symetrically decrypt/encrypt Discord attachments using AES
      */
     discord: ["CRYPTO_KEY", "BOT_TOKEN"],
-    logging: ["DEBUG_LOGGING", "OVERWRITE_LOGGING_FUNCTIONS"]
+    logging: ["DEBUG_LOGGING", "OVERWRITE_LOGGING_FUNCTIONS"],
+    "supabase-storage": ["USE_THUMBNAILS"]
 } as const;
 
 /**

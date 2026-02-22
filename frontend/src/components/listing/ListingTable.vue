@@ -3,7 +3,7 @@ import { SortingFieldOptions, type Sort } from "@/composables/listing_uncached";
 import type { ClientFileHandle, ClientFolderHandle } from "../../../../common/client";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import { computed, onMounted, reactive, ref, useTemplateRef } from "vue";
-import { useListingPath, useListingRoute } from "@/composables/path";
+import { useListingRoute } from "@/composables/path";
 import { getIconForFileType } from "@/composables/icons";
 import { formatByteString, parseDateObjectToRelative } from "../../../../common/useless";
 import { logError } from "../../../../common/logging";
@@ -214,7 +214,7 @@ function handleDoubleClick<T extends "file" | "folder">(
 async function createSignedDownloadLink_Wrapper(index: number) {
     const handle = props.files[index];
     if (!handle) return;
-    const link = await createSignedDownloadLink(useListingPath().value, handle.name);
+    const link = await createSignedDownloadLink(handle.id);
     if (!link) return;
     navigator.clipboard.writeText(link.toString());
 }

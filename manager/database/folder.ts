@@ -3,10 +3,12 @@ import type { DataErrorFields } from "../../common/index.js";
 import { logError } from "../../common/logging.js";
 import { FolderModifyPacket } from "../../common/packet/s2c/FolderModifyPacket.js";
 import { patterns } from "../../common/patterns.js";
-import type { FolderHandle } from "../../common/supabase.js";
+import type { FileHandle, FolderHandle } from "../../common/supabase.js";
 import { ClientList } from "../client/list.js";
 import { Locks } from "../lock.js";
+import { Replacement } from "../replacement.js";
 import { ROOT_FOLDER_ID, routeToPath, supabase, type FolderOrRoot } from "./core.js";
+import { parsePostgrestResponse } from "./helper.js";
 import { Database } from "./index.js";
 
 export const Database$Folder = {
@@ -23,39 +25,30 @@ export const Database$Folder = {
  * added to the tree cache, as the caller is doing that already. This
  * may not be the most sustainable method of doing this.
  */
-export async function addFolder(name: string, parent: FolderOrRoot, isFromTreeLookup?: boolean): Promise<FolderHandle | null> {
+export async function addFolder(name: string, parent: FolderOrRoot, isFromTreeLookup?: boolean): Promise<DataErrorFields<FolderHandle>> {
     const parentId = parent === ROOT_FOLDER_ID ? null : parent;
 
     if (parent !== "root") {
         const parentFolder = Database.folderHandle.getById(parent);
         // The parent folder does not exist. We will not add the folder
-        if (!parentFolder) return null;
+        if (!parentFolder) return { data: null, error: "The parent folder does not exist" };
     }
 
     // This function should ALWAYS return an existing folder and NOT search
     // for a replacement name. That is not what we want when we create a folder.
     // On renaming and the such, this is fine, but not here.
     const existingFolder = Database.folderHandle.getByNameAndParentId(parent, name);
-    if (existingFolder) return existingFolder;
+    if (existingFolder) return { data: existingFolder, error: null };
 
-    const { data } = await supabase.from("folders").insert({ name, parent_folder: parentId }).select().single();
+    const { data, error } = await supabase.from("folders").insert({ name, parent_folder: parentId }).select().single();
     if (data) {
         if (!isFromTreeLookup) {
             Database.tree.add(data);
         }
         broadcastToClients("add", data, {});
+        return { data, error: null };
     }
-    return data;
-}
-
-export async function getAllFolders(): Promise<FolderHandle[] | null> {
-    // Is this efficient, NO!
-    const selector = await supabase.from("folders").select("*").limit(Number.MAX_SAFE_INTEGER);
-    if (!selector.data) {
-        logError("Failed to retrieve all folders due to:", selector.error);
-        return null;
-    }
-    return selector.data;
+    return { data, error: error.details };
 }
 
 export async function renameFolder(folderId: number, desiredName: string): Promise<DataErrorFields<FolderHandle>> {
@@ -80,7 +73,7 @@ export async function renameFolder(folderId: number, desiredName: string): Promi
     const existingFolder = Database.folderHandle.getByNameAndParentId(handle.parent_folder ?? "root", desiredName);
     let targetName = desiredName;
     if (existingFolder) {
-        const replacement = await Database.replacement.folder(desiredName, handle.parent_folder ?? "root");
+        const replacement = await Replacement.folder(desiredName, handle.parent_folder ?? "root");
         if (!replacement) return { error: "The target name is already taken, but failed to find a replacement name", data: null };
         targetName = replacement;
     }
@@ -93,7 +86,7 @@ export async function renameFolder(folderId: number, desiredName: string): Promi
     return data ? { error: null, data } : { data: null, error: "Failed to update folder handle in database" };
 }
 
-export async function resolveRouteFromFolderId(id: FolderOrRoot): Promise<string[] | null> {
+export function resolveRouteFromFolderId(id: FolderOrRoot): string[] | null {
     const route = new Array<string>();
     if (id === "root") {
         return route;
@@ -205,7 +198,7 @@ export async function mergeFolders_Recursive(a: number, b: number, targetParentP
         let targetName = file.name;
         const exists = await Database.file.get(b, file.name);
         if (exists) {
-            const $name = await Database.replacement.file(file.name, b, path);
+            const $name = await Replacement.file(file.name, b, path);
             if ($name === null) {
                 flag_isIncomplete = true;
                 continue;
@@ -226,6 +219,65 @@ export async function mergeFolders_Recursive(a: number, b: number, targetParentP
     }
 
     return { data: true, error: null };
+}
+
+interface SubfolderFilesListItem {
+    path: string;
+    file: FileHandle;
+}
+
+export async function traverseTreeForFiles(path: string): Promise<SubfolderFilesListItem[] | null> {
+    const id = Database.folderId.get(path);
+    if (id === null) {
+        return null;
+    }
+
+    async function recursive_func(id: FolderOrRoot, array: Array<SubfolderFilesListItem>, path: string): Promise<void> {
+        const subfolders = await Database.folder.listing.subfolders(id);
+        const files = await Database.folder.listing.files(id);
+
+        if (subfolders !== null) {
+            for (const s of subfolders) {
+                await recursive_func(s.id, array, appendToPath(path, s.name));
+            }
+        }
+
+        if (files !== null) {
+            for (const file of files) {
+                array.push({ path, file });
+            }
+        }
+    }
+
+    const arrayRef = new Array<SubfolderFilesListItem>();
+    await recursive_func(id, arrayRef, "/" /* everything is relative to the origin of this function call*/);
+    return arrayRef;
+}
+
+export function listSubfoldersInFolder_Database(
+    folderId: FolderOrRoot,
+    sortBy?: { field: string; ascending?: boolean },
+    pagination?: { limit: number; offset: number }
+): Promise<FolderHandle[] | null> {
+    let selector = supabase.from("folders").select("*");
+    if (sortBy) {
+        selector = selector.order(sortBy.field, { ascending: sortBy.ascending });
+    }
+    if (pagination) {
+        // Here, the 2nd parameter is inclusive, unlike most native JS functions
+        selector = selector.range(pagination.offset, pagination.offset + pagination.limit - 1);
+    }
+    return parsePostgrestResponse<FolderHandle[]>(
+        folderId !== ROOT_FOLDER_ID ? selector.eq("parent_folder", folderId) : selector.is("parent_folder", null)
+    );
+}
+
+function appendToPath(path: string, next: string) {
+    // Paths on the server are always valid, as user input from packets is always validated then and there!
+    if (path === "/") {
+        return `/${next}`;
+    }
+    return `${path}/${next}`;
 }
 
 async function broadcastToClients(action: FolderModifyAction, handle: FolderHandle, origins: { rename?: string; parentFolder?: number | null }) {

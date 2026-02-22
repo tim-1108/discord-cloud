@@ -1,27 +1,22 @@
-import { logError } from "../../../common/logging";
-import { patterns } from "../../../common/patterns";
-import { getAuthenticationToken, getServerAddress } from "./authentication";
+import type { DataErrorFields } from "../../../common";
+import { SignedDownloadRequestPacket } from "../../../common/packet/c2s/SignedDownloadRequestPacket";
+import { SignedDownloadPacket } from "../../../common/packet/s2c/SignedDownloadPacket";
+import { getOrCreateCommunicator, getServerAddress } from "./authentication";
 
-export async function createSignedDownloadLink(path: string, name: string) {
-    const token = getAuthenticationToken();
-    const address = await getServerAddress();
-    address.pathname = "/generate-signed-download";
-    const sp = address.searchParams;
-    sp.append("auth", token);
-    sp.append("path", path);
-    sp.append("name", name);
-    try {
-        const res = await fetch(address, { method: "GET" });
-        if (!res.ok) throw new Error("Fetch failed");
-        const text = await res.text();
-        if (!patterns.base64Url.test(text)) throw new Error("Signed download data in invalid format");
+export async function createSignedDownloadLink(fileId: number): Promise<DataErrorFields<URL>> {
+    const com = await getOrCreateCommunicator();
 
-        const target = new URL(await getServerAddress() /* dont re-use the address from above! */);
-        target.pathname = "/signed-download";
-        target.searchParams.append("q", text);
-        return target;
-    } catch (error) {
-        logError(`Failed to generate signed download link for "${name}" at path "${path}" due to`, error);
-        return null;
+    const { packet, error } = await com.sendPacketAndReply_new(new SignedDownloadRequestPacket({ file_id: fileId }), SignedDownloadPacket);
+    if (!packet) {
+        return { data: null, error };
     }
+    const { payload } = packet.getData();
+    if (!payload) {
+        return { data: null, error: "The server returned an empty payload" };
+    }
+
+    const address = await getServerAddress();
+    address.pathname = "/signed-download";
+    address.searchParams.append("q", payload);
+    return { data: address, error: null };
 }

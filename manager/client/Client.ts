@@ -30,6 +30,8 @@ import { UploadService } from "../services/UploadService.js";
 import { sleep } from "../../common/useless.js";
 import { UploadAbortRequestPacket } from "../../common/packet/c2s/UploadAbortRequestPacket.js";
 import { UploadOverwriteResponsePacket } from "../../common/packet/c2s/UploadOverwriteResponsePacket.js";
+import { SignedDownloadRequestPacket } from "../../common/packet/c2s/SignedDownloadRequestPacket.js";
+import { performSignedDownloadOperation } from "../client-operations/files.js";
 
 export class Client extends PacketReceiver {
     private readonly uuid: UUID;
@@ -129,6 +131,8 @@ export class Client extends PacketReceiver {
             void Uploads.handlers.client.requestAbort(this, packet);
         } else if (packet instanceof UploadOverwriteResponsePacket) {
             void Uploads.handlers.client.overwriteResponse(this, packet);
+        } else if (packet instanceof SignedDownloadRequestPacket) {
+            void performSignedDownloadOperation(this, packet);
         }
     }
 }

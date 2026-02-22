@@ -1,9 +1,9 @@
-import { logWarn } from "../../common/logging.js";
-import { patterns } from "../../common/patterns";
-import type { FileHandle, FolderHandle } from "../../common/supabase";
-import { Locks } from "../lock.js";
-import { pathToRoute, type FolderOrRoot } from "./core.js";
-import { Database } from "./index.js";
+import { logWarn } from "../common/logging.js";
+import { patterns } from "../common/patterns.js";
+import type { FileHandle, FolderHandle } from "../common/supabase";
+import { Locks } from "./lock.js";
+import { pathToRoute, type FolderOrRoot } from "./database/core.js";
+import { Database } from "./database/index.js";
 import path from "node:path";
 
 /**
@@ -53,7 +53,7 @@ type Providers = {
 };
 async function findReplacementName(providers: Providers, input_name: string, folderId: FolderOrRoot, input_path?: string): Promise<string | null> {
     // This may be either a route or a path, the function we call does not care.
-    const route = input_path ?? (await Database.folder.resolveRouteById(folderId));
+    const route = input_path ?? Database.folder.resolveRouteById(folderId);
     if (!route) {
         // This should not actually be possible
         logWarn("Failed to resolve route for folder id", folderId);
@@ -94,7 +94,7 @@ async function findReplacementName(providers: Providers, input_name: string, fol
     return null;
 }
 
-export default {
+export const Replacement = {
     file: file_wrapper,
     folder: folder_wrapper
 };

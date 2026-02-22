@@ -90,6 +90,16 @@ Configuration for the manager and the services is housed mostly within environme
 </details>
 
 <details>
+    <summary>supabase-storage</summary>
+
+    Used by: manager
+    Required: no
+
+    USE_THUMBNAILS: If set to "1", thumbnails will be stored in the Supabase storage under the bucket name `thumbnails`
+
+</details>
+
+<details>
     <summary>service-pinger</summary>
 
     Used by: manager
@@ -113,6 +123,12 @@ Configuration for the manager and the services is housed mostly within environme
 
 Whenever environment variables are attempted to be read, but cannot be found, an error is thrown containing a list of all the missing environment variables.
 
+### Supabase setup
+
+As `discord-cloud` utilizes Supabase as the preferred database provider, you can either use a free/paid option on supabase.com or [host it yourself](https://supabase.com/docs/guides/self-hosting) using Docker. The free option Supabase provides allows for 500MB for your database and 1GB for thumbnail storage, which both should be more than enough for most setups.
+
+The SQL statements needed to create all the tables and views can be found in `database.sql`. There is no further setup needed, as users and permissions are not handled by Supabase itself.
+
 ## Users and authentication
 
 Each manager can have multiple users, each with their own username and password. Every user can see every file, but can only access their own files, those which are marked `public` or which are shared with them. All this means that you can set up one server and share it with multiple people.
@@ -121,7 +137,11 @@ You may mark your own files as `public` or `restricted`, meaning only you can ac
 
 ### Register new users
 
-For now, users can only be registered using the `/register` GET endpoint. This requires a `username` and a ` password` field and the `SERVICE_PASSWORD` environment variable within the `key` field. If this succeedes, a user can log in using the frontend or the `/login` GET endpoint wit the `username` and `password` fields. This will return a `token` field on success, containing a JWT signed for this user.
+For now, users can only be registered using the `/register` GET endpoint. This requires a `username` and a ` password` field and a JWT in the `token` field of a user marked as an `administrator`. Should there not be any user yet, the first user creation does not require the `token` field, and that user will be marked as an administrator. If this succeedes, a user can log in using the frontend or the `/login` GET endpoint wit the `username` and `password` fields. This will return a `token` field on success, containing a JWT signed for this user.
+
+### Updating users
+
+Using the `/update-password` endpoint, a user can change their password. This will cause all their active connections to be killed and all old JWTs to be invalidated.
 
 ### Signed downloads
 
@@ -131,11 +151,13 @@ To share files with people who do not have an account, a "signed download" can b
 
 Downloads are performed over the manager directly. The `/download` and `/signed-download` routes both support the HTTP `Range` header fully.
 
+A whole folder can also be downloaded using the `/bulk-download` route with the `path` parameter. This will stream a zip file to the client with all files within the folder and all subfolders. All files which the requesting user cannot read are simply skipped.
+
+There is no disk overhead with downloads. In every case, every chunk is downloaded individually from Discord, decrypted and written to the TCP stream. Only once the client has drained the stream is the next chunk sent. If the client is too slow (very very slow), eventually the server will kill the connection. This also applies to `/bulk-download`, with the zip being streamed. Because of this, there is no support for the `Range` header on it.
+
 ## Communication
 
 Communication is handled primarly via WebSocket connections to the manager. This system is built on a custom JSON protocol for packets. Some actions that can only be performed whilst the socket is not yet open are handled via HTTP routes, like `/login` and `/register`.
-
-WebDAV and FTP implementations are planned.
 
 ### Packet structure
 
@@ -145,16 +167,32 @@ Details are available in `PACKETS.md`.
 {
     "id": "namespace:packet-id",
     "uuid": "id of this packet for identification",
-    "reply_uuid": "optional, specifies the uuid of the packet this is replying to"
+    "reply_uuid": "optional, specifies the uuid of the packet this is replying to",
     "data": {
         // a record of pre-defined data
     }
 }
 ```
 
+## Planned features
+
+- Folder merging
+- Actions (move, rename, delete) on the client
+- marking uploads as private/public on the client
+- creating folders on the client
+- (limited) WebDAV support
+- manager distributing bot token and channel ids
+- user management for administrators
+- more `DataErrorField` instead of `null` returns in the backend
+- client authentication store rework
+- better client error handling
+- connection view in client
+- saving uploads on disconnect and retry buttons
+- choosing the amount of desired upload services
+
 ## Disclaimer
 
-This is a work in progress. The frontend is still very much unpolished, but all in all, it works.
+This is a work in progress and very much a project built out of fun. The frontend is still very much unpolished, but all in all, it works.
 
 Although I could not find anything in the [Discord Terms of Service](https://discord.com/terms), the [Community Guidelines](https://discord.com/guidelines), the [Developer Policy](https://support-dev.discord.com/hc/en-us/articles/8563934450327-Discord-Developer-Policy), nor the [Developer Terms of Service](https://support-dev.discord.com/hc/en-us/articles/8562894815383-Discord-Developer-Terms-of-Service) that this usage of Discord is explicitly against all these terms, you may only use this on your own risk. You are fully responsible for any damages incurred. This application comes with ABSOLUTELY NO WARRANTY, to the extent permitted by applicable law.
 

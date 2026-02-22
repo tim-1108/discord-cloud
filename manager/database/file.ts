@@ -10,6 +10,7 @@ import { Database } from "./index.js";
 import { patterns } from "../../common/patterns.js";
 import type { DataErrorFields } from "../../common/index.js";
 import { Locks } from "../lock.js";
+import { Replacement } from "../replacement.js";
 
 /**
  * Maps file name to a handle.
@@ -68,6 +69,7 @@ export async function getFileHandle_Cached(folder: IdOrPath, name: string) {
         }
         return val;
     };
+    Database;
 
     const submap = fileCache.get(folderId);
     if (!submap) {
@@ -224,7 +226,7 @@ export async function renameFile(fileId: number, desiredName: string): Promise<D
     const existingFile = await Database.file.get(folderId, desiredName);
     let targetName = desiredName;
     if (existingFile) {
-        const replacement = await Database.replacement.file(desiredName, folderId);
+        const replacement = await Replacement.file(desiredName, folderId);
         if (!replacement) return { error: "The target name is already taken, but failed to find a replacement name", data: null };
         targetName = replacement;
     }

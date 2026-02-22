@@ -26,6 +26,7 @@ import type { UploadOverwriteResponsePacket } from "../common/packet/c2s/UploadO
 import { UploadOverwriteCancelPacket } from "../common/packet/s2c/UploadOverwriteCancelPacket.js";
 import { UploadOverwriteRequestPacket } from "../common/packet/s2c/UploadOverwriteRequestPacket.js";
 import { UploadStageFinishPacket } from "../common/packet/s2c/UploadStageFinishPacket.js";
+import { Replacement } from "./replacement.js";
 
 const Constants = {
     /**
@@ -584,7 +585,7 @@ async function submitFileToDatabase(
 
     let targetName = metadata.desired_name;
     if (action === "rename") {
-        const replacement = await Database.replacement.file(metadata.desired_name, overwriteData!.folderId, metadata.path);
+        const replacement = await Replacement.file(metadata.desired_name, overwriteData!.folderId, metadata.path);
         if (!replacement) {
             return failUpload(metadata, "Failed to find a replacement name");
         }

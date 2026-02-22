@@ -12,18 +12,17 @@ import {
 import {
     addFolder,
     deleteFolder_Recursive,
-    getAllFolders,
     getFileCount_folder,
     getSubfolderCount_folder,
+    listSubfoldersInFolder_Database,
     renameFolder,
-    resolveRouteFromFolderId
+    resolveRouteFromFolderId,
+    traverseTreeForFiles
 } from "./folder.js";
-import { listSubfolders } from "./public.js";
-import replacement from "./replacement.js";
-import { Database$Sizes } from "./sizes.js";
+import { Database$GetAll } from "./get-all.js";
 import { getSignedLinkForThumbnail, deleteThumbnailFromStorage, uploadThumbnailToStorage } from "./storage.js";
 import { Database$FolderHandle, Database$FolderId, Database$Tree } from "./tree.js";
-import { createUser, getUserByName_Database, getUser_Database, updateUserPassword } from "./users.js";
+import { createUser, getUserByName_Database, getUserCount, getUser_Database, updateUserPassword } from "./users.js";
 
 export const Database = {
     root: "root" as const,
@@ -39,6 +38,7 @@ export const Database = {
         add: createUser,
         get: getUser_Database,
         getByName: getUserByName_Database,
+        getCount: getUserCount,
         updatePassword: updateUserPassword
     },
     folder: {
@@ -51,10 +51,10 @@ export const Database = {
         },
         listing: {
             files: listFilesInFolder_Database,
-            subfolders: listSubfolders
+            subfolders: listSubfoldersInFolder_Database
         },
-        getAll: getAllFolders,
-        delete: deleteFolder_Recursive
+        delete: deleteFolder_Recursive,
+        traverseTreeForFiles
     },
     file: {
         add: addFileHandle,
@@ -79,10 +79,6 @@ export const Database = {
     },
     folderId: Database$FolderId,
     folderHandle: Database$FolderHandle,
-    sizes: {
-        fileTypeGlobally: Database$Sizes.getFileTypeTotalSizes_Database,
-        fileTypeByFolder: Database$Sizes.getFolderAndTypeSizes_Database
-    },
-    replacement,
-    tree: Database$Tree
+    tree: Database$Tree,
+    getAll: Database$GetAll
 } as const;

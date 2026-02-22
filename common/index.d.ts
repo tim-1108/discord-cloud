@@ -1,5 +1,5 @@
 export type UUID = `${string}-${string}-${string}-${string}-${string}`;
-type UUIDPrefix = "file-lock" | "folder-lock";
+type UUIDPrefix = "file-lock" | "folder-lock" | "object-lock";
 export type PrefixedUUIDS = {
     [K in UUIDPrefix]: PrefixedUUID<K>;
 };

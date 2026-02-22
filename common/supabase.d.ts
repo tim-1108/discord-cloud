@@ -138,18 +138,21 @@ export type Database = {
             };
             users: {
                 Row: {
+                    administrator: boolean;
                     id: number;
                     password: string;
                     salt: string;
                     username: string;
                 };
                 Insert: {
+                    administrator?: boolean;
                     id?: number;
                     password: string;
                     salt: string;
                     username: string;
                 };
                 Update: {
+                    administrator?: boolean;
                     id?: number;
                     password?: string;
                     salt?: string;
@@ -159,13 +162,6 @@ export type Database = {
             };
         };
         Views: {
-            get_file_type_total_size: {
-                Row: {
-                    sum: number | null;
-                    type: string | null;
-                };
-                Relationships: [];
-            };
             get_folder_sizes_by_file_type: {
                 Row: {
                     folder: number | null;
@@ -299,6 +295,12 @@ export type CompositeTypes<
     : PublicCompositeTypeNameOrOptions extends keyof DefaultSchema["CompositeTypes"]
       ? DefaultSchema["CompositeTypes"][PublicCompositeTypeNameOrOptions]
       : never;
+
+export const Constants = {
+    public: {
+        Enums: {}
+    }
+} as const;
 
 export type FileHandle = Database["public"]["Tables"]["files"]["Row"];
 export type FolderHandle = Database["public"]["Tables"]["folders"]["Row"];

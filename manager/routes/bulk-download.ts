@@ -4,9 +4,9 @@ import { patterns } from "../../common/patterns.js";
 import { PassThrough } from "node:stream";
 import archiver from "archiver";
 import { logDebug, logError, logWarn } from "../../common/logging.js";
-import { getAllFilesInSubfolders } from "../database/public.js";
 import { streamFileContents } from "../utils/stream-download.js";
 import { Authentication } from "../authentication.js";
+import { Database } from "../database/index.js";
 
 export default async function handleRequest(req: Request, res: Response): Promise<void> {
     const query = getRequestQuery(req);
@@ -34,13 +34,13 @@ export default async function handleRequest(req: Request, res: Response): Promis
     let _closed = !res.writable;
     socket.on("close", () => (_closed = true));
 
-    const files = await getAllFilesInSubfolders(path);
+    const files = await Database.folder.traverseTreeForFiles(path);
     if (files === null) {
         return void generateErrorResponse(res, 500, "Failed to locate all files");
     }
 
     const archive = archiver("zip", {
-        zlib: { level: 3 } // do we really need to apply any compression here?
+        zlib: { level: 0 } // do we really need to apply any compression here?
     });
 
     for (let i = files.length - 1; i <= 0; i--) {

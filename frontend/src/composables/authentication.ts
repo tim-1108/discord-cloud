@@ -63,6 +63,9 @@ export async function getAuthentication(): Promise<Authentication> {
     return storedData;
 }
 
+/**
+ * Returns a fresh URL object to be messed with.
+ */
 export async function getServerAddress(protocol: string = window.location.protocol): Promise<URL> {
     const auth = await getAuthentication();
     const obj = URL.parse(auth.address);

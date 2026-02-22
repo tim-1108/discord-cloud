@@ -1,7 +1,6 @@
 import type { ListRequestPacket } from "../../common/packet/c2s/ListRequestPacket.js";
 import type { Client } from "../client/Client.js";
 import { ListPacket } from "../../common/packet/s2c/ListPacket.js";
-import { listSubfolders } from "../database/public.js";
 import { Database } from "../database/index.js";
 import type { ClientFileHandle } from "../../common/client.js";
 import { Authentication } from "../authentication.js";

@@ -1,6 +1,6 @@
+import type { DataErrorFields } from "../../common/index.js";
 import type { UserHandle } from "../../common/supabase.js";
 import { Authentication } from "../authentication.js";
-import { ClientList } from "../client/list.js";
 import { supabase } from "./core.js";
 import { parsePostgrestResponse } from "./helper.js";
 
@@ -12,9 +12,13 @@ export function getUserByName_Database(username: string) {
     return parsePostgrestResponse<UserHandle>(supabase.from("users").select("*").eq("username", username).single());
 }
 
-export async function createUser(username: string, password: string) {
+export async function createUser(username: string, password: string, administrator?: boolean) {
     const $password = Authentication.password.generate(password);
-    const response = await supabase.from("users").insert({ username, password: $password.hash, salt: $password.salt }).select("*").single();
+    const response = await supabase
+        .from("users")
+        .insert({ username, password: $password.hash, salt: $password.salt, administrator: administrator ?? false })
+        .select("*")
+        .single();
     if (response.error !== null) {
         // TODO: Check whether the error which occured means a user with that same name already exists
         return null;
@@ -23,6 +27,13 @@ export async function createUser(username: string, password: string) {
 }
 
 export async function updateUserPassword({ id, password, salt }: Pick<UserHandle, "id" | "password" | "salt">) {
-    ClientList.disconnect(($id) => id === $id);
     return parsePostgrestResponse<UserHandle>(supabase.from("users").update({ password, salt }).eq("id", id).select("*").single());
+}
+
+export async function getUserCount(): Promise<DataErrorFields<number>> {
+    const { data, error } = await supabase.from("users").select("count()", { count: "exact", head: true }).single();
+    if (error) {
+        return { data: null, error: error.details };
+    }
+    return { data: data.count, error: null };
 }
