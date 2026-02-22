@@ -11,9 +11,10 @@ import healthRoute from "./routes/health.js";
 import loginRoute from "./routes/login.js";
 import registerRoute from "./routes/register.js";
 import updatePasswordRoute from "./routes/update-password.js";
+import tokenStatusRoute from "./routes/token-status.js";
 import { ClientList } from "./client/list.js";
 import { ServiceRegistry, type ServiceName } from "./services/list.js";
-import { logDebug, logError } from "../common/logging.js";
+import { logError } from "../common/logging.js";
 import type { Duplex } from "node:stream";
 import type { ServiceConfiguration } from "./services/Service.js";
 import { validateObjectBySchema } from "../common/validator.js";
@@ -84,6 +85,7 @@ export class Network {
         this.app.get("/login", loginRoute);
         this.app.get("/register", registerRoute);
         this.app.get("/update-password", updatePasswordRoute);
+        this.app.get("/token-status", tokenStatusRoute);
 
         this.hasInitializedRoutes = true;
     }
