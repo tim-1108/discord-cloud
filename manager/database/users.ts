@@ -31,8 +31,8 @@ export async function updateUserPassword({ id, password, salt }: Pick<UserHandle
 }
 
 export async function getUserCount(): Promise<DataErrorFields<number>> {
-    const { data, error } = await supabase.from("users").select("count()", { count: "exact", head: true }).single();
-    if (error) {
+    const { data, error } = await supabase.from("users").select("count()", { count: "exact" }).single();
+    if (!data) {
         return { data: null, error: error.details };
     }
     return { data: data.count, error: null };

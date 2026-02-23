@@ -5,6 +5,7 @@ import { patterns } from "../../common/patterns.js";
 import { validateObjectBySchema } from "../../common/validator.js";
 import { Database } from "../database/index.js";
 import { Authentication } from "../authentication.js";
+import { logWarn } from "../../common/logging.js";
 
 const schema = {
     username: { type: "string", required: true, pattern: patterns.username },
@@ -25,6 +26,8 @@ export default async function handleRequest(req: Request, res: Response): Promis
 
     const isValid = Authentication.password.verify(handle.password, password, handle.salt);
     if (!isValid) {
+        // Maybe don't write passwords to the log.
+        logWarn("Failed login attempt:", username);
         return void generateErrorResponse(res, 403);
     }
 
