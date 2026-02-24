@@ -43,7 +43,7 @@ export function getSearchParamsForAddress<T extends string[]>(address: string, .
  * Convert a given URL to only use HTTPS and no additional properties besides the domain and port.
  * @param link
  */
-export function cleanURL(link: string) {
+export function cleanURL(link: string): URL | null {
     try {
         const url = new URL(link);
         url.protocol = "https:";
@@ -52,7 +52,7 @@ export function cleanURL(link: string) {
         url.username = "";
         url.pathname = "";
         url.hash = "";
-        return url.href;
+        return url;
     } catch {
         return null;
     }

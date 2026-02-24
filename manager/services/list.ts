@@ -1,11 +1,10 @@
-import { UploadService } from "./UploadService.js";
 import type { Service, ServiceParams } from "./Service.js";
 import { WebSocket } from "ws";
+import { UploadService } from "./UploadService.js";
 import { ThumbnailService } from "./ThumbnailService.js";
 import { logDebug, logWarn } from "../../common/logging.js";
 import { ClientList } from "../client/list.js";
 import { ServiceRegistryPacket } from "../../common/packet/s2c/ServiceRegistryPacket.js";
-
 /**
  * Services have to be registered here
  */
@@ -27,7 +26,7 @@ type ServiceClassMap = {
 };
 type GenericServiceParams = Record<string, string | null>;
 
-function registerAndGetService(name: ServiceName, socket: WebSocket, params: GenericServiceParams | undefined) {
+function registerAndGetService(name: ServiceName, socket: WebSocket, params: GenericServiceParams | undefined): void {
     type T = ServiceClassMap[typeof name];
     const $class = serviceClassMap.get(name) as T;
     // This is validated before being passed here
@@ -35,29 +34,44 @@ function registerAndGetService(name: ServiceName, socket: WebSocket, params: Gen
         throw new ReferenceError("Failed to get service class for a previously validated type: " + name);
     }
 
-    logDebug("Instantiating new service", name, params);
+    logDebug("Instantiating new service:", name, params);
 
     const inst = new $class(socket, params as ServiceParams<T["prototype"]>);
 
-    let set = activeServices.get(name);
-    if (!set) {
-        set = new Set();
-        activeServices.set(name, set);
+    // Because this may sometimes not actually be the case yet, we have
+    // to wrap this in an ugly sub-function.
+    socket.readyState === socket.OPEN ? add() : socket.addEventListener("open", () => add());
+    // A wrapper to make sure that the service is only made
+    // available to general use once the addHandler has resolved
+    async function add() {
+        // Stuff we call inside the instance
+        const status = await inst.addHandler();
+        if (!status) {
+            logWarn("Failed to instantiate service due to failed add handler:", name, params);
+            inst.removeHandler();
+            inst.closeSocket();
+            return;
+        }
+
+        let set = activeServices.get(name);
+        if (!set) {
+            set = new Set();
+            activeServices.set(name, set);
+        }
+        set.add(inst);
+
+        // All this gets delayed to make sure that if something
+        // goes wrong within the addHandler(), nothing is yet broadcast
+        socket.addEventListener("close", () => unregisterService(inst));
+
+        const pkt = new ServiceRegistryPacket({
+            action: "added",
+            service_type: name,
+            address: inst instanceof UploadService ? inst.getAddress() : undefined,
+            service_uuid: inst.getServiceUUID()
+        });
+        ClientList.broadcast(() => pkt);
     }
-    set.add(inst);
-
-    // Stuff we call inside the instance
-    socket.readyState === socket.OPEN ? inst.addHandler() : socket.addEventListener("open", () => inst.addHandler());
-    socket.addEventListener("close", () => unregisterService(inst));
-    const pkt = new ServiceRegistryPacket({
-        action: "added",
-        service_type: name,
-        address: inst instanceof UploadService ? inst.getAddress() : undefined,
-        service_uuid: inst.getServiceUUID()
-    });
-    ClientList.broadcast(() => pkt);
-
-    return inst as T["prototype"];
 }
 
 function unregisterService(inst: Service) {

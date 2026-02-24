@@ -2,23 +2,22 @@ import { ref } from "vue";
 import type { UploadAbortPacket } from "../common/packet/s2u/UploadAbortPacket.js";
 import type { UploadStartPacket } from "../common/packet/s2u/UploadStartPacket.js";
 import { Socket } from "./Socket.js";
-import type { UploadMetadata } from "../common/uploads.js";
 import { GenericBooleanPacket } from "../common/packet/generic/GenericBooleanPacket.js";
-import { getEnvironmentVariables } from "../common/environment.js";
 import { createTimeout } from "./timeout.js";
 import type { S2UPacket } from "../common/packet/S2UPacket.js";
 import { UploadFinishPacket } from "../common/packet/u2s/UploadFinishPacket.js";
-import { logError, logInfo } from "../common/logging.js";
+import { logDebug, logError, logInfo, logWarn } from "../common/logging.js";
 import { fileTypeFromBuffer } from "file-type";
-import { createHashFromBinaryLike, encryptBuffer } from "../common/crypto.js";
+import { createHashFromBinaryLike } from "../common/crypto.js";
 import { formatJSON } from "../common/useless.js";
 import { Discord } from "../common/discord_new.js";
 import type { DataErrorFields, UUID } from "../common/index.js";
 import { combineHashes } from "./utils.js";
 import { initNetwork } from "./network.js";
 import { loadPackets } from "../common/packet/reader.js";
+import type { UploadServiceConfigurationPacket } from "../common/packet/s2u/UploadServiceConfigurationPacket.js";
+import { SymmetricCrypto } from "../common/symmetric-crypto.js";
 
-const env = getEnvironmentVariables("upload-service");
 await loadPackets();
 initNetwork();
 
@@ -55,12 +54,6 @@ export interface Data {
      * As a string, they are concatenated at the end to then be hashed again!
      */
     hashes: string[];
-    should_encrypt: boolean;
-    /**
-     * As uploads are only handled by one web socket at a time,
-     * this is the same for every chunk running on this uploader.
-     */
-    channel_id: string | null;
     /**
      * A function that is called whenever a chunk is finished. Runs
      * logic for resetting the timeout or validating that the file
@@ -78,16 +71,39 @@ export interface Data {
 const socket = new Socket();
 const handle = ref<Data | null>(null);
 
+type Configuration = UploadServiceConfigurationPacket["data"] & { defined: boolean };
+let configuration: Configuration = { crypto: { enabled: false }, discord_bot_token: "", discord_channel_id: "", defined: false };
+function packet$configure(packet: UploadServiceConfigurationPacket) {
+    if (isConfigured()) {
+        logWarn("Attempted to configure whilst being already configured");
+        socket.replyToPacket(packet, new GenericBooleanPacket({ success: false }));
+        return;
+    }
+
+    const data = packet.getData();
+
+    configuration = { ...data, defined: true };
+    Discord.initialize(data.discord_bot_token);
+    if (data.crypto.enabled) {
+        SymmetricCrypto.initialize(data.crypto.key);
+    }
+    logDebug("Received configuration with channel id", data.discord_channel_id);
+    socket.replyToPacket(packet, new GenericBooleanPacket({ success: true }));
+}
+function isConfigured(): boolean {
+    return configuration.defined;
+}
+
 export const Upload = {
     packet: {
         start: packet$uploadStart,
-        abort: packet$uploadAbort
+        abort: packet$uploadAbort,
+        configuration: packet$configure
     },
     event: {
         submitFile: event$submitFile
     },
-    data: handle,
-    busy: isBusy
+    data: handle
 } as const;
 
 function isBusy() {
@@ -110,8 +126,6 @@ function createData(metadata: UploadMetadataInService, onChunkFinish: (i: number
         processing_chunks: new Set(),
         type: "application/octet-stream",
         hashes: new Array(cc),
-        should_encrypt: env.ENCRYPTION === "1",
-        channel_id: null,
         chunk_finish_handler: onChunkFinish,
         promise_clear_fn: promiseClearFn
     };
@@ -120,6 +134,11 @@ function createData(metadata: UploadMetadataInService, onChunkFinish: (i: number
 function packet$uploadStart(packet: UploadStartPacket) {
     if (isBusy()) {
         rejectPacket(packet, "The service is internally still marked as busy. The manager must not prompt to start another upload!");
+        return;
+    }
+
+    if (!isConfigured()) {
+        rejectPacket(packet, "The upload service is not yet configured");
         return;
     }
 
@@ -134,20 +153,15 @@ function packet$uploadStart(packet: UploadStartPacket) {
             return;
         }
 
-        // This implicitly also catches empty strings
-        if (!data.channel_id) {
-            throw new ReferenceError("Channel id not set after uploading all chunks");
-        }
-
         const messages = retrieveMessagesFromMap(data.completed_chunks);
         socket.sendPacket(
             new UploadFinishPacket({
                 success: true,
                 messages,
                 hash: combineHashes(data.hashes),
-                is_encrypted: data.should_encrypt,
+                is_encrypted: configuration.crypto.enabled,
                 type: data.type,
-                channel: data.channel_id as string
+                channel: configuration.discord_channel_id
             })
         );
 
@@ -189,6 +203,9 @@ function packet$uploadAbort(packet: UploadAbortPacket) {
 }
 
 async function event$submitFile(buffer: Buffer, chunkId: number): Promise<DataErrorFields<boolean, string, "success">> {
+    if (!isConfigured()) {
+        return { success: null, error: "The upload service is not yet configured" };
+    }
     const data = getHandleOrThrow();
     data.processing_chunks.add(chunkId);
     if (chunkId === 0) {
@@ -197,14 +214,14 @@ async function event$submitFile(buffer: Buffer, chunkId: number): Promise<DataEr
     }
 
     data.hashes[chunkId] = createHashFromBinaryLike(buffer);
-    buffer = data.should_encrypt ? encryptBuffer(buffer) : buffer;
+    buffer = configuration.crypto.enabled ? SymmetricCrypto.encrypt(buffer) : buffer;
     const cfg = {
         buf: buffer,
         filename: chunkId.toString(10),
         content: "```json\n" + formatJSON(data.metadata) + "\n```"
     };
 
-    const response = await Discord.bot.sendMessage(env.CHANNEL_ID, cfg);
+    const response = await Discord.bot.sendMessage(configuration.discord_channel_id, cfg);
     if (!response.data) {
         data.processing_chunks.delete(chunkId);
         logError(`Failed to upload chunk ${chunkId}: ${response.error}`);
@@ -214,10 +231,6 @@ async function event$submitFile(buffer: Buffer, chunkId: number): Promise<DataEr
 
     data.completed_chunks.set(chunkId, msg.id);
     data.processing_chunks.delete(chunkId);
-    // This is only truly necessary on the first chunk uploaded.
-    // We cannot however just do "chunkId === 0", as chunks may
-    // be uploaded in any order by the user.
-    data.channel_id = msg.channel_id;
     data.chunk_finish_handler(chunkId, data);
     return { success: true, error: null };
 }

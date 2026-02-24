@@ -9,6 +9,8 @@ import { Database } from "../database/index.js";
 import { Service } from "./Service.js";
 import type { MessageEvent, WebSocket } from "ws";
 import { createRequire } from "node:module";
+import { sleep } from "../../common/useless.js";
+import { getEnvironmentVariables } from "../../common/environment.js";
 
 interface ThumbnailGenerationData {
     messages: string[];
@@ -26,13 +28,29 @@ export class ThumbnailService extends Service {
     public static override getConfig() {
         return config;
     }
-    public addHandler(): void {
-        const packets = ThumbnailService.getAndClearQueue();
-        logDebug("Sending queued thumbnails to service");
-        for (const packet of packets) {
-            // FIXME: These packets do not yet seem to arrive! (too early?)
-            this.sendPacket(new GenThumbnailPacket(packet));
-        }
+    public async addHandler(): Promise<boolean> {
+        const { DISCORD_BOT_TOKEN } = getEnvironmentVariables("manager");
+        const { MESSAGE_ENCRYPTION_KEY } = getEnvironmentVariables("crypto", true);
+        const result = await this.sendConfiguration(this.config.name, {
+            message_encryption_key: MESSAGE_ENCRYPTION_KEY,
+            discord_bot_token: DISCORD_BOT_TOKEN
+        });
+
+        if (!result) return false;
+
+        // These are only scheduled to be sent once we know that the service
+        // has received its configuration properly.
+        (async () => {
+            const packets = ThumbnailService.getAndClearQueue();
+            await sleep(0);
+            logDebug("Sending queued thumbnails to service");
+            for (const packet of packets) {
+                this.sendPacket(new GenThumbnailPacket(packet));
+                await sleep(50);
+            }
+        })();
+
+        return true;
     }
     public removeHandler(): void {}
     /**

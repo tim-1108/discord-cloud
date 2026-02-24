@@ -12,7 +12,6 @@
 // should work so that the majority of the latter end of the file can be missing.
 // When it comes to huge images, that is another question.
 
-import { decryptBuffer } from "../common/crypto.js";
 import type { GenThumbnailPacket } from "../common/packet/s2t/GenThumbnailPacket.js";
 import { enqueue, shiftQueue } from "../common/processing-queue.js";
 import { Socket } from "./Socket.js";
@@ -20,18 +19,42 @@ import sharp from "sharp";
 import ffmpeg from "fluent-ffmpeg";
 import { Readable } from "node:stream";
 import config from "./thumbnail-config.json" with { type: "json" };
-import fs from "node:fs/promises";
-import { logDebug, logError } from "../common/logging.js";
+import { logDebug, logError, logWarn } from "../common/logging.js";
 import { ThumbnailDataPacket } from "../common/packet/t2s/ThumbnailDataPacket.js";
 import express from "express";
 import { Discord } from "../common/discord_new.js";
 import { loadPackets } from "../common/packet/reader.js";
+import { SymmetricCrypto } from "../common/symmetric-crypto.js";
+import type { ThumbnailServiceConfigurationPacket } from "../common/packet/s2t/ThumbnailServiceConfigurationPacket.js";
+import { GenericBooleanPacket } from "../common/packet/generic/GenericBooleanPacket.js";
 
 await loadPackets();
 
 const app = express();
 app.listen(6000);
 const socket = new Socket();
+
+type Configuration = ThumbnailServiceConfigurationPacket["data"] & { defined: boolean };
+let configuration: Configuration = { discord_bot_token: "", message_encryption_key: "", defined: false };
+export function packet$configure(packet: ThumbnailServiceConfigurationPacket) {
+    if (isConfigured()) {
+        logWarn("Attempted to configure whilst being already configured");
+        socket.replyToPacket(packet, new GenericBooleanPacket({ success: false }));
+        return;
+    }
+
+    const data = packet.getData();
+
+    configuration = { ...data, defined: true };
+    Discord.initialize(data.discord_bot_token);
+    if (data.message_encryption_key) {
+        SymmetricCrypto.initialize(data.message_encryption_key);
+    }
+    socket.replyToPacket(packet, new GenericBooleanPacket({ success: true }));
+}
+function isConfigured(): boolean {
+    return configuration.defined;
+}
 
 export async function processThumbnailRequest(packet: GenThumbnailPacket) {
     const data = packet.getData();
@@ -54,7 +77,7 @@ export async function processThumbnailRequest(packet: GenThumbnailPacket) {
         shiftQueue();
         return;
     }
-    const buffer = decryptBuffer(Buffer.from(response.buffer));
+    const buffer = SymmetricCrypto.decrypt(Buffer.from(response.buffer));
     const func = getGeneratingFunctionForFileType(type);
 
     try {

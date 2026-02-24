@@ -1,15 +1,14 @@
-import { getEnvironmentVariables } from "../../common/environment.js";
 import { logDebug, logError, logWarn } from "../../common/logging.js";
 import { formatByteString } from "../../common/useless.js";
 import { supabase } from "./core.js";
 import type { Bucket } from "@supabase/storage-js";
 import jwt from "jsonwebtoken";
+import managerConfig from "../../manager.config.js";
 
-const { USE_THUMBNAILS } = getEnvironmentVariables("supabase-storage", true);
 const BUCKET_NAME = "thumbnails";
 
 function isStorageEnabled(): boolean {
-    return USE_THUMBNAILS === "1";
+    return managerConfig.supabase.useThumbnails;
 }
 
 export async function uploadThumbnailToStorage(id: number, data: Buffer): Promise<boolean> {
@@ -17,7 +16,7 @@ export async function uploadThumbnailToStorage(id: number, data: Buffer): Promis
     const bucket = await getOrCreateBucket(BUCKET_NAME);
     if (bucket === null) return false;
 
-    const MAX_UPLOAD_SIZE = bucket.file_size_limit ?? Number.MAX_SAFE_INTEGER;
+    const MAX_UPLOAD_SIZE = Math.min(managerConfig.supabase.maxThumbnailSize, bucket.file_size_limit ?? Number.MAX_SAFE_INTEGER);
     if (data.length > MAX_UPLOAD_SIZE) {
         // There just will not be any thumbnail - easy as that.
         logWarn("Thumbnail for file", id, "is larger than the allowed size");
@@ -33,6 +32,7 @@ export async function uploadThumbnailToStorage(id: number, data: Buffer): Promis
     return true;
 }
 
+// The file type is determined on the service side, we just know it here.
 const idToFilePath = (id: number) => id.toString(10) + ".avif";
 
 export async function deleteThumbnailFromStorage(id: number): Promise<boolean> {

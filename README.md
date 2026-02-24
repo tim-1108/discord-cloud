@@ -29,37 +29,29 @@ It is recommended to have multiple upload services running to allow for concurre
 Configuration for the manager and the services is housed mostly within environment variables (for now). Environment variables are divided into subsets, with subsets being used by different services. Subsets may also be optional. They are defined in `/common/environment.ts`.
 
 <details>
-    <summary>discord</summary>
-
-    Used by: manager, upload-service, thumbnail-service
-    Required: yes
-
-    CRYPTO_KEY: A base64-encoded raw data buffer of 32 bytes used to encrypt Discord attachments using AES.
-    BOT_TOKEN: A Discord token to be used in an Authentication header (without "Bot" prefix!)
-
-</details>
-
-<details>
-    <summary>user-authentication</summary>
+    <summary>manager</summary>
 
     Used by: manager
     Required: yes
 
+    A collection of all required environment variables for the manager.
+
+    SERVICE_PASSWORD: Any string that acts as a password for all services to authenticate with the manager. The same string needs to be provided to all services
+    SUPABASE_URL: The HTTP base url of the data API of the Supabase instance
+    SUPABASE_KEY: A key as a raw string to supply to the Supabase API
+    MANAGER_PORT: The port number under which to start the application
     PRIVATE_KEY: A base64-encoded PEM file, used to generate JWTs for user authentication
     PUBLIC_KEY: A base64-encoded PEM file
 
 </details>
 
 <details>
-    <summary>manager</summary>
+    <summary>crypto</summary>
 
     Used by: manager
-    Required: yes
+    Required: no
 
-    SERVICE_PASSWORD: Any string that acts as a password for all services to authenticate with the manager. The same string needs to be provided to all services
-    SUPABASE_URL: The HTTP base url of the data API of the Supabase instance
-    SUPABASE_KEY: A key as a raw string to supply to the Supabase API
-    MANAGER_PORT: The port number under which to start the application
+    MESSAGE_ENCRYPTION_KEY: A base64-encoded raw buffer of 32 bytes. Used as the encryption key for message attachments. If not supplied, encryption needs to be disabled, otherwise an error will be thrown. Once this has been set and a file has been encrypted with it, it should not be changed. Is distributed to all services which need it upon their connection.
 
 </details>
 
@@ -69,44 +61,21 @@ Configuration for the manager and the services is housed mostly within environme
     Used by: upload-service
     Required: yes
 
-    SERVICE_PASSWORD: The string specified by the manager
     OWN_ADDRESS: A HTTP url under which clients can connect to this service
-    MANAGER_ADDRESS: The socket url with which this service can connect to the manager (ws:// or wss://)
-    ENCRYPTION: If set to "1", all files running on this upload service will be encrypted when sent to Discord
-    PORT: The port number under which to start the application
-    CHANNEL_ID: The id of the Discord channel to which uploads should be performed. The bot needs to be able to send messages in this channel.
+    PORT: The HTTP port under which to be open to clients, should be the same port as in OWN_ADDRESS unless you have some port forwardings like with hosting providers.
 
 </details>
 
 <details>
-    <summary>thumbnail-service</summary>
+    <summary>service</summary>
 
-    Used by: thumbnail-service
+    Used by: upload-service, thumbnail-service
     Required: yes
 
+    A collection of all required variables for services to communicate with the manager.
+
     SERVICE_PASSWORD: The string specified by the manager
     MANAGER_ADDRESS: The socket url with which this service can connect to the manager (ws:// or wss://)
-
-</details>
-
-<details>
-    <summary>supabase-storage</summary>
-
-    Used by: manager
-    Required: no
-
-    USE_THUMBNAILS: If set to "1", thumbnails will be stored in the Supabase storage under the bucket name `thumbnails`
-
-</details>
-
-<details>
-    <summary>service-pinger</summary>
-
-    Used by: manager
-    Required: no
-
-    SERVICE_PINGING_ENABLED: If set to "1", the manager will attempt to ping all urls specified in SERVICES in an interval.
-    SERVICES: A list of HTTP urls for each service to be pinged, seperated by commas
 
 </details>
 
@@ -181,7 +150,6 @@ Details are available in `PACKETS.md`.
 - marking uploads as private/public on the client
 - creating folders on the client
 - (limited) WebDAV support
-- manager distributing bot token and channel ids
 - user management for administrators
 - more `DataErrorField` instead of `null` returns in the backend
 - client authentication store rework

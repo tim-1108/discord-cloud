@@ -87,5 +87,5 @@ export async function loadPackets() {
     for (const key of PacketDefinitions.enumArray) {
         packetTypeLists[key] = await loadClassesForFolder(key);
     }
-    logDebug("Loaded packets", ...Object.values(packetTypeLists));
+    //logDebug("Loaded packets", ...Object.values(packetTypeLists));
 }

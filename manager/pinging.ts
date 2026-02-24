@@ -1,4 +1,5 @@
-import { getEnvironmentVariables } from "../common/environment.js";
+import { logDebug, logWarn } from "../common/logging.js";
+import managerConfig from "../manager.config.js";
 import { cleanURL } from "./utils/url.js";
 
 let lastPingTimestamp = 0;
@@ -10,27 +11,21 @@ const DELTA_PING_MS = 60_000 as const;
  * Only possible every {@link DELTA_PING_MS} ms.
  */
 export function pingServices() {
-    const { SERVICES, SERVICE_PINGING_ENABLED } = getEnvironmentVariables("service-pinger", true);
-    if (SERVICE_PINGING_ENABLED !== "1" || typeof SERVICES !== "string") return;
+    if (!managerConfig.pinging.enabled || managerConfig.pinging.services.length === 0) return;
 
     const now = Date.now();
     if (lastPingTimestamp + DELTA_PING_MS > now) return;
     lastPingTimestamp = now;
 
-    const services = SERVICES.split(",");
-    for (const service of services) {
+    for (const service of managerConfig.pinging.services) {
         const url = cleanURL(service);
         if (!url) {
-            console.warn(`[Ping] Cannot ping service ${service}`);
+            logWarn("Malformed url for ping:", url);
             continue;
         }
-        const obj = URL.parse(url);
-        if (!obj) {
-            continue;
-        }
-        obj.pathname = `/${Math.random()}`;
+        url.pathname = `/${Math.random()}`;
         void fetch(url).catch((error) => {
-            console.warn(`[Ping] Failed to send ping to ${url} due to`, error);
+            logDebug(`Failed to send ping to ${url} due to`, error);
         });
     }
 }

@@ -1,8 +1,8 @@
 import { safeDestr } from "destr";
-import { decryptBuffer, encryptBuffer } from "../common/crypto.js";
 import { patterns } from "../common/patterns.js";
 import type { FileHandle } from "../common/supabase.js";
 import { type SchemaToType, validateObjectBySchema } from "../common/validator.js";
+import { SymmetricCrypto } from "../common/symmetric-crypto.js";
 
 export const SignedDownload = {
     generate,
@@ -24,7 +24,7 @@ function generate(handle: FileHandle): string {
         hash: handle.hash
     };
 
-    const buffer = encryptBuffer(Buffer.from(JSON.stringify(data)));
+    const buffer = SymmetricCrypto.encrypt(Buffer.from(JSON.stringify(data)));
     return buffer.toString("base64url");
 }
 
@@ -49,7 +49,7 @@ function parse(input: string): SignedDownloadObject | null {
     if (buffer.length < 0x10) return null;
     let buf: Buffer;
     try {
-        buf = decryptBuffer(buffer);
+        buf = SymmetricCrypto.decrypt(buffer);
     } catch {
         return null;
     }

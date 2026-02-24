@@ -1,4 +1,3 @@
-import { decryptBuffer } from "../../common/crypto.js";
 import { logError, logInfo } from "../../common/logging.js";
 import { createResolveFunction, sortMapValuesAsArrayByKeyArray } from "../../common/useless.js";
 import { enqueue, shiftQueue } from "../../common/processing-queue.js";
@@ -9,6 +8,7 @@ import type { Socket } from "node:net";
 import { getRequestRanges, isHeadRequest, type RequestRange } from "./http.js";
 import { Uploads } from "../uploads.js";
 import type { Request, Response } from "express";
+import { SymmetricCrypto } from "../../common/symmetric-crypto.js";
 
 /**
  * If the stream is not drained within this millisecond amount,
@@ -94,7 +94,7 @@ export async function streamFileContents(target: Writable, file: FileHandle, ran
             logError(`Failed to download chunk id ${i} with link ${link} for file`, file.id);
             return "Failed to download chunk " + i;
         }
-        let buf = file.is_encrypted ? decryptBuffer(Buffer.from(response.buffer)) : Buffer.from(response.buffer);
+        let buf = file.is_encrypted ? SymmetricCrypto.decrypt(Buffer.from(response.buffer)) : Buffer.from(response.buffer);
 
         // If this is either the start or end chunk, we need
         // to modify the buffer further as we cannot just write

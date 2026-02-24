@@ -4,12 +4,13 @@ import { parsePacket } from "../common/packet/parser.js";
 import { getEnvironmentVariables } from "../common/environment.js";
 import { getServersidePacketList } from "../common/packet/reader.js";
 import { GenThumbnailPacket } from "../common/packet/s2t/GenThumbnailPacket.js";
-import { processThumbnailRequest } from "./index.js";
+import { packet$configure, processThumbnailRequest } from "./index.js";
 import PacketType from "../common/packet/PacketType.js";
+import { ThumbnailServiceConfigurationPacket } from "../common/packet/s2t/ThumbnailServiceConfigurationPacket.js";
 
 export class Socket extends PacketReceiver {
     public constructor() {
-        const env = getEnvironmentVariables("thumbnail-service");
+        const env = getEnvironmentVariables("service");
         const address = new URL(env.MANAGER_ADDRESS);
         address.searchParams.append("type", "thumbnail");
         address.searchParams.append("key", env.SERVICE_PASSWORD);
@@ -35,6 +36,8 @@ export class Socket extends PacketReceiver {
 
         if (packet instanceof GenThumbnailPacket) {
             return void processThumbnailRequest(packet);
+        } else if (packet instanceof ThumbnailServiceConfigurationPacket) {
+            return void packet$configure(packet);
         }
     }
 }

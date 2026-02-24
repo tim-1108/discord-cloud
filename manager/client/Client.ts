@@ -26,7 +26,7 @@ import { logInfo } from "../../common/logging.js";
 import { FolderSizeRequestPacket } from "../../common/packet/c2s/FolderSizeRequestPacket.js";
 import { ServiceRegistry } from "../services/list.js";
 import { ServiceRegistryPacket } from "../../common/packet/s2c/ServiceRegistryPacket.js";
-import { UploadService } from "../services/UploadService.js";
+import { type UploadService } from "../services/UploadService.js";
 import { sleep } from "../../common/useless.js";
 import { UploadAbortRequestPacket } from "../../common/packet/c2s/UploadAbortRequestPacket.js";
 import { UploadOverwriteResponsePacket } from "../../common/packet/c2s/UploadOverwriteResponsePacket.js";
@@ -82,7 +82,7 @@ export class Client extends PacketReceiver {
             const arr = ServiceRegistry.predicatedList(type);
             for (const service of arr) {
                 // The "address" field is only passed on upload services
-                const address = service instanceof UploadService ? service.getAddress() : undefined;
+                const address = service.config.name === "upload" ? (service as UploadService).getAddress() : undefined;
                 this.sendPacket(new ServiceRegistryPacket({ action: "list", service_type: type, service_uuid: service.getServiceUUID(), address }));
             }
         }

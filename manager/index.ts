@@ -1,24 +1,31 @@
 import { getEnvironmentVariables, validateEnvironmentVariables } from "../common/environment.js";
-import { logError, logInfo } from "../common/logging.js";
+import { logInfo } from "../common/logging.js";
 import { loadPackets } from "../common/packet/reader.js";
 import { Database } from "./database/index.js";
 import { Network } from "./Network.js";
-import { pingServices } from "./pinging.js";
 import "./debug.js";
+import "./services/list.js";
+import { SymmetricCrypto } from "../common/symmetric-crypto.js";
+import { Discord } from "../common/discord_new.js";
+import config from "../manager.config.js";
 
-validateEnvironmentVariables("manager", "discord", "user-authentication");
+validateEnvironmentVariables("manager");
 await loadPackets();
 
-const pinging = getEnvironmentVariables("service-pinger", true);
-if (pinging.SERVICE_PINGING_ENABLED === "1") {
-    setInterval(pingServices, 60_000);
+const env = getEnvironmentVariables("manager");
+const { MESSAGE_ENCRYPTION_KEY } = getEnvironmentVariables("crypto", true);
+Discord.initialize(env.DISCORD_BOT_TOKEN);
+if (MESSAGE_ENCRYPTION_KEY) {
+    SymmetricCrypto.initialize(MESSAGE_ENCRYPTION_KEY);
+} else if (config.discord.useEncryption) {
+    throw new ReferenceError("Discord encryption is enabled, but no key is set");
 }
 
 logInfo("Init: Folder tree");
 const folders = await Database.getAll("folders");
 const sizes = await Database.getAll("get_folder_sizes_by_file_type");
 if (!folders.data || !sizes.data) {
-    process.exit(1);
+    throw new ReferenceError("Failed to compute folder tree");
 }
 Database.tree.init(folders.data, sizes.data);
 logInfo("Init: Folder tree done");

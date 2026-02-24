@@ -13,6 +13,9 @@ import type { Client } from "../client/Client.js";
 import { GenericBooleanPacket } from "../../common/packet/generic/GenericBooleanPacket.js";
 import { logError, logInfo, logWarn } from "../../common/logging.js";
 import { UploadAbortPacket } from "../../common/packet/s2u/UploadAbortPacket.js";
+import { getEnvironmentVariables } from "../../common/environment.js";
+import managerConfig from "../../manager.config.js";
+import { DiscordChannelBooking } from "../utils/discord-channels.js";
 
 const config = {
     name: "upload",
@@ -34,8 +37,28 @@ function validateTargetAddress(value: any) {
 }
 
 export class UploadService extends Service {
-    public addHandler(): void {
+    public async addHandler(): Promise<boolean> {
+        const { DISCORD_BOT_TOKEN } = getEnvironmentVariables("manager");
+        // This does not need to be defined if encryption is disabled.
+        const { MESSAGE_ENCRYPTION_KEY } = getEnvironmentVariables("crypto", !managerConfig.discord.useEncryption);
+
+        const channel = DiscordChannelBooking.book();
+        if (!channel) {
+            logWarn("Failed to find a channel for an upload service. You should add more channel ids or allow multiple assignments per channel.");
+            return false;
+        }
+        this.bookedChannelIndex = channel.index;
+
+        const result = await this.sendConfiguration(this.config.name, {
+            crypto: managerConfig.discord.useEncryption ? { enabled: true, key: MESSAGE_ENCRYPTION_KEY as string } : { enabled: false },
+            discord_bot_token: DISCORD_BOT_TOKEN,
+            discord_channel_id: channel.channelId
+        });
+        if (!result) return false;
+
+        // Only now this should be made available
         Uploads.handlers.service.initOrRelease(this);
+        return true;
     }
     public removeHandler(): void {
         if (this.booking) {
@@ -43,6 +66,9 @@ export class UploadService extends Service {
         }
         if (this.uploadMetadata) {
             Uploads.finish(this.uploadMetadata, "The upload service disconnected");
+        }
+        if (this.bookedChannelIndex !== null) {
+            DiscordChannelBooking.free(this.bookedChannelIndex);
         }
     }
     public config = config;
@@ -53,11 +79,18 @@ export class UploadService extends Service {
     private uploadMetadata: UploadMetadata | null;
     private address: string;
     private booking: UUID | null;
+    /**
+     * The index within the channelIds array of the manager config targeting
+     * the Discord channel this uploader has stored. Used for when the service
+     * is removed and thus the channel is free to be used by others.
+     */
+    private bookedChannelIndex: number | null;
 
     public constructor(socket: WebSocket, params?: ServiceParams<UploadService>) {
         super(socket, params);
         this.uploadMetadata = null;
         this.booking = null;
+        this.bookedChannelIndex = null;
         /**
          * The internal _url within WebSocket is retrieved
          * from a URL object's href, thus has to be valid.

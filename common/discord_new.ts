@@ -1,4 +1,3 @@
-import { getEnvironmentVariables } from "./environment.js";
 import FormData from "form-data";
 import { logDebug, logError } from "./logging.js";
 import { sleep } from "./useless.js";
@@ -11,8 +10,20 @@ export const Discord = {
     },
     cdn: {
         fetch: fetchRemoteBuffer
-    }
+    },
+    initialize: setBotToken
 } as const;
+
+let botToken: string;
+function setBotToken(token: string) {
+    botToken = token;
+}
+
+function assertToken() {
+    if (!botToken) {
+        throw new ReferenceError("The bot token has not been set yet");
+    }
+}
 
 /**
  * Maps a message id to a signed link url. As obtaining a fresh signed attachment
@@ -158,10 +169,10 @@ interface FetchConfig {
 }
 type FetchToDiscordApiReturn<R> = { data: R; error: null } | { data: null; error: string };
 /**
- * Performs an authenticated fetch (using `BOT_TOKEN`) to the Discord API with the given address
+ * Performs an authenticated fetch (using the supplied bot token via `setBotToken()`) to the Discord API with the given address
  */
 async function fetchToDiscordApi<R>(cfg: FetchConfig): Promise<FetchToDiscordApiReturn<R>> {
-    const { BOT_TOKEN } = getEnvironmentVariables("discord");
+    assertToken();
     const $url = cfg.target instanceof URL ? cfg.target : URL.parse(cfg.target);
 
     // If somehow user-inputted data is inserted as url, the target should never
@@ -174,7 +185,7 @@ async function fetchToDiscordApi<R>(cfg: FetchConfig): Promise<FetchToDiscordApi
     if (cfg.method === "GET" && cfg.form) {
         throw new TypeError("Cannot supply a body when GETting to Discord");
     }
-    const headers = { ...cfg.form?.getHeaders(), Authorization: `Bot ${BOT_TOKEN}`, ...cfg.headers };
+    const headers = { ...cfg.form?.getHeaders(), Authorization: `Bot ${botToken}`, ...cfg.headers };
     let attempts = 0;
     while (true) {
         attempts++;
