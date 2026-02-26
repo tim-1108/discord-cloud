@@ -7,17 +7,12 @@ const id = "gen-thumbnail";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
-    id: { type: "number", required: true, min: 0 },
-    channel: { type: "string", required: true, pattern: patterns.snowflake },
-    // A list of snowflakes, we will fetch the first message individually later on
-    messages: { type: "array", required: true, item_type: "string", validator_function: validateMessageIds },
-    type: { type: "string", required: true }
+    file_id: { type: "number", required: true, min: 0 },
+    channel_id: { type: "string", required: true, pattern: patterns.snowflake },
+    first_msg_id: { type: "string", required: true, pattern: patterns.snowflake },
+    file_type: { type: "string", required: true },
+    is_encrypted: { type: "boolean", required: true }
 } as const;
-
-function validateMessageIds(obj: any): boolean {
-    if (!Array.isArray(obj) || !obj.length) return false;
-    return obj.every((value) => typeof value === "string" && patterns.snowflake.test(value));
-}
 
 export class GenThumbnailPacket extends S2TPacket {
     declare protected data: DataType;

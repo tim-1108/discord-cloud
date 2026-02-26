@@ -12,11 +12,7 @@ import { createRequire } from "node:module";
 import { sleep } from "../../common/useless.js";
 import { getEnvironmentVariables } from "../../common/environment.js";
 
-interface ThumbnailGenerationData {
-    messages: string[];
-    channel: string;
-    type: string;
-}
+type ThumbnailGenerationData = GenThumbnailPacket["data"];
 
 const config = {
     maxAmount: 1,
@@ -86,18 +82,27 @@ export class ThumbnailService extends Service {
         const require = createRequire(import.meta.url);
         const { ServiceRegistry } = require("./list.js");
         const s = ServiceRegistry.random.all("thumbnail");
-        const t = { messages: handle.messages, type: handle.type, channel: handle.channel };
+
+        if (!handle.messages.length) return false;
+
+        const t = {
+            first_msg_id: handle.messages[0],
+            file_type: handle.type,
+            channel_id: handle.channel,
+            is_encrypted: handle.is_encrypted,
+            file_id: handle.id
+        };
         if (!s) {
             ThumbnailService.enqueueFile(handle.id, t);
             return false;
         }
-        s.sendPacket(new GenThumbnailPacket({ ...t, id: handle.id }));
+        s.sendPacket(new GenThumbnailPacket(t));
         return true;
     }
 
-    public static getAndClearQueue() {
+    public static getAndClearQueue(): ThumbnailGenerationData[] {
         // These can flow directly into GenThumbnailPacket
-        const packets = ThumbnailService.queue.entries().map(([id, { messages, type, channel }]) => ({ id, messages, type, channel }));
+        const packets = Array.from(ThumbnailService.queue.values());
         ThumbnailService.queue.clear();
         return packets;
     }
@@ -122,7 +127,7 @@ export class ThumbnailService extends Service {
             const data = packet.getData();
             if (!data.success || !data.data) return;
             const buf = Buffer.from(data.data, "base64url");
-            saveThumbnail(data.id, buf);
+            saveThumbnail(data.file_id, buf);
         }
     }
 }

@@ -6,7 +6,7 @@ const id = "thumbnail-data";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
-    id: { type: "number", required: true, min: 0 },
+    file_id: { type: "number", required: true, min: 0 },
     success: { type: "boolean", required: true },
     /**
      * A base64 encoded data buffer containing a JPEG image

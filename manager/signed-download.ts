@@ -46,10 +46,11 @@ type SignedDownloadObject = SchemaToType<typeof schema>;
 function parse(input: string): SignedDownloadObject | null {
     if (!patterns.base64Url.test(input)) return null;
     const buffer = Buffer.from(input, "base64url");
-    if (buffer.length < 0x10) return null;
-    let buf: Buffer;
+    if (buffer.length < 0x20) return null;
+    let buf: Buffer | null;
     try {
         buf = SymmetricCrypto.decrypt(buffer);
+        if (buf === null) return null;
     } catch {
         return null;
     }

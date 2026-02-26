@@ -59,33 +59,44 @@ function isConfigured(): boolean {
 export async function processThumbnailRequest(packet: GenThumbnailPacket) {
     const data = packet.getData();
     console.log(data);
-    const message = data.messages[0];
-    const { id, channel, type } = data;
+    const msgId = data.first_msg_id[0];
+    const { file_id, channel_id, file_type, is_encrypted } = data;
 
     logDebug("Generating thumbnail for", data);
     await enqueue();
 
-    const attachmentLink = await fetchAttachmentLinkOrFail(message, channel);
+    const attachmentLink = await fetchAttachmentLinkOrFail(msgId, channel_id);
     if (attachmentLink === null) {
         shiftQueue();
         return;
     }
 
-    // FIXME: We just assume the buffer is encrypted... wrong!
     const response = await Discord.cdn.fetch(attachmentLink);
     if (!response.buffer) {
         shiftQueue();
         return;
     }
-    const buffer = SymmetricCrypto.decrypt(Buffer.from(response.buffer));
-    const func = getGeneratingFunctionForFileType(type);
+
+    let buf = Buffer.from(response.buffer);
+    if (is_encrypted) {
+        const useLegacyDecryption = Discord.shouldUseLegacyDecryption(msgId);
+        const cryptoFn = useLegacyDecryption ? SymmetricCrypto.decryptLegacy : SymmetricCrypto.decrypt;
+        const $buf = cryptoFn(buf);
+        if (!$buf) {
+            logError("Failed to decrypt message %s, it may have been tampered with", msgId);
+            shiftQueue();
+            return;
+        }
+        buf = $buf;
+    }
+    const func = getGeneratingFunctionForFileType(file_type);
 
     try {
-        const screenshot = await func(buffer, type);
-        socket.sendPacket(new ThumbnailDataPacket({ id, success: true, data: screenshot.toString("base64url") }));
+        const screenshot = await func(buf, file_type);
+        socket.sendPacket(new ThumbnailDataPacket({ file_id, success: true, data: screenshot.toString("base64url") }));
     } catch (error) {
         console.error(error);
-        socket.sendPacket(new ThumbnailDataPacket({ id, success: false, data: undefined }));
+        socket.sendPacket(new ThumbnailDataPacket({ file_id, success: false, data: undefined }));
     }
 
     shiftQueue();

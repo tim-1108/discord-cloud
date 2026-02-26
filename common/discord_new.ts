@@ -2,6 +2,7 @@ import FormData from "form-data";
 import { logDebug, logError } from "./logging.js";
 import { sleep } from "./useless.js";
 import type { DataErrorFields } from "./index.js";
+import { patterns } from "./patterns.js";
 
 export const Discord = {
     bot: {
@@ -11,8 +12,42 @@ export const Discord = {
     cdn: {
         fetch: fetchRemoteBuffer
     },
+    shouldUseLegacyDecryption,
+    extractMessageIdFromCdnLink,
     initialize: setBotToken
 } as const;
+
+// The epoch of Discord snowflakes which started on January 1st 2015 UTC.
+// Feburary 26th 2026 is the timestamp for the switch.
+const legacyEpochTimestamp = 0b000101000111111000011110110011001010110111n;
+/**
+ * Determines whether a message was sent before {@link legacyEpochTimestamp},
+ * marking them as being encrypted using insecure methods (not saving the auth tag).
+ *
+ * If `true`, use `SymmetricCrypto.decryptLegacy()`, but only when handling
+ * a message attachment buffer, no user input.
+ */
+function shouldUseLegacyDecryption(snowflake: string): boolean {
+    if (!patterns.snowflake.test(snowflake)) {
+        throw new TypeError(`Invalid snowflake inputted into legacy check: ${snowflake}`);
+    }
+    // Snowflakes are just 64 bit integers, which may be too large for parseInt
+    // Number.MAX_SAFE_INTEGER is around 2 ^ 53.
+    const int = BigInt(snowflake);
+    // The epoch are the highest 42 bits of the snowflake
+    const epoch = int >> 22n;
+    return epoch < legacyEpochTimestamp;
+}
+
+function extractMessageIdFromCdnLink(input: string): string | null {
+    const url = URL.parse(input);
+    if (!url) return null;
+    const pattern = /(?:\/attachments\/\d{15,22}\/)(\d{15,22})(?:\/.+)/i;
+    const match = url.pathname.match(pattern);
+    // The first item is the whole statement, the second item our only non-capture group
+    const snowflake = match && match.length === 2 ? match[1] : null;
+    return snowflake && patterns.snowflake.test(snowflake) ? snowflake : null;
+}
 
 let botToken: string;
 function setBotToken(token: string) {

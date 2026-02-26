@@ -57,6 +57,17 @@ export function sortMapValuesAsArrayByKeyArray<K, V>(map: Map<K, V>, keys: K[]):
     return list;
 }
 
+export function sortMapEntriesAsArrayByKeyArray<K, V>(map: Map<K, V>, keys: K[]): [K, V][] | null {
+    const list = new Array<[K, V]>(map.size);
+    for (const [key, value] of map) {
+        const index = keys.indexOf(key);
+        // If so, this failed.
+        if (index === -1) return null;
+        list[index] = [key, value];
+    }
+    return list;
+}
+
 const nowRange = 60 * 1000;
 const fullDay = 1000 * 60 * 60 * 24;
 const days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];

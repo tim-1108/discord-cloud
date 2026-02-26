@@ -1,5 +1,5 @@
-import { logError, logInfo } from "../../common/logging.js";
-import { createResolveFunction, sortMapValuesAsArrayByKeyArray } from "../../common/useless.js";
+import { logDebug, logError, logInfo } from "../../common/logging.js";
+import { createResolveFunction, sortMapEntriesAsArrayByKeyArray, sortMapValuesAsArrayByKeyArray } from "../../common/useless.js";
 import { enqueue, shiftQueue } from "../../common/processing-queue.js";
 import { PassThrough, type Writable } from "node:stream";
 import type { FileHandle } from "../../common/supabase.js";
@@ -62,23 +62,23 @@ export async function streamFileContents(target: Writable, file: FileHandle, ran
         }
     }
 
-    const links = await Discord.bot.getMessages($msgs, file.channel);
-    if (!links.data) {
+    const unsortedLinks = await Discord.bot.getMessages($msgs, file.channel);
+    if (!unsortedLinks.data) {
         end();
-        return links.error;
+        return unsortedLinks.error;
     }
 
     // If these wouldn't be sorted, they'd come in as they were uploaded to Discord
     // This might be in some random order. They have to be sorted by their ordering in the DB
     // and cannot be just sorted via Discord message id.
-    const sortedLinks = sortMapValuesAsArrayByKeyArray(links.data, $msgs);
-    if (!sortedLinks) {
+    const links = sortMapEntriesAsArrayByKeyArray(unsortedLinks.data, $msgs);
+    if (!links) {
         shiftQueue();
         return "If you see this error, The Impossible has arrived";
     }
 
     let i = 0;
-    for (const link of sortedLinks) {
+    for (const [msgId, link] of links) {
         if (_closed || !target.writable) {
             end();
             return "Socket has been prematurely closed";
@@ -94,7 +94,24 @@ export async function streamFileContents(target: Writable, file: FileHandle, ran
             logError(`Failed to download chunk id ${i} with link ${link} for file`, file.id);
             return "Failed to download chunk " + i;
         }
-        let buf = file.is_encrypted ? SymmetricCrypto.decrypt(Buffer.from(response.buffer)) : Buffer.from(response.buffer);
+
+        // To actually read from this binary data, we need a Uint8Array,
+        // which in this case is Node's Buffer.
+        let buf = Buffer.from(response.buffer);
+        if (file.is_encrypted) {
+            const useLegacyDecryption = Discord.shouldUseLegacyDecryption(msgId);
+            if (useLegacyDecryption) {
+                logDebug("Used legacy decryption on", msgId);
+            }
+            const cryptoFn = useLegacyDecryption ? SymmetricCrypto.decryptLegacy : SymmetricCrypto.decrypt;
+            const $buf = cryptoFn(buf);
+            if (!$buf) {
+                end();
+                logError("Failed to decrypt a chunk - has it been tampered with:", link);
+                return "The encrypted data is invalid";
+            }
+            buf = $buf;
+        }
 
         // If this is either the start or end chunk, we need
         // to modify the buffer further as we cannot just write
