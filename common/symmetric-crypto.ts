@@ -1,5 +1,6 @@
 import crypto from "node:crypto";
-import { logWarn } from "./logging";
+import { logDebug, logWarn } from "./logging.js";
+import { createHashFromBinaryLike } from "./crypto.js";
 export const SymmetricCrypto = {
     initialize,
     encrypt,
@@ -46,6 +47,9 @@ function decrypt(buffer: Buffer): Buffer<ArrayBuffer> | null {
     const iv = Uint8Array.prototype.slice.apply(buffer, [0x00, 0x10]);
     const authTag = Uint8Array.prototype.slice.apply(buffer, [0x10, 0x20]);
     const ciphertext = Uint8Array.prototype.slice.apply(buffer, [0x20]);
+
+    logDebug("Decryption | Key:", keyBuffer, "| IV:", iv, "Auth:", authTag);
+    logDebug("Hash:", createHashFromBinaryLike(ciphertext));
 
     const cipher = crypto.createDecipheriv(schema, keyBuffer, iv);
     cipher.setAuthTag(authTag);
@@ -103,7 +107,7 @@ function decryptLegacy(buffer: Buffer): Buffer<ArrayBuffer> {
  */
 function encrypt(buffer: Buffer): Buffer {
     if (!keyBuffer) {
-        throw new ReferenceError("initialize() was not called before calling decrypt() on SymmetricCrypto");
+        throw new ReferenceError("initialize() was not called before calling encrypt() on SymmetricCrypto");
     }
     // With 16 bytes, no IV should ever overlap. If they do,
     // the key might become compromised. (~3^38 possibilities)
@@ -117,5 +121,7 @@ function encrypt(buffer: Buffer): Buffer {
         throw new Error(`Auth tag does not have valid length, expected 16 bytes, got ${authTag.byteLength}`);
     }
     const ciphertext = Buffer.concat([iv, authTag, a, b]);
+    logDebug("Key:", keyBuffer, "| IV:", iv, "Auth:", authTag);
+    logDebug("Hash:", createHashFromBinaryLike(ciphertext));
     return ciphertext;
 }
