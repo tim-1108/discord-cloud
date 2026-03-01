@@ -266,16 +266,24 @@ async function upload(handle: UploadAbsoluteFileHandle) {
         const { promise: sentPromise, resolve: sentResolve } = createResolveFunction<boolean>();
         const resultPromise = prepareAndRetryChunk(cfg, chunkIndex, sentResolve);
 
+        // If another chunk has already been started after the
+        // sending of this one, don't actually start another one
+        // when the result comes in.
+        let canStartNext = true;
         sentPromise.then((status) => {
             if (!concurrency.canStartNext() || !status) return;
             // This does not use "chunkIndex + 1" due to the fact that this might be chunk 1
             // here, but chunk 2 is already finished and has started chunk 3 by now. Then, we'd
             // want this to start chunk 4.
             wrapper(latestChunkIndex + 1);
+            canStartNext = false;
         });
 
         const result = await resultPromise;
         result.success ? concurrency.markDone() : concurrency.markFail(result.sendAbortPacket);
+        if (result.success && concurrency.canStartNext() && canStartNext) {
+            wrapper(latestChunkIndex + 1);
+        }
         concurrency.decrement();
     }
 
