@@ -251,16 +251,20 @@ async function upload(handle: UploadAbsoluteFileHandle) {
         throw new Error("Chunk count is " + cc);
     }
 
+    const concurrency = createChunkConcurrency(cc);
+    let latestChunkIndex = -1;
+
+    function incrementChunkIndex(): number {
+        return ++latestChunkIndex;
+    }
+
     // This config only includes constants that don't change between chunks.
     // Chunk-dependent things get passed as individual parameters.
     const cfg: PrepareChunkConfig = { read, handle: au, signal };
 
-    const concurrency = createChunkConcurrency(cc);
-    let latestChunkIndex = -1;
     // Sadly, this wrapper also has to exist due to the concurrency needs.
-    async function wrapper(chunkIndex: number): Promise<void> {
-        if (latestChunkIndex !== chunkIndex - 1) throw new Error(`Previous latest index was ${latestChunkIndex}, now would be ${chunkIndex}`);
-        latestChunkIndex = chunkIndex;
+    async function wrapper(): Promise<void> {
+        const chunkIndex = incrementChunkIndex();
         concurrency.increment();
 
         const { promise: sentPromise, resolve: sentResolve } = createResolveFunction<boolean>();
@@ -272,22 +276,21 @@ async function upload(handle: UploadAbsoluteFileHandle) {
         let canStartNext = true;
         sentPromise.then((status) => {
             if (!concurrency.canStartNext() || !status) return;
-            // This does not use "chunkIndex + 1" due to the fact that this might be chunk 1
-            // here, but chunk 2 is already finished and has started chunk 3 by now. Then, we'd
-            // want this to start chunk 4.
-            wrapper(latestChunkIndex + 1);
+            // When calling this function, it does not just use "chunkIndex + 1" due to the fact
+            // that this might be chunk 1 here, but chunk 2 is already finished and has started chunk 3 by now.
+            // Then, we'd want this call to start chunk 4.
+            wrapper();
             canStartNext = false;
         });
 
         const result = await resultPromise;
-        result.success ? concurrency.markDone() : concurrency.markFail(result.sendAbortPacket);
+        result.success ? concurrency.decrement(true) : concurrency.decrement(false, result.sendAbortPacket);
         if (result.success && concurrency.canStartNext() && canStartNext) {
-            wrapper(latestChunkIndex + 1);
+            wrapper();
         }
-        concurrency.decrement();
     }
 
-    wrapper(0);
+    wrapper();
     const result = await concurrency.done;
 
     clearInterval(interval);
@@ -387,27 +390,26 @@ function createChunkConcurrency(chunkCount: number) {
         if (activeCount === Constants.maxConcurrentChunks) throw new RangeError("Cannot increment concurrent chunks above defined max");
         activeCount++;
     }
-    function decrement() {
+    /**
+     * Decrements the active count by one. If success is `true`, everything
+     * proceedes as normal until all chunks are done, at which point the `done`
+     * promise will resolve. If `false` is passed, the upload has failed for good
+     * and the `sendAbortPacket` argument should also be passed. The `done`
+     * promise will resolve with `false`.
+     */
+    function decrement(success: boolean, sendAbortPacket?: boolean) {
         if (activeCount === 0) throw new RangeError("Cannot decrement concurrent chunks below 0");
         activeCount--;
-    }
-    /**
-     * Called whenever a chunk has been successfully finished.
-     * When all chunks are marked as such, the function will
-     * resolve the promise of the wrapper.
-     */
-    function markDone() {
-        if (doneCount === chunkCount) throw new RangeError("Cannot increment the done count above the chunk count");
-        doneCount++;
-        if (doneCount === chunkCount) resolve({ success: true });
-    }
-    /**
-     * Called when the upload of the chunk has failed for good.
-     * When called, the entire file upload will fail.
-     */
-    function markFail(sendAbortPacket: boolean) {
+        if (success) {
+            if (doneCount === chunkCount) throw new RangeError("Cannot increment the done count above the chunk count");
+            doneCount++;
+            if (doneCount === chunkCount) {
+                resolve({ success: true });
+            }
+            return;
+        }
         isLocked = true;
-        resolve({ success: false, sendAbortPacket });
+        resolve({ success: false, sendAbortPacket: sendAbortPacket ?? false });
     }
     /**
      * Checks whether the max concurrent amount allows a new chunk to start and
@@ -417,7 +419,7 @@ function createChunkConcurrency(chunkCount: number) {
         if (isLocked) return false;
         return activeCount < Constants.maxConcurrentChunks && activeCount + doneCount < chunkCount;
     }
-    return { increment, decrement, canStartNext, markDone, markFail, done: promise };
+    return { increment, decrement, canStartNext, done: promise };
 }
 
 function handleUploadFinish(packet: UploadFinishInfoPacket) {

@@ -49,7 +49,7 @@ function decrypt(buffer: Buffer): Buffer<ArrayBuffer> | null {
     const ciphertext = Uint8Array.prototype.slice.apply(buffer, [0x20]);
 
     logDebug("Decryption | Key:", keyBuffer, "| IV:", iv, "Auth:", authTag);
-    logDebug("Hash:", createHashFromBinaryLike(ciphertext));
+    logDebug("Hash:", createHashFromBinaryLike(buffer));
 
     const cipher = crypto.createDecipheriv(schema, keyBuffer, iv);
     cipher.setAuthTag(authTag);
@@ -121,7 +121,7 @@ function encrypt(buffer: Buffer): Buffer {
         throw new Error(`Auth tag does not have valid length, expected 16 bytes, got ${authTag.byteLength}`);
     }
     const ciphertext = Buffer.concat([iv, authTag, a, b]);
-    logDebug("Key:", keyBuffer, "| IV:", iv, "Auth:", authTag);
-    logDebug("Hash:", createHashFromBinaryLike(ciphertext));
+    //logDebug("Key:", keyBuffer, "| IV:", iv, "Auth:", authTag);
+    //logDebug("Hash:", createHashFromBinaryLike(ciphertext));
     return ciphertext;
 }

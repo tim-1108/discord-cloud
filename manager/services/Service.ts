@@ -25,7 +25,7 @@ export interface ServiceConfiguration {
  * which imports the upload and thumbnail services. But these require
  * `Service.ts`, which has in that case not yet been created.
  */
-export const serviceConfigurationPacket = {
+const serviceConfigurationPacket = {
     upload: UploadServiceConfigurationPacket,
     thumbnail: ThumbnailServiceConfigurationPacket
 } as const;
