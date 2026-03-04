@@ -1,19 +1,6 @@
+export const ThumbnailImageTypes = ["avif", "jpeg", "webp"] as const;
+
 export default {
-    supabase: {
-        useThumbnails: true,
-        /**
-         * The amount of bytes a thumbnail image may be at most. If the generated
-         * thumbnail exceeds this size, the image is rejected.
-         *
-         * For now, size, quality and type are determined within the service,
-         * but that will also be moved to the manager.
-         *
-         * The max size defined on the Supabase bucket is also used (if defined),
-         * but the minimum of both values is chosen to determine whether the file
-         * may be uploaded.
-         */
-        maxThumbnailSize: 4 * 1024
-    },
     pinging: {
         enabled: true,
         services: [] as string[]
@@ -39,5 +26,38 @@ export default {
          * too often.
          */
         allowMultipleAssignments: false
+    },
+    thumbnails: {
+        enabled: false,
+        /**
+         * The width in pixels. The height is automagically adjusted to preserve the aspect
+         * ratio.
+         *
+         * When updating this value, no existing thumbnails will be recreated.
+         */
+        width: 100,
+        /**
+         * A percentage point value of quality the image should have. Used in jpeg and avif
+         * files to indicate the degree of compression, with a lower value being more lossy.
+         * Integers from 0 to 100 are allowed.
+         *
+         * When updating this value, no existing thumbnails will be recreated.
+         */
+        quality: 10,
+        /**
+         * The amount of bytes a thumbnail image may be at most. If the generated
+         * thumbnail exceeds this size, the image is rejected.
+         *
+         * The max size defined on the Supabase bucket is also used (if defined),
+         * but the minimum of both values is chosen to determine whether the file
+         * may be uploaded.
+         */
+        maxThumbnailSize: 4 * 1024,
+        /**
+         * The output format of the thumbnails. The file stored within Supabase
+         * storage will have no file extension to preseve existing thumbnails
+         * should this type ever be changed in this config.
+         */
+        image_type: "avif" as (typeof ThumbnailImageTypes)[number]
     }
 } as const;

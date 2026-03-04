@@ -8,7 +8,7 @@ import managerConfig from "../../manager.config.js";
 const BUCKET_NAME = "thumbnails";
 
 function isStorageEnabled(): boolean {
-    return managerConfig.supabase.useThumbnails;
+    return managerConfig.thumbnails.enabled;
 }
 
 export async function uploadThumbnailToStorage(id: number, data: Buffer): Promise<boolean> {
@@ -16,7 +16,7 @@ export async function uploadThumbnailToStorage(id: number, data: Buffer): Promis
     const bucket = await getOrCreateBucket(BUCKET_NAME);
     if (bucket === null) return false;
 
-    const MAX_UPLOAD_SIZE = Math.min(managerConfig.supabase.maxThumbnailSize, bucket.file_size_limit ?? Number.MAX_SAFE_INTEGER);
+    const MAX_UPLOAD_SIZE = Math.min(managerConfig.thumbnails.maxThumbnailSize, bucket.file_size_limit ?? Number.MAX_SAFE_INTEGER);
     if (data.length > MAX_UPLOAD_SIZE) {
         // There just will not be any thumbnail - easy as that.
         logWarn("Thumbnail for file", id, "is larger than the allowed size");

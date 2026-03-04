@@ -18,7 +18,6 @@ import { Socket } from "./Socket.js";
 import sharp from "sharp";
 import ffmpeg from "fluent-ffmpeg";
 import { Readable } from "node:stream";
-import config from "./thumbnail-config.json" with { type: "json" };
 import { logDebug, logError, logWarn } from "../common/logging.js";
 import { ThumbnailDataPacket } from "../common/packet/t2s/ThumbnailDataPacket.js";
 import express from "express";
@@ -35,7 +34,14 @@ app.listen(6000);
 const socket = new Socket();
 
 type Configuration = ThumbnailServiceConfigurationPacket["data"] & { defined: boolean };
-let configuration: Configuration = { discord_bot_token: "", message_encryption_key: "", defined: false };
+let configuration: Configuration = {
+    discord_bot_token: "",
+    message_encryption_key: "",
+    image_quality: 0,
+    image_type: "avif",
+    image_width: 0,
+    defined: false
+};
 export function packet$configure(packet: ThumbnailServiceConfigurationPacket) {
     if (isConfigured()) {
         logWarn("Attempted to configure whilst being already configured");
@@ -57,8 +63,10 @@ function isConfigured(): boolean {
 }
 
 export async function processThumbnailRequest(packet: GenThumbnailPacket) {
+    if (!isConfigured()) {
+        return;
+    }
     const data = packet.getData();
-    console.log(data);
     const msgId = data.first_msg_id[0];
     const { file_id, channel_id, file_type, is_encrypted } = data;
 
@@ -115,17 +123,33 @@ function getGeneratingFunctionForFileType(type: string): ThumbnailGeneratorFunct
 }
 
 async function resizeImageBuffer(buf: Buffer, _: string): Promise<Buffer> {
-    return (
-        sharp(buf)
-            // The height is automagically adjusted alongside!
-            .resize({ width: config.width })
-            .avif({ quality: config.quality })
-            .toBuffer()
-    );
+    if (!isConfigured()) {
+        throw new ReferenceError("Called resizeImageBuffer before the service was configured");
+    }
+    const builder = sharp(buf)
+        // The height is automagically adjusted alongside!
+        .resize({ width: configuration.image_width });
+
+    const fn =
+        configuration.image_type === "avif"
+            ? builder.avif
+            : configuration.image_type === "jpeg"
+              ? builder.jpeg
+              : configuration.image_type === "webp"
+                ? builder.webp
+                : null;
+    if (!fn) {
+        throw new ReferenceError("Invalid image type: " + configuration.image_type);
+    }
+
+    return fn({ quality: configuration.image_quality }).toBuffer();
 }
 
 function createVideoScreenshot(buf: Buffer, type: string): Promise<Buffer> {
     return new Promise((resolve, reject) => {
+        if (!isConfigured()) {
+            throw new ReferenceError("Called createVideoScreenshot before the service was configured");
+        }
         const chunks = new Array<Uint8Array>();
         const stream = bufferToStream(buf);
         const command = ffmpeg().input(stream); // does the input format have to be inputted normally?
@@ -134,7 +158,7 @@ function createVideoScreenshot(buf: Buffer, type: string): Promise<Buffer> {
             .outputOptions([
                 "-ss 00:00:00", // seeking to the first frame
                 "-vframes 1", // only one frame
-                `-vf "scale=${config.width}:-2"`,
+                `-vf "scale=${configuration.image_width}:-2"`,
                 "-q:v 2" // jpg quality
             ])
             .format("mjpeg")
