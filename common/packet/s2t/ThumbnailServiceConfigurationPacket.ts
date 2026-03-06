@@ -1,7 +1,7 @@
-import { patterns } from "../../patterns.js";
 import type { SchemaToType } from "../../validator.js";
 import { S2TPacket } from "../S2TPacket.js";
 import type { UUID } from "../../index.js";
+import { ThumbnailImageTypes } from "../../../manager.config.js";
 
 const id = "thumbnail-service-configuration";
 
@@ -12,13 +12,11 @@ const dataStructure = {
      * any messages should the file be encrypted.
      */
     message_encryption_key: { type: "string", required: false, min_length: 1 },
-    discord_bot_token: { type: "string", required: true, min_length: 1 }
+    discord_bot_token: { type: "string", required: true, min_length: 1 },
+    image_quality: { type: "number", required: true, min: 0, max: 100 },
+    image_width: { type: "number", required: true, min: 1, max: 4096 },
+    image_type: { type: "string", required: true, options: ThumbnailImageTypes }
 } as const;
-
-function validateMessageIds(obj: any): boolean {
-    if (!Array.isArray(obj) || !obj.length) return false;
-    return obj.every((value) => typeof value === "string" && patterns.snowflake.test(value));
-}
 
 export class ThumbnailServiceConfigurationPacket extends S2TPacket {
     declare protected data: DataType;
