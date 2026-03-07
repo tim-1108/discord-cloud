@@ -28,7 +28,7 @@ export async function performFileShareOperation(client: Client, packet: FileShar
         return reply(false, "The file does not exist");
     }
 
-    const ownership = await Authentication.permissions.ownership(user, handle);
+    const ownership = await Authentication.ownership(user, handle);
     if (!ownership || ownership.status !== "owned") {
         Locks.file.unlock(path, name, lockId);
         return reply(false, "You do not own this file");
@@ -128,8 +128,8 @@ export async function performSignedDownloadOperation(client: Client, packet: Sig
     }
 
     if (handle.owner !== client.getUserId()) {
-        const { read } = await Authentication.permissions.file(client.getUserId(), handle.id);
-        if (!read) {
+        const ownership = await Authentication.ownership(client.getUserId(), handle.id);
+        if (!ownership || ownership.status === "restricted") {
             return reply();
         }
     }

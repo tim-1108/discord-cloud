@@ -258,13 +258,13 @@ function broadcastToClients(action: FileModifyAction, handle: FileHandle, target
             return null;
         }
         const f = handle.folder !== null ? Database.folderHandle.getById(handle.folder) : "/";
-        const r = await Database.folder.resolveRouteById(handle.folder ?? "root" /* converting database to js version of root */);
-        const o = await Authentication.permissions.ownership(user, handle);
+        const r = Database.folder.resolveRouteById(handle.folder ?? "root" /* converting database to js version of root */);
+        const o = await Authentication.ownership(user, handle);
         if (!o || !f || !r) {
             return null;
         }
         const p = routeToPath(r);
-        const t = handle.has_thumbnail && Authentication.permissions.canReadFile(o) ? await Database.thumbnail.getSignedLink(handle.id) : null;
+        const t = handle.has_thumbnail && o.status !== "restricted" ? await Database.thumbnail.getSignedLink(handle.id) : null;
         const $handle = {
             id: handle.id,
             name: handle.name,

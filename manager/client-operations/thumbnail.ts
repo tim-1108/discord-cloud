@@ -18,8 +18,8 @@ export async function performThumbnailRequestOperation(client: Client, packet: T
     if (!handle.has_thumbnail) {
         return fail("File has no thumbnail");
     }
-    const o = await Authentication.permissions.ownership(client.getUserId(), handle);
-    if (!o || !Authentication.permissions.canReadFile(o)) {
+    const o = await Authentication.ownership(client.getUserId(), handle);
+    if (!o || o.status === "restricted") {
         return fail("Access denied");
     }
     const url = await Database.thumbnail.getSignedLink(id);

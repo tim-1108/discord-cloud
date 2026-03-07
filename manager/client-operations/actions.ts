@@ -39,8 +39,8 @@ async function moveFiles(c: Client, p: MoveFilesPacket): Promise<void> {
         if (!patterns.fileName.test(name)) continue;
         const handle = await Database.file.get(sf, name);
         if (!handle) continue;
-        const ownership = await Authentication.permissions.ownership(c.getUserId(), handle);
-        if (!ownership || !Authentication.permissions.canWriteFile(ownership)) {
+        const ownership = await Authentication.ownership(c.getUserId(), handle);
+        if (!ownership || ownership.can !== "rw") {
             continue;
         }
 
@@ -65,8 +65,8 @@ async function deleteFile(c: Client, p: DeleteFilePacket) {
     if (!handle) {
         return;
     }
-    const ownership = await Authentication.permissions.ownership(c.getUserId(), handle);
-    if (!ownership || !Authentication.permissions.canWriteFile(ownership)) {
+    const ownership = await Authentication.ownership(c.getUserId(), handle);
+    if (!ownership || ownership.can !== "rw") {
         return;
     }
     // TODO: Do something with this result? We don't really need to
@@ -89,8 +89,8 @@ async function renameFile(c: Client, p: RenameFilePacket) {
     if (!handle) {
         return;
     }
-    const ownership = await Authentication.permissions.ownership(c.getUserId(), handle);
-    if (!Authentication.permissions.canWriteFile(ownership)) {
+    const ownership = await Authentication.ownership(c.getUserId(), handle);
+    if (!ownership || ownership.can !== "rw") {
         return;
     }
     const result = await Database.file.rename(handle.id, target_name);

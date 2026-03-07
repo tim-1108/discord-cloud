@@ -109,7 +109,7 @@ async function listRequest(client: Client, packet: ListRequestPacket): Promise<v
     const $files = await Promise.all<ClientFileHandle | null>(
         files.map(async (f) => {
             // TODO: Unify this ClientFileHandle generation with the broadcast in file.ts
-            const o = await Authentication.permissions.ownership(client.getUserId(), f);
+            const o = await Authentication.ownership(client.getUserId(), f);
             if (o === null) {
                 return null;
             }

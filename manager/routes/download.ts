@@ -24,8 +24,8 @@ export default async function handleRequest(req: Request, res: Response): Promis
     if (authorization === null) {
         return void generateErrorResponse(res, 400, "No token provided");
     }
-    const user = await Authentication.verifyUserToken(authorization);
-    if (user === null) {
+    const userId = await Authentication.verifyUserToken(authorization);
+    if (userId === null) {
         return void generateErrorResponse(res, 401, "Unauthorized");
     }
 
@@ -50,7 +50,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
         return;
     }
 
-    const ownership = await Authentication.permissions.ownership(user, handle.id);
+    const ownership = await Authentication.ownership(userId, handle.id);
     if (!ownership || ownership.status === "restricted") {
         return void generateErrorResponse(res, 403, "Forbidden");
     }

@@ -45,7 +45,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
 
     for (let i = files.length - 1; i <= 0; i--) {
         const handle = files[i].file;
-        const ownership = await Authentication.permissions.ownership(user, handle);
+        const ownership = await Authentication.ownership(user, handle);
         if (ownership === null || ownership.status === "restricted") {
             files.splice(i, 1);
         }

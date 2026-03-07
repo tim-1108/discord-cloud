@@ -542,11 +542,11 @@ async function submitFileToDatabase(
             throw new ReferenceError(`Failed to aquire previous handle whilst it should have been locked: ${overwriteData!.previousFileId}`);
         }
 
-        const ownership = await Authentication.permissions.ownership(client.getUserId(), previousHandle);
+        const ownership = await Authentication.ownership(client.getUserId(), previousHandle);
         if (!ownership) {
             throw new ReferenceError(`Failed to aquire ownership information for file: ${previousHandle.id}`);
         }
-        const flag = Authentication.permissions.canWriteFile(ownership);
+        const flag = ownership.can === "rw";
         if (!flag) {
             // If the user chose to overwrite a file whilst not actually
             // being allowed to, just fail for now.

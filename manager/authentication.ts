@@ -79,21 +79,6 @@ function verifyPasswordWithSalt(storedHash: string, password: string, salt: stri
     return hash === storedHash;
 }
 
-/**
- * If the user is the owner of the file, do not call this function,
- * as you can assume full file access.
- */
-async function getUserFilePermissions(user: number, file: number) {
-    const createRecord = (read: boolean, write: boolean) => ({ read, write });
-    const share = await Database.file.share.get(user, file);
-    if (share === null) {
-        return createRecord(false, false);
-    }
-
-    // If the share record exists at all, they can always read
-    return createRecord(true, share.can_write);
-}
-
 async function getUserFileOwnershipStatus(user: number, file: number | FileHandle): Promise<FileOwnershipStatus | null> {
     const $file = typeof file === "number" ? await Database.file.getById(file) : file;
     if ($file === null) {
@@ -103,45 +88,31 @@ async function getUserFileOwnershipStatus(user: number, file: number | FileHandl
     // This should only be possible if a user is deleted from the table
     // (we do not want to delete all files if something has been deleted accidentially)
     if ($file.owner === null) {
-        return { status: "public" };
+        return { status: "public", can: "rw" };
     }
 
     if ($file.owner === user) {
-        return { status: "owned" };
+        return { status: "owned", can: "rw" };
     }
 
     // Only after the owner check to prevent owned files
     // from showing up as public for the actual owner
     if ($file.is_public) {
-        return { status: "public" };
+        return { status: "public", can: "rw" };
     }
 
     const share = await Database.file.share.get(user, $file.id);
     if (share) {
-        return { status: "shared", share };
+        return { status: "shared", share, can: share.can_write ? "rw" : "r" };
     }
 
-    return { status: "restricted" };
-}
-
-function canReadFile(status: FileOwnershipStatus | null) {
-    if (!status) return false;
-    return status.status !== "restricted";
-}
-function canWriteFile(status: FileOwnershipStatus | null) {
-    if (!status) return false;
-    return status.status === "owned" || (status.status === "shared" && status.share.can_write);
+    return { status: "restricted", can: "none" };
 }
 
 export const Authentication = {
     generateUserToken,
     verifyUserToken,
-    permissions: {
-        file: getUserFilePermissions,
-        ownership: getUserFileOwnershipStatus,
-        canReadFile,
-        canWriteFile
-    },
+    ownership: getUserFileOwnershipStatus,
     password: {
         generate: saltAndHashPassword,
         verify: verifyPasswordWithSalt

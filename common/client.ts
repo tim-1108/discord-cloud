@@ -18,7 +18,10 @@ export type ClientFileHandle = {
 };
 
 export type ClientFileOwnership = "owned" | "shared" | "public" | "restricted";
-export type FileOwnershipStatus = { status: Exclude<ClientFileOwnership, "shared"> } | { status: "shared"; share: FileShareHandle };
+type PermissionCan = "r" | "rw" | "none";
+export type FileOwnershipStatus =
+    | { status: Exclude<ClientFileOwnership, "shared">; can: PermissionCan }
+    | { status: "shared"; share: FileShareHandle; can: PermissionCan };
 
 export type ClientFolderHandle = FolderHandle;
 export type FileModifyAction = "add" | "delete" | "modify";
