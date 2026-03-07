@@ -11,6 +11,7 @@ import type { MessageEvent, WebSocket } from "ws";
 import { createRequire } from "node:module";
 import { sleep } from "../../common/useless.js";
 import { getEnvironmentVariables } from "../../common/environment.js";
+import managerConfig from "../../manager.config.js";
 
 type ThumbnailGenerationData = GenThumbnailPacket["data"];
 
@@ -29,7 +30,10 @@ export class ThumbnailService extends Service {
         const { MESSAGE_ENCRYPTION_KEY } = getEnvironmentVariables("crypto", true);
         const result = await this.sendConfiguration(this.config.name, {
             message_encryption_key: MESSAGE_ENCRYPTION_KEY,
-            discord_bot_token: DISCORD_BOT_TOKEN
+            discord_bot_token: DISCORD_BOT_TOKEN,
+            image_quality: managerConfig.thumbnails.quality,
+            image_type: managerConfig.thumbnails.image_type,
+            image_width: managerConfig.thumbnails.width
         });
 
         if (!result) return false;
