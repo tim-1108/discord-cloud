@@ -1,14 +1,12 @@
 <script setup lang="ts">
-import { clearAuthentication } from "@/composables/authentication";
+import { Authentication } from "@/composables/authentication";
 import { Dialogs } from "@/composables/dialog";
-import { useListingMetadata } from "@/composables/listing_uncached";
 import { Uploads } from "@/composables/uploads";
-import { faArrowRightFromBracket, faFolderPlus, faPlus } from "@fortawesome/free-solid-svg-icons";
-import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+import { faArrowRightFromBracket } from "@fortawesome/free-solid-svg-icons";
 import { computed } from "vue";
 
 function logOff() {
-    clearAuthentication();
+    Authentication.clear();
     window.location.reload();
 }
 

@@ -1,7 +1,7 @@
 import type { DataErrorFields } from "../../../common";
 import { SignedDownloadRequestPacket } from "../../../common/packet/c2s/SignedDownloadRequestPacket";
 import { SignedDownloadPacket } from "../../../common/packet/s2c/SignedDownloadPacket";
-import { getOrCreateCommunicator, getServerAddress } from "./authentication";
+import { Authentication, getOrCreateCommunicator } from "./authentication";
 
 export async function createSignedDownloadLink(fileId: number): Promise<DataErrorFields<URL>> {
     const com = await getOrCreateCommunicator();
@@ -15,7 +15,7 @@ export async function createSignedDownloadLink(fileId: number): Promise<DataErro
         return { data: null, error: "The server returned an empty payload" };
     }
 
-    const address = await getServerAddress();
+    const address = await Authentication.getServerAddress();
     address.pathname = "/signed-download";
     address.searchParams.append("q", payload);
     return { data: address, error: null };

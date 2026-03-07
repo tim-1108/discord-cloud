@@ -1,14 +1,10 @@
 <script setup lang="ts">
-import PathRenderer from "../components/PathRenderer.vue";
 import UploadDropOverlay from "../components/overlay/UploadDropOverlay.vue";
 import { computed, onMounted, ref, watch } from "vue";
 import { Dialogs } from "../composables/dialog";
 import { convertPathToRoute, convertRouteToPath, useListingRoute } from "../composables/path";
 import Sidebar from "../components/Sidebar.vue";
-import { Connection } from ".././composables/connection";
-import { PendingAuthenticationState } from "../composables/state";
-import { UncachedListing, useListingMetadata, type ListingError, type ListingMetadata } from ".././composables/listing_uncached";
-import { logWarn } from "../../../common/logging";
+import { CommunicatorConnectionState } from "../composables/state";
 import { useRoute } from "vue-router";
 import { useFlyoutVnode } from "@/composables/flyout";
 
@@ -32,7 +28,7 @@ const dropPreview = {
     }
 };
 
-const isConnected = Connection.isConnected;
+const isConnected = computed(() => CommunicatorConnectionState.value === "established");
 const flyout = useFlyoutVnode();
 
 onMounted(() => {
@@ -59,11 +55,11 @@ onMounted(() => {
         <Sidebar class="not-md:hidden row-span-1 overflow-auto"></Sidebar>
         <main class="row-span-1 overflow-auto md:p-4 bg-white md:rounded-tl-3xl min-h-0 not-md:pb-28">
             <div v-if="!isConnected">
-                <span v-if="PendingAuthenticationState === 'health'">Waiting for server to come online</span>
-                <span v-else-if="PendingAuthenticationState === 'login'">Logging in</span>
-                <span v-else-if="PendingAuthenticationState === 'pending'">Waiting for credentials</span>
-                <span v-else-if="PendingAuthenticationState === 'establishing'">Establishing connection</span>
-                <span v-else-if="PendingAuthenticationState === 'established'">Connected</span>
+                <span v-if="CommunicatorConnectionState === 'health'">Waiting for server to come online</span>
+                <span v-else-if="CommunicatorConnectionState === 'login'">Logging in</span>
+                <span v-else-if="CommunicatorConnectionState === 'pending'">Waiting for credentials</span>
+                <span v-else-if="CommunicatorConnectionState === 'establishing'">Establishing connection</span>
+                <span v-else-if="CommunicatorConnectionState === 'established'">Connected</span>
             </div>
             <ListingWrapper v-if="isConnected" :path="path" :key="path"></ListingWrapper>
         </main>

@@ -1,36 +1,36 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, useTemplateRef } from "vue";
+import { computed, nextTick, ref, useTemplateRef } from "vue";
 import BaseDialog from "./BaseDialog.vue";
-import { globals } from "@/composables/globals";
-import StyledButton from "../basic/StyledButton.vue";
-import { Authentication, getAndFixAddress, getOrCreateCommunicator, isServerAvailable } from "@/composables/authentication";
+import { Authentication, LoginError } from "@/composables/authentication";
 import { sleep } from "../../../../common/useless";
 
-// All thiss code is pretty dirty and will be reworked.
+// The predefined credentials are supplied in case the token expired.
+const props = defineProps<{ predefinedCredentials?: { address: string; username: string } }>();
 
-const address = ref("");
-const username = ref("");
+const address = ref(props.predefinedCredentials?.address ?? "");
+const username = ref(props.predefinedCredentials?.username ?? "");
 const password = ref("");
 const token = ref("");
 
-const validatingCredentials = ref(false);
+const isLocked = ref(false);
 
-const targetAddress = computed(() => getAndFixAddress(address.value));
-
-function resolve(token: string, address: URL) {
-    globals.authentication.resolvePromise({ address: address.toString(), username: username.value, password: password.value, token });
-}
+const targetAddress = computed(() => Authentication.getAndFixAddress(address.value));
 
 const Constants = {
     maxOneStageAttempts: 10,
     transitionTimeMs: 300
 } as const;
 
-const stage = ref(0);
+const stage = ref(typeof props.predefinedCredentials === "undefined" ? 0 : 2);
 const titles = ["Welcome", "Checking availablity", "Please enter your credentials", "Logging in", "Thank you", "Uh-oh", "Uh-oh"];
 const dialog = useTemplateRef("dialog");
 
+// === stage specific storage ===
 const stageOneAttempts = ref(0);
+// The initial notice that the token has expired
+const stageThreeNotice = ref(typeof props.predefinedCredentials !== "undefined");
+const stageSixFailure = ref<LoginError>();
+
 async function stageOne() {
     if (!targetAddress.value) {
         throw new ReferenceError("Target address is invalid");
@@ -38,7 +38,7 @@ async function stageOne() {
     await transitionStage(1);
     stageOneAttempts.value = 0;
     while (stageOneAttempts.value < Constants.maxOneStageAttempts) {
-        const flag = await isServerAvailable(targetAddress.value);
+        const flag = await Authentication.health(targetAddress.value);
         if (flag) return transitionStage(2);
         await sleep(5000);
         stageOneAttempts.value++;
@@ -48,22 +48,25 @@ async function stageOne() {
 
 async function stageThree() {
     // Due to form validation, this should be impossible.
-    if (username.value.length === 0 || password.value.length === 0 || !targetAddress.value || validatingCredentials.value) return;
+    if (username.value.length === 0 || password.value.length === 0 || !targetAddress.value || isLocked.value) return;
 
-    validatingCredentials.value = true;
-    const response = await Authentication.login({ password: password.value, username: username.value, address: targetAddress.value?.toString() });
-    validatingCredentials.value = false;
-    if (!response.data) {
+    isLocked.value = true;
+    const response = await Authentication.login(username.value, password.value, targetAddress.value.toString());
+    isLocked.value = false;
+    // As this notice is only shown for the re-auth, we can remove it now.
+    stageThreeNotice.value = false;
+    if (response.error !== null) {
+        stageSixFailure.value = response.error;
         transitionStage(6);
         return;
     }
-
+    token.value = response.data;
     transitionStage(4);
 }
 
 function stageFour() {
     if (!targetAddress.value) return;
-    resolve(token.value, targetAddress.value);
+    Authentication.resolve(username.value, token.value, targetAddress.value);
 }
 
 async function transitionStage(target: number): Promise<void> {
@@ -123,16 +126,17 @@ async function transitionStage(target: number): Promise<void> {
                 </p>
             </div>
             <form @submit.prevent="stageThree" v-else-if="stage === 2" class="grid gap-2">
+                <p v-if="stageThreeNotice" class="text-red-500">
+                    The previous token for your account appears to have expired, for instance due to your password having been changed.
+                </p>
                 <div>
                     <small>Username</small>
                     <input v-model="username" spellcheck="false" required />
                     <small>Password</small>
                     <input v-model="password" spellcheck="false" type="password" required />
                 </div>
-                <ThemedButton type="submit" color="blue" :disabled="!(username.length && password.length) || validatingCredentials"
-                    >Continue</ThemedButton
-                >
-                <ThemedButton color="red" @click="transitionStage(0)" :disabled="validatingCredentials">Go Back</ThemedButton>
+                <ThemedButton type="submit" color="blue" :disabled="!(username.length && password.length) || isLocked">Continue</ThemedButton>
+                <ThemedButton color="red" @click="transitionStage(0)" :disabled="isLocked">Go Back</ThemedButton>
                 <p>Should you have lost your credentials, please contact your administrator.</p>
             </form>
             <div v-else-if="stage === 4">
@@ -144,7 +148,11 @@ async function transitionStage(target: number): Promise<void> {
                 <ThemedButton color="red" @click="transitionStage(0)">Go Back</ThemedButton>
             </div>
             <div v-else-if="stage === 6">
-                <p>Your credentials appear to be invalid. Please check them again.</p>
+                <p v-if="stageSixFailure === LoginError.IncorrectCredentials">Your credentials appear to be invalid. Please check them again.</p>
+                <p v-else-if="stageSixFailure === LoginError.BadRequest">The login request was invalid</p>
+                <p v-else-if="stageSixFailure === LoginError.InvalidAddress">The server address is invalid</p>
+                <p v-else-if="stageSixFailure === LoginError.ServerError">A technical error occured on the server</p>
+                <p v-else>An unknown error occured</p>
                 <ThemedButton color="red" @click="transitionStage(2)">Go Back</ThemedButton>
             </div>
         </template>

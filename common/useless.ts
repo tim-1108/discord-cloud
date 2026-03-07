@@ -104,6 +104,7 @@ export function parseDateObjectToRelative(obj: Date) {
     return `${dayMonth}, ${obj.getFullYear()} ${time}`;
 }
 
+export type ResolveContainer<Return> = ReturnType<typeof createResolveFunction<Return>>;
 export function createResolveFunction<Return = void>() {
     let r: (val: Return) => void;
     const p = new Promise<Return>((resolve) => (r = resolve));

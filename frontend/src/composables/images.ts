@@ -1,11 +1,11 @@
 import { ref } from "vue";
-import { getAuthenticationSync } from "./authentication";
+import { Authentication } from "./authentication";
 import type { ClientFileHandle } from "../../../common/client";
 import { LocalStorageKey, readRawFromStorage } from "./storage";
 import { patterns } from "../../../common/patterns";
 
 export function generateDownloadLink(name: string, path: string) {
-    const auth = getAuthenticationSync();
+    const auth = Authentication.getSync();
     const token = readRawFromStorage(LocalStorageKey.Token, { type: "string", required: true, pattern: patterns.jwt });
     if (auth === null || token === null) {
         // This really should never be able to happen

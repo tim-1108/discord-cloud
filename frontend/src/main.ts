@@ -8,6 +8,7 @@ import { createRouter, createWebHistory } from "vue-router";
 import BrowseView from "./pages/BrowseView.vue";
 import { navigateToAbsolutePath } from "./composables/path.js";
 import { patterns } from "../../common/patterns.js";
+import { Uploads } from "./composables/uploads.js";
 
 // TODO: Why is this router not available when calling useRouter()??
 const history = createWebHistory();
@@ -29,5 +30,13 @@ const app = createApp(App);
 app.use(router);
 app.directive("intersection-observer", vIntersectionObserver);
 app.mount("#app");
+
+window.addEventListener("beforeunload", (event) => {
+    if (Uploads.active.size > 0 || Uploads.queue.length > 0) {
+        event.preventDefault();
+        // Any truthy value for legacy browsers
+        event.returnValue = true;
+    }
+});
 
 void getOrCreateCommunicator();

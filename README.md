@@ -14,8 +14,6 @@ The `ThumbnailService` handles the generation of small preview images for images
 
 The storage in Discord is handled with a bot. Sending the messages could be implemented with webhooks, but as attachments links are now signed and expire, we cannot just store the message id, but have to retrieve the message from Discord's API to obtain a signed link. This requires us to have a token.
 
-To store metadata about the files and folders, as well as users, this project uses Supabase. A schema for the database is included within `/manager/database`.
-
 ## Quick setup
 
 For setting this up, you do not need to host the frontend yourself. A live build is running on https://discord-cloud.vercel.app, which allows you to enter any server address to communicate with.
@@ -152,7 +150,6 @@ Details are available in `PACKETS.md`.
 - (limited) WebDAV support
 - user management for administrators
 - more `DataErrorField` instead of `null` returns in the backend
-- client authentication store rework
 - better client error handling
 - connection view in client
 - saving uploads on disconnect and retry buttons

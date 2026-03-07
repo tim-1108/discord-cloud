@@ -6,8 +6,7 @@ import { Uploads } from "@/composables/uploads.js";
 import { FileModifyPacket } from "../../../common/packet/s2c/FileModifyPacket.js";
 import { logWarn } from "../../../common/logging.js";
 import { Dialogs } from "@/composables/dialog.js";
-import { Connection } from "@/composables/connection.js";
-import { PendingAuthenticationState } from "@/composables/state.js";
+import { CommunicatorConnectionState } from "@/composables/state.js";
 import { UploadBookingModifyPacket } from "../../../common/packet/s2c/UploadBookingModifyPacket.js";
 import { UploadFinishInfoPacket } from "../../../common/packet/s2c/UploadFinishInfoPacket.js";
 import { UploadOverwriteRequestPacket } from "../../../common/packet/s2c/UploadOverwriteRequestPacket.js";
@@ -24,8 +23,7 @@ export class Communicator extends PacketReceiver {
         const socket = new WebSocket(address);
         super(socket);
         this.socket.addEventListener("open", () => {
-            PendingAuthenticationState.value = "established";
-            Connection.isConnected.value = true;
+            CommunicatorConnectionState.value = "established";
         });
     }
 
