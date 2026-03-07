@@ -82,7 +82,6 @@ async function transitionStage(target: number): Promise<void> {
     await nextTick();
 
     const newHeight = el.getBoundingClientRect().height;
-    console.log(height, newHeight);
     el.style.height = str(height);
 
     const handle = el.animate([{ height: str(height) }, { height: str(newHeight) }], {

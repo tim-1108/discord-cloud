@@ -1,9 +1,9 @@
-import { deleteObjectFromStorage, LocalStorageKey, readObjectFromStorage, writeObjectToStorage } from "./storage";
+import { deleteObjectFromStorage, LocalStorageKey, readObjectFromStorage, readRawFromStorage, writeObjectToStorage } from "./storage";
 import { validateObjectBySchema, type SchemaToType } from "../../../common/validator";
 import { Dialogs } from "./dialog";
 import { Communicator } from "@/socket/Communicator";
 import { patterns } from "../../../common/patterns";
-import { logError, logWarn } from "../../../common/logging";
+import { logError, logInfo, logWarn } from "../../../common/logging";
 import { createResolveFunction, sleep, type ResolveContainer } from "../../../common/useless";
 import type { DataErrorFields } from "../../../common";
 import { CommunicatorConnectionState } from "./state";
@@ -12,6 +12,11 @@ const authenticationSchema = {
     address: { type: "string", required: true, validator_function: validateSocketUrl },
     username: { type: "string", required: true, min_length: 1 },
     token: { type: "string", required: true, pattern: patterns.jwt }
+} as const;
+const previousAuthenticationSchema = {
+    address: { type: "string", required: true, validator_function: validateSocketUrl },
+    username: { type: "string", required: true, min_length: 1 },
+    password: { type: "string", required: true }
 } as const;
 export type Credentials = SchemaToType<typeof authenticationSchema>;
 
@@ -181,7 +186,22 @@ async function getAuthentication(predefinedCredentials?: { address: string; user
 }
 
 function getAuthenticationSync(): Credentials | null {
-    return readObjectFromStorage(LocalStorageKey.Authentication, authenticationSchema);
+    const data = readObjectFromStorage(LocalStorageKey.Authentication, authenticationSchema);
+    if (data) {
+        return data;
+    }
+    // Now, there may either be nothing set, or the legacy data may still be active.
+    const previousData = readObjectFromStorage(LocalStorageKey.Authentication, previousAuthenticationSchema);
+    const token = readRawFromStorage(LocalStorageKey.Token, { type: "string", required: true, pattern: patterns.jwt });
+    // This might just mean that there is not actually anything.
+    if (token === null || previousData === null) {
+        return null;
+    }
+    logInfo("Migrated legacy authentication storage");
+    const migratedData = { username: previousData.username, address: previousData.address, token };
+    writeObjectToStorage(LocalStorageKey.Authentication, migratedData);
+    deleteObjectFromStorage(LocalStorageKey.Token);
+    return migratedData;
 }
 
 async function getServerAddress(protocol: string = window.location.protocol): Promise<URL> {

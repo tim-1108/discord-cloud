@@ -5,7 +5,8 @@ export function readObjectFromStorage<T extends SchemaEntryConsumer>(key: LocalS
     const rawString = localStorage.getItem(key);
     if (rawString === null) return null;
     const data = destr<SchemaToType<typeof consumer>>(rawString);
-    if (!validateObjectBySchema(data, consumer)) {
+    const validation = validateObjectBySchema(data, consumer);
+    if (validation.invalid) {
         return null;
     }
 
@@ -16,7 +17,8 @@ export function readRawFromStorage(key: LocalStorageKey, schema?: StringSchemaEn
     const raw = localStorage.getItem(key);
     if (raw === null) return null;
     // keys have to match
-    if (schema && !validateObjectBySchema({ value: raw }, { value: schema })) {
+    const validation = schema ? validateObjectBySchema({ value: raw }, { value: schema }) : null;
+    if (validation && validation.invalid) {
         return null;
     }
 
@@ -37,5 +39,8 @@ export function deleteObjectFromStorage(key: LocalStorageKey) {
 
 export enum LocalStorageKey {
     Authentication = "discord-cloud-authentication",
+    /**
+     * Only exists to migrate legacy storage.
+     */
     Token = "discord-cloud-token"
 }
