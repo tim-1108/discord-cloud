@@ -1,6 +1,5 @@
 import jwt from "jsonwebtoken";
 import { getEnvironmentVariables } from "../common/environment.js";
-import { getUser_Database } from "./database/users.js";
 import { Buffer } from "node:buffer";
 import { patterns } from "../common/patterns.js";
 import { validateObjectBySchema, type SchemaToType } from "../common/validator.js";
@@ -31,7 +30,7 @@ const tokenStructure = {
 type Token = SchemaToType<typeof tokenStructure>;
 
 async function generateUserToken(user: number) {
-    const handle = await getUser_Database(user);
+    const handle = await Database.users.get(user);
     if (!handle) return null;
     return jwt.sign({ user, hash: handle.password }, Constants.privateKey, { algorithm: "RS256" });
 }
@@ -52,7 +51,7 @@ async function verifyUserToken(token: string | null | undefined) {
     }
 
     const $handle = handle as Token;
-    const user = await Database.user.get($handle.user);
+    const user = await Database.users.get($handle.user);
     // When the user changes their password, every token granted before
     // should be invalidated automatically (as a security concern)
     if (user === null || user.password !== $handle.hash) {

@@ -1,0 +1,28 @@
+import type { SchemaToType } from "../../validator.js";
+import type { UUID } from "../../index.js";
+import { C2SPacket } from "../C2SPacket.js";
+import { patterns } from "../../patterns.js";
+
+const id = "user-search-request";
+
+type DataType = SchemaToType<typeof dataStructure>;
+const dataStructure = {
+    query: { type: "string", required: true, min_length: 1, pattern: patterns.username }
+} as const;
+
+export class UserSearchRequestPacket extends C2SPacket {
+    declare protected data: DataType;
+    public static readonly ID = id;
+
+    public getDataStructure() {
+        return dataStructure;
+    }
+
+    public getData() {
+        return this.data;
+    }
+
+    public constructor(data: DataType | UUID | null) {
+        super(id, data);
+    }
+}

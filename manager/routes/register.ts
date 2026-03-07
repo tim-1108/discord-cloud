@@ -22,7 +22,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
 
     const { username, password, adminToken } = validation.value;
 
-    const userCount = await Database.user.getCount();
+    const userCount = await Database.users.count();
     if (userCount.error) {
         return void generateErrorResponse(res, 500, "Failed to compute user count");
     }
@@ -36,19 +36,19 @@ export default async function handleRequest(req: Request, res: Response): Promis
         if (userId === null) {
             return void generateErrorResponse(res, 403, "Invalid admin user token");
         }
-        const userHandle = await Database.user.get(userId);
+        const userHandle = await Database.users.get(userId);
         if (!userHandle || !userHandle.administrator) {
             return void generateErrorResponse(res, 403, "You are no administrator");
         }
     }
 
-    const existingUser = await Database.user.getByName(username);
+    const existingUser = await Database.users.getByName(username);
     if (existingUser !== null) {
         generateErrorResponse(res, 400, "A user with this name already exists");
         return;
     }
 
-    const handle = await Database.user.add(username, password, noAdminsExist);
+    const handle = await Database.users.create(username, password, noAdminsExist);
     if (handle === null) {
         generateErrorResponse(res, 500, "Failed to create user handle");
         return;

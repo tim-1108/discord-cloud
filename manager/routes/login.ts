@@ -19,7 +19,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
     }
 
     const { username, password } = validation.value;
-    const handle = await Database.user.getByName(username);
+    const handle = await Database.users.getByName(username);
     if (handle === null) {
         return void generateErrorResponse(res, 403);
     }

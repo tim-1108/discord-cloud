@@ -81,7 +81,7 @@ export async function performTransferOwnershipOperation(client: Client, packet: 
     }
 
     const lockId = Locks.file.lock(route, handle.name);
-    const targetUser = await Database.user.get(target_user_id);
+    const targetUser = await Database.users.get(target_user_id);
 
     if (!targetUser) {
         return reply(false, "The target user was not found");

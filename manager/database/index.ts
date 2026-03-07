@@ -22,7 +22,7 @@ import {
 import { Database$GetAll } from "./get-all.js";
 import { getSignedLinkForThumbnail, deleteThumbnailFromStorage, uploadThumbnailToStorage } from "./storage.js";
 import { Database$FolderHandle, Database$FolderId, Database$Tree } from "./tree.js";
-import { createUser, getUserByName_Database, getUserCount, getUser_Database, updateUserPassword } from "./users.js";
+import { Database$Users } from "./users.js";
 
 export const Database = {
     root: "root" as const,
@@ -34,13 +34,7 @@ export const Database = {
         delete: deleteThumbnailFromStorage,
         getSignedLink: getSignedLinkForThumbnail
     },
-    user: {
-        add: createUser,
-        get: getUser_Database,
-        getByName: getUserByName_Database,
-        getCount: getUserCount,
-        updatePassword: updateUserPassword
-    },
+    users: Database$Users,
     folder: {
         add: addFolder,
         resolveRouteById: resolveRouteFromFolderId,

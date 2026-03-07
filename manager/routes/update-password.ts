@@ -25,7 +25,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
         return void generateErrorResponse(res, 400, "The passwords must not be identical");
     }
 
-    const userHandle = await Database.user.getByName(username);
+    const userHandle = await Database.users.getByName(username);
     if (userHandle === null) {
         return void generateErrorResponse(res, 404, "No user exists for this user id");
     }
@@ -36,7 +36,7 @@ export default async function handleRequest(req: Request, res: Response): Promis
     }
 
     const { hash, salt } = Authentication.password.generate(newPassword);
-    const newHandle = await Database.user.updatePassword({ id: userHandle.id, password: hash, salt });
+    const newHandle = await Database.users.updatePassword({ id: userHandle.id, password: hash, salt });
     if (!newHandle) {
         return void generateErrorResponse(res, 500, "Failed to update the user handle");
     }
