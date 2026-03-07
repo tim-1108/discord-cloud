@@ -173,7 +173,7 @@ function validateArraySchema(schema: ArraySchemaEntry, value: any, func: Invalid
         const consumer = { value: schema.item_schema };
         const hasAnyInvalid = value.some((entry) => {
             const validation = validateObjectBySchema({ value: entry }, consumer);
-            return !validation.invalid;
+            return validation.invalid;
         });
         if (hasAnyInvalid) return func("items_invalid");
     }
