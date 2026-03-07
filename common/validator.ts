@@ -159,14 +159,24 @@ function validateArraySchema(schema: ArraySchemaEntry, value: any, func: Invalid
     if (value.length < min) return func("too_small");
     if (value.length > max) return func("too_large");
 
-    const allowedItems = new Set(schema.allowed_items);
+    if (schema.allowed_items) {
+        const allowedItems = new Set(schema.allowed_items);
+        const hasAnyInvalid = value.some((entry) => {
+            if (schema.item_type && typeof entry !== schema.item_type) return true;
+            return !!(schema.allowed_items && !allowedItems.has(entry));
+        });
+        if (hasAnyInvalid) return func("items_invalid");
+    }
 
-    const hasAnyInvalid = value.some((entry) => {
-        if (schema.item_type && typeof entry !== schema.item_type) return true;
-        return !!(schema.allowed_items && !allowedItems.has(entry));
-    });
-
-    if (hasAnyInvalid) return func("items_invalid");
+    if (schema.item_schema) {
+        // "value" is just a key to create a SchemaEntryConsumer, could be anything.
+        const consumer = { value: schema.item_schema };
+        const hasAnyInvalid = value.some((entry) => {
+            const validation = validateObjectBySchema({ value: entry }, consumer);
+            return !validation.invalid;
+        });
+        if (hasAnyInvalid) return func("items_invalid");
+    }
 }
 
 function validateGenericRecordSchema(schema: GenericRecordSchemaEntry, value: any, func: InvalidateFunction) {
@@ -346,6 +356,12 @@ export interface ArraySchemaEntry<T = any, Allowed = any, Required extends boole
      * assuming the data is trustworthy.
      */
     type_declaration?: T;
+    /**
+     * A schema all items have to fit. If both this and `allowed_items` is
+     * defined, both conditions have to be met. The typing will default to
+     * `allowed_items`.
+     */
+    item_schema?: SchemaEntry;
     required: Required;
 }
 
@@ -410,11 +426,16 @@ type PrimitiveNameToType<T extends Primitives> = T extends "object"
 
 type ArraySchemaEntryTypeDetection<T extends ArraySchemaEntry> = T["item_type"] extends Primitives
     ? Array<PrimitiveNameToType<T["item_type"]>>
-    : T["allowed_items"] extends Array<any>
+    : // When it comes to the constant typed allowed_items and the item_schema,
+      // allowed_items should take over the typing as that is in most cases
+      // typed more directly, not just "string" or "number", but 1 | 2.
+      T["allowed_items"] extends Array<any>
       ? T["allowed_items"]
-      : T["type_declaration"] extends undefined
-        ? Array<unknown>
-        : Array<T["type_declaration"]>;
+      : T["item_schema"] extends SchemaEntry
+        ? SchemaEntryType<T["item_schema"]>[]
+        : T["type_declaration"] extends undefined
+          ? Array<unknown>
+          : Array<T["type_declaration"]>;
 
 type BooleanSchemaEntryTypeDetection<T extends BooleanSchemaEntry> = T["expected"] extends boolean ? T["expected"] : boolean;
 
