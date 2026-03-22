@@ -215,8 +215,8 @@ async function createSignedDownloadLink_Wrapper(index: number) {
     const handle = props.files[index];
     if (!handle) return;
     const link = await createSignedDownloadLink(handle.id);
-    if (!link) return;
-    navigator.clipboard.writeText(link.toString());
+    if (!link.data) return;
+    navigator.clipboard.writeText(link.data.href);
 }
 </script>
 
