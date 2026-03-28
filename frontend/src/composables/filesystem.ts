@@ -101,7 +101,9 @@ function removeFile(route: string[], fileName: string): boolean {
 }
 
 function reset(): void {
-    stem = reactive(createStem());
+    stem.fileCount = 0;
+    stem.files = new Map();
+    stem.subfolders = new Map();
 }
 
 function getArray() {
@@ -171,11 +173,16 @@ function appendFileList(files: FileList): UploadStem {
     if (!root) {
         throw new ReferenceError("Failed to find branch for route: " + JSON.stringify(previewRoute.value));
     }
+    let actualCount = 0;
     for (const file of files) {
         const name = attemptRepairFolderOrFileName(file.name);
+        if (!root.files.has(name)) {
+            actualCount++;
+        }
         // Yeah, they might just overwrite other files.
         root.files.set(name, file);
     }
+    stem.fileCount += actualCount;
     return stem;
 }
 
@@ -227,8 +234,12 @@ async function readEntries(entries: FileSystemEntry[], branch: Base): Promise<nu
             if (!file) continue;
             // We'll assume that entry.name and file.name are always identical.
             const name = attemptRepairFolderOrFileName(file.name);
+            // Whilst we stil overwrite all files, we only need to increment the
+            // counter when we actually added a file.
+            if (!branch.files.has(name)) {
+                count++;
+            }
             branch.files.set(name, file);
-            count++;
         } else {
             // By all means, impossible!
             throw new TypeError("Received a file system entry that is neither file nor folder");

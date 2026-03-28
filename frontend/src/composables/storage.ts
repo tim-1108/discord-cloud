@@ -42,5 +42,6 @@ export enum LocalStorageKey {
     /**
      * Only exists to migrate legacy storage.
      */
-    Token = "discord-cloud-token"
+    Token = "discord-cloud-token",
+    DesiredUploaders = "discord-cloud-desired-uploaders"
 }

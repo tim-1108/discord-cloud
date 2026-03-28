@@ -7,11 +7,13 @@ const colors = {
     default: ["#dedede", "black", "#757575"]
 } as const;
 type Color = keyof typeof colors;
-const { disabled, selected, color, padding } = defineProps<{
+const { disabled, selected, color, padding, disableDefaultSize, disableClick } = defineProps<{
     disabled?: boolean;
     selected?: boolean;
     color?: Color;
     padding?: "none" | "default" | "small";
+    disableDefaultSize?: boolean;
+    disableClick?: boolean;
 }>();
 
 const colorEntry = colors[color ?? "default"];
@@ -23,6 +25,8 @@ const colorEntry = colors[color ?? "default"];
         :disabled="disabled"
         :data-selected="selected ? '' : null"
         :data-padding="padding ?? 'default'"
+        :data-disabled-default-size="disableDefaultSize ? '' : null"
+        :data-disabled-click="disableClick ? '' : null"
         :style="{ backgroundColor: disabled ? colorEntry[2] : colorEntry[0], color: colorEntry[1] }">
         <span>
             <slot />
@@ -33,7 +37,6 @@ const colorEntry = colors[color ?? "default"];
 <style scoped lang="css">
 button {
     position: relative;
-    font-size: 20px;
     padding: 0;
     cursor: pointer;
 
@@ -49,6 +52,10 @@ button {
     transition-timing-function: ease-in-out;
 
     border: 2px solid rgba(100, 100, 100, 0.75);
+}
+
+button:not([data-disabled-default-size]) {
+    font-size: 20px;
 }
 
 button[data-padding="small"] {
@@ -89,7 +96,7 @@ button::after {
     display: block;
 }
 
-button:not([disabled]):active::after,
+button:not([disabled]):not([data-disabled-click]):active::after,
 button[data-selected]::after {
     box-shadow: inset 0px 0px 0px 2px rgba(230, 230, 230, 1);
     background-color: rgba(0, 0, 0, 0.08);
@@ -99,7 +106,7 @@ button[disabled] {
     @apply cursor-not-allowed;
 }
 
-button:not([data-selected]):not([disabled]):active,
+button:not([data-selected]):not([disabled]):not([data-disabled-click]):active,
 button[data-selected] {
     padding-bottom: var(--y-padding);
     margin-top: var(--foot-height);

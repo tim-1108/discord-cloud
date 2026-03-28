@@ -1,10 +1,15 @@
 <script setup lang="ts">
-import { Uploads } from "@/composables/uploads";
+import { getMaxDesiredUploaders, Uploads } from "@/composables/uploads";
+const maxDesiredUploaders = getMaxDesiredUploaders();
 </script>
 
 <template>
     <BaseFlyout>
         <p>All running uploads as well as some settings will be listed here.</p>
-        <p>Booked: {{ Uploads.booking.available }} | Desired: {{ Uploads.booking.desired }}</p>
+        <h3>Desired and presently booked upload services</h3>
+        <div class="grid grid-cols-2">
+            <IntegerChooser :min="0" :max="maxDesiredUploaders" :reference="Uploads.booking.desired" class="w-full"></IntegerChooser>
+            <ThemedButton selected>{{ Uploads.booking.available }}</ThemedButton>
+        </div>
     </BaseFlyout>
 </template>

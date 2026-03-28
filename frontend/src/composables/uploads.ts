@@ -21,6 +21,7 @@ import type { UploadOverwriteCancelPacket } from "../../../common/packet/s2c/Upl
 import { UploadOverwriteResponsePacket } from "../../../common/packet/c2s/UploadOverwriteResponsePacket";
 import { addNotification } from "./notifications";
 import type { UploadStageFinishPacket } from "../../../common/packet/s2c/UploadStageFinishPacket";
+import { LocalStorageKey, readRawFromStorage, writeRawToStorage } from "./storage";
 
 export interface UploadRelativeFileHandle {
     file: File;
@@ -45,6 +46,8 @@ const Constants = {
      */
     maxConcurrentChunks: 5,
     maxRetriesForChunkUpload: 10,
+    maxDesiredUploaders: 100,
+    defaultDesiredUploaders: 10,
     speedCalculationIntervalMs: 500
 } as const;
 
@@ -63,9 +66,24 @@ const activeUploads = reactive(new Map<UUID, ActiveUpload>());
 const stageFinishedUploads = reactive(new Map<UUID, ActiveUpload>());
 const queue = reactive(new Array<UploadAbsoluteFileHandle>());
 
-const desiredUploaderCount = ref(10);
+function getInitialDesiredUploaderCount(): number {
+    const raw = readRawFromStorage(LocalStorageKey.DesiredUploaders);
+    if (raw) {
+        const value = parseInt(raw, 10);
+        if (Number.isSafeInteger(value) && value >= 0 && value <= Constants.maxDesiredUploaders) return value;
+    }
+    writeRawToStorage(LocalStorageKey.DesiredUploaders, Constants.defaultDesiredUploaders.toString(10));
+    return Constants.defaultDesiredUploaders;
+}
+
+export function getMaxDesiredUploaders() {
+    return Constants.maxDesiredUploaders;
+}
+
+const desiredUploaderCount = ref(getInitialDesiredUploaderCount());
 const availableUploaderCount = ref(0);
 watch(desiredUploaderCount, (value) => {
+    writeRawToStorage(LocalStorageKey.DesiredUploaders, value.toString(10));
     // If we are not activly handling any uploads, we do not need
     // to book the uploaders the user desires to have when they change the count.
     const isHandlingUploads = queue.length > 0 || activeUploads.size > 0;
@@ -435,9 +453,11 @@ function createChunkConcurrency(chunkCount: number) {
 
 function handleUploadFinish(packet: UploadFinishInfoPacket) {
     const { success, upload_id, reason, rename_target } = packet.getData();
-    const handle = stageFinishedUploads.get(upload_id as UUID);
+    const id = upload_id as UUID;
+    // A upload may also fail whilst not being marked as upload completed
+    const handle = stageFinishedUploads.get(id) ?? activeUploads.get(id);
     if (!handle) {
-        logWarn("Received finish packet for unknown upload:", upload_id);
+        logWarn("Received finish packet for unknown upload:", id);
         return;
     }
     // If we manually aborted the upload, then the signal is already toggled.
@@ -462,7 +482,8 @@ function handleUploadFinish(packet: UploadFinishInfoPacket) {
         });
     }
 
-    stageFinishedUploads.delete(upload_id as UUID);
+    stageFinishedUploads.delete(id);
+    activeUploads.delete(id);
     // The finish stage packet now handles starting the next upload.
 }
 
