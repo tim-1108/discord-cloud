@@ -13,12 +13,12 @@ const cache = new Map<number, Ref<Blob>>();
  */
 async function requestUrl(id: number): Promise<string | null> {
     const c = await getOrCreateCommunicator();
-    const reply = await c.sendPacketAndReply(new ThumbnailRequestPacket({ id }), GenericBooleanPacket);
-    if (!reply) {
+    const response = await c.sendPacketAndReply_new(new ThumbnailRequestPacket({ id }), GenericBooleanPacket);
+    if (response.packet === null) {
         return null;
     }
     // In a success case, message is used to communicate the link
-    const { success, message } = reply.getData();
+    const { success, message } = response.packet.getData();
     if (!success || !message || !URL.canParse(message)) {
         return null;
     }

@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
-import BaseDialog from "./BaseDialog.vue";
-import StyledButton from "../basic/StyledButton.vue";
 import { patterns } from "../../../../common/patterns";
 
 const props = defineProps<{ name: string }>();

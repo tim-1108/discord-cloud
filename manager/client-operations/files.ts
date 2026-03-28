@@ -118,7 +118,7 @@ export async function performTransferOwnershipOperation(client: Client, packet: 
 }
 
 export async function performSignedDownloadOperation(client: Client, packet: SignedDownloadRequestPacket) {
-    const reply = (payload?: string) => client.sendPacket(new SignedDownloadPacket({ payload }));
+    const reply = (payload?: string) => client.replyToPacket(packet, new SignedDownloadPacket({ payload }));
 
     const { file_id } = packet.getData();
 

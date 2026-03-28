@@ -2,18 +2,15 @@
 import { faPlus } from "@fortawesome/free-solid-svg-icons";
 import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
 import FileDropper from "../upload/FileDropper.vue";
-import { Uploads, type UploadRelativeFileHandle } from "@/composables/uploads";
 import { Dialogs } from "@/composables/dialog";
-import { nextTick, ref } from "vue";
+import { ref } from "vue";
 
 const emit = defineEmits<{ hide: [] }>();
 defineProps<{ subtitle: string }>();
 const isProcessing = ref(false);
 
-async function addFiles(list: UploadRelativeFileHandle[]) {
+function done() {
     isProcessing.value = true;
-    await nextTick();
-    Uploads.preview.add(list);
     Dialogs.mount("upload-submit", {});
     emit("hide");
 }
@@ -34,8 +31,8 @@ async function addFiles(list: UploadRelativeFileHandle[]) {
     <FileDropper
         :disabled="isProcessing"
         class="fixed top-0 left-0 h-screen w-screen z-50 opacity-0"
-        @preprocessing="isProcessing = true"
-        @add="addFiles"
+        @processing="isProcessing = true"
+        @done="done"
         @dragleave.prevent="emit('hide')"
         @dragend.prevent="emit('hide')"></FileDropper>
 </template>

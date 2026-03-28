@@ -7,6 +7,7 @@ import Sidebar from "../components/Sidebar.vue";
 import { CommunicatorConnectionState } from "../composables/state";
 import { useRoute } from "vue-router";
 import { useFlyoutVnode } from "@/composables/flyout";
+import { useMobileState } from "@/composables/screen-size";
 
 const route = useListingRoute();
 const path = computed(() => convertRouteToPath(route.value));
@@ -30,6 +31,7 @@ const dropPreview = {
 
 const isConnected = computed(() => CommunicatorConnectionState.value === "established");
 const flyout = useFlyoutVnode();
+const isMobile = useMobileState();
 
 onMounted(() => {
     const defaultRoute = useRoute();
@@ -48,7 +50,7 @@ onMounted(() => {
             </div>
             <div class="flex justify-between gap-16">
                 <PathRendererNew class="w-full max-w-full min-w-0 overflow-x-hidden"></PathRendererNew>
-                <StatusBar class="not-md:hidden"></StatusBar>
+                <StatusBar v-if="!isMobile"></StatusBar>
             </div>
         </header>
 
@@ -56,14 +58,16 @@ onMounted(() => {
         <main class="row-span-1 overflow-auto md:p-4 bg-white md:rounded-tl-3xl min-h-0 not-md:pb-28">
             <div v-if="!isConnected">
                 <span v-if="CommunicatorConnectionState === 'health'">Waiting for server to come online</span>
-                <span v-else-if="CommunicatorConnectionState === 'login'">Logging in</span>
+                <span v-else-if="CommunicatorConnectionState === 'verify'">Verifying token</span>
                 <span v-else-if="CommunicatorConnectionState === 'pending'">Waiting for credentials</span>
                 <span v-else-if="CommunicatorConnectionState === 'establishing'">Establishing connection</span>
                 <span v-else-if="CommunicatorConnectionState === 'established'">Connected</span>
             </div>
             <ListingWrapper v-if="isConnected" :path="path" :key="path"></ListingWrapper>
         </main>
-        <footer class="fixed w-screen h-20 py-2 bottom-0 left-0 md:hidden flex justify-center bg-white drop-shadow border-t border-(--border-color)">
+        <footer
+            class="fixed w-screen h-20 py-2 bottom-0 left-0 flex justify-center bg-white drop-shadow border-t border-(--border-color)"
+            v-if="isMobile">
             <StatusBar></StatusBar>
         </footer>
         <component v-for="[k, cmp] of Dialogs.iterator.value" :is="cmp" :key="k"></component>

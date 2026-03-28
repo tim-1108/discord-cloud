@@ -310,6 +310,9 @@ async function login(username: string, password: string, address: string): Promi
     }
 }
 
+// @ts-expect-error
+globalThis.getOrCreateCommunicator = getOrCreateCommunicator;
+
 export const Authentication = {
     login,
     getAndFixAddress,

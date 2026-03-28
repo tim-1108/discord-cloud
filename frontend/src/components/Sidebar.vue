@@ -16,9 +16,9 @@ const uploadCount = computed(() => Uploads.queue.length + Uploads.active.size);
 <template>
     <aside class="px-4">
         <div class="flex flex-wrap"></div>
-        <GrayHighlightButton @click="Dialogs.mount('uploads', {})" v-if="uploadCount >= 0" styling="default"
-            >View {{ uploadCount }} upload{{ uploadCount === 1 ? "" : "s" }}</GrayHighlightButton
+        <ThemedButton @click="Dialogs.mount('uploads', {})" v-if="uploadCount >= 0" color="default"
+            >View {{ uploadCount }} upload{{ uploadCount === 1 ? "" : "s" }}</ThemedButton
         >
-        <GrayHighlightButton styling="default" @click="logOff" :icon="faArrowRightFromBracket">Log out</GrayHighlightButton>
+        <ThemedButton color="default" @click="logOff" :icon="faArrowRightFromBracket">Log out</ThemedButton>
     </aside>
 </template>

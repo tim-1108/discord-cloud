@@ -15,7 +15,7 @@ const active = Uploads.active;
         <template v-slot:main>
             <div class="grid gap-2">
                 <div v-for="[_, upload] of active" class="border-2 border-black">
-                    <p>{{ upload.file.name }} at {{ upload.path }} ({{ formatByteString(upload.file.size) }})</p>
+                    <p>{{ upload.name }} at {{ upload.path }} ({{ formatByteString(upload.file.size) }})</p>
                     <p>Progress: {{ ((upload.processed_bytes / upload.file.size) * 100).toFixed(2) }}%</p>
                     <p>Speed: {{ formatByteString(upload.speed) }}/sec</p>
                     <p>Target: {{ upload.target_address }}</p>
@@ -25,7 +25,7 @@ const active = Uploads.active;
         </template>
         <template v-slot:footer>
             <div class="flex justify-end gap-2">
-                <StyledButton color="critical" @click="Dialogs.unmount('uploads')">Close</StyledButton>
+                <ThemedButton color="red" @click="Dialogs.unmount('uploads')">Close</ThemedButton>
             </div>
         </template>
     </BaseDialog>

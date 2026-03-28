@@ -1,13 +1,12 @@
 <script setup lang="ts">
-import { traverseFileTree } from "@/composables/filesystem";
-import type { UploadRelativeFileHandle } from "@/composables/uploads";
+import { UploadFileSystem } from "@/composables/filesystem";
 import { useTemplateRef } from "vue";
 
 defineProps<{ disabled?: boolean; hidden?: boolean }>();
 
 const emit = defineEmits<{
-    add: [files: UploadRelativeFileHandle[]];
-    preprocessing: [];
+    processing: [];
+    done: [];
 }>();
 
 const inputEl = useTemplateRef("input");
@@ -15,30 +14,17 @@ const inputEl = useTemplateRef("input");
 function onInputChange(event: Event) {
     const target = event.target as HTMLInputElement;
     if (!target.files) return;
-    emit("preprocessing");
-    const addedFiles = Array.from(target.files).map((file) => ({ file, relativePath: "/" }));
-    emit("add", addedFiles);
+    emit("processing");
+    UploadFileSystem.appendFileList(target.files);
+    emit("done");
     clearSavedFiles();
 }
 
 async function onFileDrop(event: DragEvent) {
-    // In order to get the FileSystemEntry from all dropped files/folders,
-    // we need to make sure the webkitGetAsEntry method exists on them.
-    // This DOES NOT exist on Firefox for Android
-    // (where you cannot even drop anything - it is mobile after all)
-    // https://developer.mozilla.org/en-US/docs/Web/API/DataTransferItem/webkitGetAsEntry
-    // The function may end up being renamed to getAsEntry...
-    // @ts-expect-error
-    const fn: () => FileSystemEntry | null = DataTransferItem.prototype.getAsEntry ?? DataTransferItem.prototype.webkitGetAsEntry;
-    if (!fn || !event.dataTransfer) return;
-    emit("preprocessing");
-    const { items } = event.dataTransfer;
-    const filesAndFolders = Array.from(items)
-        .map((entry) => fn.apply(entry))
-        .filter((entry) => entry !== null);
-    const promises = await Promise.allSettled(filesAndFolders.map((ff) => traverseFileTree(ff)));
-    const droppedFiles = promises.filter((result) => result.status === "fulfilled").flatMap((result) => result.value);
-    emit("add", droppedFiles);
+    if (!event.dataTransfer) return;
+    emit("processing");
+    await UploadFileSystem.append(event.dataTransfer);
+    emit("done");
     clearSavedFiles();
 }
 

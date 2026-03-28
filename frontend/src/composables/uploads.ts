@@ -25,10 +25,17 @@ import type { UploadStageFinishPacket } from "../../../common/packet/s2c/UploadS
 export interface UploadRelativeFileHandle {
     file: File;
     relativePath: string;
+    /**
+     * This `name` field may be different from that within the `File` instance,
+     * as that is read-only, but we might have to change the name depending on
+     * whether it is valid within our system.
+     */
+    name: string;
 }
 interface UploadAbsoluteFileHandle {
     file: File;
     path: string;
+    name: string;
 }
 
 const Constants = {
@@ -118,7 +125,11 @@ function handleBookingModification(packet: UploadBookingModifyPacket) {
 
 interface ActiveUpload {
     target_address: string;
-    file: File;
+    /**
+     * To prevent accidental uses of the `name` property of this
+     * object, is is omitted for the type. In reality, we never removed it.
+     */
+    file: Omit<File, "name">;
     id: UUID;
     chunks: number;
     processed_chunks: Ref<number>;
@@ -140,7 +151,7 @@ interface ActiveUpload {
     abort_controller?: AbortController;
 }
 
-function submitUpload({ file, relativePath }: UploadRelativeFileHandle): number | null {
+function submitUpload({ file, relativePath, name }: UploadRelativeFileHandle): number | null {
     // For now, empty files cannot be accepted
     // They will be uploaded using a special packet
     if (file.size === 0) {
@@ -154,7 +165,7 @@ function submitUpload({ file, relativePath }: UploadRelativeFileHandle): number 
         bookUploaders(desiredUploaderCount.value);
     }
 
-    return queue.push({ file, path: absPath });
+    return queue.push({ file, path: absPath, name });
 }
 
 function checkInQueueAndStart() {
@@ -224,7 +235,7 @@ async function upload(handle: UploadAbsoluteFileHandle) {
         processed_chunks: ref(0),
         processed_bytes: ref(0),
         file: handle.file,
-        name: handle.file.name,
+        name: handle.name,
         path: handle.path,
         start_timestamp: performance.now(),
         speed: ref(0),
@@ -552,81 +563,6 @@ function sendChunk(cfg: SendConfig, signal?: AbortSignal) {
     return { sent: sentPromise.promise, response: responsePromise.promise };
 }
 
-// === preview section ===
-type PreviewItem = { files: Map<string, UploadRelativeFileHandle>; subfolders: Map<string, PreviewItem> };
-function createPreviewItem(): PreviewItem {
-    return { files: new Map(), subfolders: new Map() };
-}
-let previews = ref(createPreviewItem());
-const previewTotal = ref(0);
-function addPreviews(list: UploadRelativeFileHandle[]): void {
-    for (const h of list) {
-        const r = convertPathToRoute(h.relativePath);
-        let parent = previews.value;
-        for (let i = 0; i < r.length; i++) {
-            const n = r[i];
-            let child = parent.subfolders.get(n);
-            if (!child) {
-                child = createPreviewItem();
-                parent.subfolders.set(n, child);
-            }
-            parent = child;
-        }
-        // This file will not be added
-        // TODO: Should we overwrite it instead?
-        //       Ask for user confirmation Promise?
-        if (parent.files.has(h.file.name)) {
-            continue;
-        }
-        parent.files.set(h.file.name, h);
-        previewTotal.value++;
-    }
-}
-
-function getPreviewsForRoute(route: string[]): PreviewItem | null {
-    let parent = previews.value;
-    for (let i = 0; i < route.length; i++) {
-        const n = route[i];
-        let child = parent.subfolders.get(n);
-        if (!child) {
-            return null;
-        }
-        parent = child;
-    }
-    return parent;
-}
-
-function getAllPreviewsAndReset() {
-    // We trust our count variable here
-    const a = new Array<UploadRelativeFileHandle>(previewTotal.value);
-    if (!previewTotal.value) {
-        return a;
-    }
-
-    const scheduledRoutes = new Array<string[]>([] /* make sure root is in there */);
-    while (scheduledRoutes.length) {
-        const route = scheduledRoutes[0];
-        scheduledRoutes.splice(0, 1);
-        const item = getPreviewsForRoute(route);
-        if (!item) {
-            logWarn("No preview log despite having key for route:", route);
-            continue;
-        }
-        a.push(...Array.from(item.files.values()));
-        // appending the subfolder names to the active route (without modifying the original array handle)
-        const routes = Array.from(item.subfolders.keys()).map((name) => route.concat([name]));
-        scheduledRoutes.push(...routes);
-    }
-
-    resetPreviews();
-    return a;
-}
-
-function resetPreviews() {
-    previews.value = createPreviewItem();
-    previewTotal.value = 0;
-}
-
 // === overwrites ===
 export type OverwriteAction = "overwrite" | "skip" | "rename";
 const overwrites = ref(new Set<UUID>());
@@ -676,13 +612,6 @@ export const Uploads = {
     submit: submitUpload,
     active: activeUploads,
     queue: queue,
-    preview: {
-        add: addPreviews,
-        getForRoute: getPreviewsForRoute,
-        getAllAndReset: getAllPreviewsAndReset,
-        count: previewTotal,
-        reset: resetPreviews
-    },
     overwrites: {
         amount: overwritesCount
     },

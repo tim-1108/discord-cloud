@@ -112,7 +112,7 @@ function updatePosition(): void {
     const spawnY = useBottom ? parentRect.top + parentRect.height : parentRect.top - rect.height;
 
     // This is our desired center position. If this goes outside
-    // the borders, we have to
+    // the borders, we have to clip it back.
     const centerX = parentRect.left + parentRect.width / 2;
     const halfWidth = rect.width / 2;
     const targetX = centerX - halfWidth;
@@ -123,6 +123,7 @@ function updatePosition(): void {
     // Second option: deltaRight > 0, which means we need to move it over by that much
     // Last: The center is already aligned well.
     const spawnX = targetX < left ? left : deltaRight > 0 ? targetX - deltaRight : targetX;
+    const maxHeight = window.innerHeight - spawnY - Constants.marginToScreenBorder * 2;
     position.value = [spawnX, spawnY, rect.width, rect.height];
 }
 

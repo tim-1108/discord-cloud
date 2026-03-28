@@ -8,6 +8,7 @@ import { createResolveFunction } from "../../../common/useless";
 import UploadsDialog from "@/components/dialog/UploadsDialog.vue";
 import OverwriteDialog from "@/components/dialog/OverwriteDialog.vue";
 import type { UUID } from "../../../common";
+import UploadSkipDialog from "@/components/dialog/UploadSkipDialog.vue";
 
 const components = {
     "upload-submit": UploadSubmitDialog,
@@ -16,7 +17,8 @@ const components = {
     login: LoginDialog,
     alert: AlertDialog,
     uploads: UploadsDialog,
-    overwrite: OverwriteDialog
+    overwrite: OverwriteDialog,
+    "upload-skip": UploadSkipDialog
 } as const;
 type ComponentName = keyof typeof components;
 const list = ref(new Map<ComponentName, VNode>());

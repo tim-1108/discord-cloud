@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import type { OverwriteDialogConfig } from "@/composables/dialog";
-import BaseDialog from "./BaseDialog.vue";
-import StyledButton from "../basic/StyledButton.vue";
 import type { OverwriteAction } from "@/composables/uploads";
 import { ref } from "vue";
 import { Uploads } from "@/composables/uploads";
@@ -25,9 +23,9 @@ defineProps<{ cfg: OverwriteDialogConfig; callback: (val: OverwriteAction, flag:
                 <label for="flag">Apply this action to all other files (currently {{ Uploads.overwrites.amount.value - 1 }})</label>
             </div>
             <div class="flex justify-end gap-2 py-4">
-                <StyledButton color="critical" @click="callback('overwrite', flag)">Overwrite</StyledButton>
-                <StyledButton color="submit" @click="callback('rename', flag)">Rename</StyledButton>
-                <StyledButton color="submit" @click="callback('skip', flag)">Skip</StyledButton>
+                <ThemedButton color="red" @click="callback('overwrite', flag)">Overwrite</ThemedButton>
+                <ThemedButton color="green" @click="callback('rename', flag)">Rename</ThemedButton>
+                <ThemedButton color="green" @click="callback('skip', flag)">Skip</ThemedButton>
             </div>
         </template>
     </BaseDialog>

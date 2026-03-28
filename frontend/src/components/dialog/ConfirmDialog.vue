@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import type { ConfirmDialogConfig } from "@/composables/dialog";
-import BaseDialog from "./BaseDialog.vue";
-import StyledButton from "../basic/StyledButton.vue";
 
 defineProps<{ cfg: ConfirmDialogConfig; callback: (val: boolean) => void }>();
 </script>
@@ -16,8 +14,8 @@ defineProps<{ cfg: ConfirmDialogConfig; callback: (val: boolean) => void }>();
         </template>
         <template v-slot:footer>
             <div class="flex justify-end gap-2 py-4">
-                <StyledButton color="critical" @click="callback(false)">{{ cfg.cancel ?? "Abort" }}</StyledButton>
-                <StyledButton color="submit" @click="callback(true)">{{ cfg.confirm ?? "Confirm" }}</StyledButton>
+                <ThemedButton color="red" @click="callback(false)">{{ cfg.cancel ?? "Abort" }}</ThemedButton>
+                <ThemedButton color="green" @click="callback(true)">{{ cfg.confirm ?? "Confirm" }}</ThemedButton>
             </div>
         </template>
     </BaseDialog>

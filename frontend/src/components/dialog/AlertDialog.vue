@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import type { AlertDialogConfig } from "@/composables/dialog";
-import BaseDialog from "./BaseDialog.vue";
-import StyledButton from "../basic/StyledButton.vue";
 
 defineProps<{ cfg: AlertDialogConfig; callback: () => void }>();
 </script>
@@ -16,7 +14,7 @@ defineProps<{ cfg: AlertDialogConfig; callback: () => void }>();
         </template>
         <template v-slot:footer>
             <div class="flex justify-end gap-2 py-4">
-                <StyledButton color="submit" @click="callback">{{ cfg.confirm ?? "OK" }}</StyledButton>
+                <ThemedButton color="green" @click="callback">{{ cfg.confirm ?? "OK" }}</ThemedButton>
             </div>
         </template>
     </BaseDialog>

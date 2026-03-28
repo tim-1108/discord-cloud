@@ -19,7 +19,7 @@ onMounted(() => {
 
 <template>
     <div
-        class="flyout bg-(--component-color) rounded-lg shadow-lg fixed z-3 border border-(--border-color) px-4 py-2"
+        class="flyout bg-(--component-color) rounded-lg shadow-lg fixed z-3 border border-(--border-color) px-4 py-2 min-h-0"
         :class="{ 'opacity-0 pointer-events-none': position === null }"
         :style="{ left, top }"
         ref="flyout">
