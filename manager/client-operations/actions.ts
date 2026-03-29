@@ -1,5 +1,6 @@
 import type { CreateFolderPacket } from "../../common/packet/c2s/CreateFolderPacket.js";
 import type { DeleteFilePacket } from "../../common/packet/c2s/DeleteFilePacket.js";
+import type { DeleteFolderPacket } from "../../common/packet/c2s/DeleteFolderPacket.js";
 import type { EmptyFileUploadPacket } from "../../common/packet/c2s/EmptyFileUploadPacket.js";
 import type { MoveFilesPacket } from "../../common/packet/c2s/MoveFilesPacket.js";
 import type { RenameFilePacket } from "../../common/packet/c2s/RenameFilePacket.js";
@@ -11,7 +12,7 @@ import type { Client } from "../client/Client.js";
 import { Database } from "../database/index.js";
 import { Replacement } from "../replacement.js";
 
-export const ActionClientOperations = { createFolder, moveFiles, deleteFile, renameFolder, renameFile } as const;
+export const ActionClientOperations = { createFolder, moveFiles, deleteFile, renameFolder, renameFile, deleteFolder } as const;
 
 async function createFolder(c: Client, p: CreateFolderPacket): Promise<void> {
     const d = p.getData();
@@ -23,7 +24,8 @@ async function createFolder(c: Client, p: CreateFolderPacket): Promise<void> {
         c.replyToPacket(p, new GenericBooleanPacket({ success: false }));
         return;
     }
-    c.replyToPacket(p, new GenericBooleanPacket({ success: true, message: id.toString(10) /* i know, this is a very ugly way to send it */ }));
+    // The client will get notified of the new folder anyhow.
+    c.replyToPacket(p, new GenericBooleanPacket({ success: true }));
 }
 
 async function moveFiles(c: Client, p: MoveFilesPacket): Promise<void> {
@@ -59,18 +61,22 @@ async function moveFiles(c: Client, p: MoveFilesPacket): Promise<void> {
 }
 
 async function deleteFile(c: Client, p: DeleteFilePacket) {
-    const data = p.getData();
-    const handle = await Database.file.get(data.path, data.name);
+    const { folder_id, name } = p.getData();
+    const handle = await Database.file.get(folder_id, name);
 
     if (!handle) {
+        c.replyToPacket(p, new GenericBooleanPacket({ success: false, message: "The file does not exist" }));
         return;
     }
     const ownership = await Authentication.ownership(c.getUserId(), handle);
     if (!ownership || ownership.can !== "rw") {
+        c.replyToPacket(p, new GenericBooleanPacket({ success: false, message: "Missing permission to delete the file" }));
         return;
     }
-    // TODO: Do something with this result? We don't really need to
-    const result = await Database.file.delete(handle.id);
+    // Although we reply here, we would not really need to.
+    // The actual file-modify packet handles the update.
+    const success = await Database.file.delete(handle.id);
+    c.replyToPacket(p, new GenericBooleanPacket({ success }));
 }
 
 async function renameFolder(c: Client, p: RenameFolderPacket) {
@@ -95,6 +101,8 @@ async function renameFile(c: Client, p: RenameFilePacket) {
     }
     const result = await Database.file.rename(handle.id, target_name);
 }
+
+async function deleteFolder(c: Client, p: DeleteFolderPacket) {}
 
 async function uploadEmptyFile(c: Client, p: EmptyFileUploadPacket) {
     const { path, name } = p.getData();

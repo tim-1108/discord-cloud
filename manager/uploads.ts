@@ -119,7 +119,7 @@ async function requestUploadServices(client: Client, packet: UploadBookingReques
             // note that we do not look for just idle services!
             // if the user submits such a packet while their uploads are
             // running, we will force stop them.
-            const services = ServiceRegistry.predicatedList("upload", (s) => s.isBookedForClient(client));
+            const services = ServiceRegistry.random.multiple("upload", count, (s) => s.isBookedForClient(client));
             if (!services) {
                 throw new RangeError(
                     "Incorrect value stored in current_amount, not as many uploaders are booked: " +

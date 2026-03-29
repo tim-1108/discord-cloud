@@ -9,7 +9,6 @@ import { SymmetricCrypto } from "../common/symmetric-crypto.js";
 import { Discord } from "../common/discord_new.js";
 import config from "../manager.config.js";
 
-validateEnvironmentVariables("manager");
 await loadPackets();
 
 const env = getEnvironmentVariables("manager");

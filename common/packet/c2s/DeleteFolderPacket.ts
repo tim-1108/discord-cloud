@@ -7,7 +7,7 @@ const id = "delete-folder";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
-    path: { type: "string", required: true, pattern: patterns.stringifiedPath }
+    folder_id: { type: "number", required: true, min: 0 }
 } as const;
 
 export class DeleteFolderPacket extends C2SPacket {

@@ -164,6 +164,7 @@ export type Database = {
         Views: {
             get_folder_sizes_by_file_type: {
                 Row: {
+                    count: number | null;
                     folder: number | null;
                     sum: number | null;
                     type: string | null;

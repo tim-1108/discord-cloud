@@ -24,15 +24,14 @@ It is recommended to have multiple upload services running to allow for concurre
 
 ### Environment variables
 
-Configuration for the manager and the services is housed mostly within environment variables (for now). Environment variables are divided into subsets, with subsets being used by different services. Subsets may also be optional. They are defined in `/common/environment.ts`.
+Configuration for the manager and the services is housed mostly within environment variables. Services need specific variables to allow a connection to the manager.
+
+Use `tools/populate-env.sh` to generate the random keys and buffers needed for the manager.
 
 <details>
     <summary>manager</summary>
 
-    Used by: manager
-    Required: yes
-
-    A collection of all required environment variables for the manager.
+    A collection of all environment variables for the manager.
 
     SERVICE_PASSWORD: Any string that acts as a password for all services to authenticate with the manager. The same string needs to be provided to all services
     SUPABASE_URL: The HTTP base url of the data API of the Supabase instance
@@ -40,15 +39,6 @@ Configuration for the manager and the services is housed mostly within environme
     MANAGER_PORT: The port number under which to start the application
     PRIVATE_KEY: A base64-encoded PEM file, used to generate JWTs for user authentication
     PUBLIC_KEY: A base64-encoded PEM file
-
-</details>
-
-<details>
-    <summary>crypto</summary>
-
-    Used by: manager
-    Required: no
-
     MESSAGE_ENCRYPTION_KEY: A base64-encoded raw buffer of 32 bytes. Used as the encryption key for message attachments. If not supplied, encryption needs to be disabled, otherwise an error will be thrown. Once this has been set and a file has been encrypted with it, it should not be changed. Is distributed to all services which need it upon their connection.
 
 </details>
@@ -56,19 +46,13 @@ Configuration for the manager and the services is housed mostly within environme
 <details>
     <summary>upload-service</summary>
 
-    Used by: upload-service
-    Required: yes
-
     OWN_ADDRESS: A HTTP url under which clients can connect to this service
     PORT: The HTTP port under which to be open to clients, should be the same port as in OWN_ADDRESS unless you have some port forwardings like with hosting providers.
 
 </details>
 
 <details>
-    <summary>service</summary>
-
-    Used by: upload-service, thumbnail-service
-    Required: yes
+    <summary>Variables required by all services</summary>
 
     A collection of all required variables for services to communicate with the manager.
 
@@ -78,7 +62,7 @@ Configuration for the manager and the services is housed mostly within environme
 </details>
 
 <details>
-    <summary>logging</summary>
+    <summary>Use these environment variables to modify logging</summary>
 
     Used by: manager, upload-service, thumbnail-service
     Required: no
@@ -153,7 +137,6 @@ Details are available in `PACKETS.md`.
 - better client error handling
 - connection view in client
 - saving uploads on disconnect and retry buttons
-- choosing the amount of desired upload services
 
 ## Disclaimer
 

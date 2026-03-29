@@ -7,7 +7,7 @@ const id = "delete-file";
 
 type DataType = SchemaToType<typeof dataStructure>;
 const dataStructure = {
-    path: { type: "string", required: true, pattern: patterns.stringifiedPath },
+    folder_id: { type: "number", required: true, min: 0 },
     name: { type: "string", required: true, pattern: patterns.fileName }
 } as const;
 

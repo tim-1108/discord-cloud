@@ -190,7 +190,10 @@ function throwIfUninitialized() {
 // Tree creation
 // ===
 
-function createTree(handles: FolderHandle[], sizes_input: { type: string | null; sum: number | null; folder: number | null }[]) {
+function createTree(
+    handles: FolderHandle[],
+    sizes_input: { type: string | null; sum: number | null; folder: number | null; count: number | null }[]
+) {
     if (initialized || initializing) {
         throw new Error("Tree already initialized");
     }
