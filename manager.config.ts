@@ -5,6 +5,9 @@ export default {
         enabled: true,
         services: [] as string[]
     },
+    webdav: {
+        enabled: true
+    },
     discord: {
         /**
          * If `true`, all messages will be individually encrypted with the `MESSAGE_ENCRYPTION_KEY`

@@ -19,6 +19,9 @@ import type { Duplex } from "node:stream";
 import type { ServiceConfiguration } from "./services/Service.js";
 import { validateObjectBySchema } from "../common/validator.js";
 import { Authentication } from "./authentication.js";
+import { v2 as webdav } from "webdav-server";
+import { VirtualFileSystem } from "./webdav/VirtualFileSystem.js";
+import { VirutalSerializer } from "./webdav/Serializer.js";
 
 type SocketName = ServiceName | "client";
 interface BaseSocketParams {
@@ -38,6 +41,7 @@ export class Network {
     private readonly server: http.Server;
     private readonly app: Express;
     private readonly wss: WebSocketServer;
+    private readonly davServer: webdav.WebDAVServer;
 
     private ready: boolean = false;
     private hasInitializedRoutes: boolean = false;
@@ -55,6 +59,21 @@ export class Network {
             next();
         });
         this.setupRoutes();
+
+        /* === WEBDAV === */
+        this.davServer = new webdav.WebDAVServer({
+            requireAuthentification: false,
+            rootFileSystem: new VirtualFileSystem(new VirutalSerializer())
+        });
+        this.app.use(webdav.extensions.express("/", this.davServer));
+
+        this.davServer.afterRequest((arg, next) => {
+            // Display the method, the URI, the returned status code and the returned message
+            console.log(">>", arg.request.method, arg.requested.uri, ">", arg.response.statusCode, arg.response.statusMessage);
+            // If available, display the body of the response
+            console.log(arg.responseBody);
+            next();
+        });
 
         /* === SOCKET === */
         // Does not call the funcction directly, as that would set "this" to the server instance, not this class
