@@ -44,7 +44,7 @@ const ENV_SUBSETS = {
      * as the buffer will be passed to Node's createPrivateKey, which defaults to the PEM
      * format (node/lib/internal/crypto/keys.js#prepareAsymmetricKey)
      */
-    manager: ["SERVICE_PASSWORD", "SUPABASE_URL", "SUPABASE_KEY", "MANAGER_PORT", "DISCORD_BOT_TOKEN", "PRIVATE_KEY", "PUBLIC_KEY"],
+    manager: ["SERVICE_PASSWORD", "SUPABASE_URL", "SUPABASE_KEY", "DISCORD_BOT_TOKEN", "PRIVATE_KEY", "PUBLIC_KEY"],
     "upload-service": ["OWN_ADDRESS", "PORT"],
     service: ["SERVICE_PASSWORD", "MANAGER_ADDRESS"],
     /**

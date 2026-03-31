@@ -5,6 +5,7 @@ import { Database } from "./database/index.js";
 import { Network } from "./Network.js";
 import "./debug.js";
 import "./services/list.js";
+import { startWebDAVServer } from "./webdav/dav-server.js";
 import { SymmetricCrypto } from "../common/symmetric-crypto.js";
 import { Discord } from "../common/discord_new.js";
 import config from "../manager.config.js";
@@ -29,10 +30,9 @@ if (!folders.data || !sizes.data) {
 Database.tree.init(folders.data, sizes.data);
 logInfo("Init: Folder tree done");
 
-const { MANAGER_PORT } = getEnvironmentVariables("manager");
-const port = parseInt(MANAGER_PORT, 10);
-if (!Number.isSafeInteger(port) || port <= 0 || port > 32767) {
-    throw new Error("The port value is invalid: " + port);
+if (config.webdav.enabled) {
+    startWebDAVServer();
 }
-logInfo("Init: Network on port", port);
-new Network(port);
+
+logInfo("Init: Network on port", config.socket.port);
+new Network(config.socket.port);

@@ -5,8 +5,20 @@ export default {
         enabled: true,
         services: [] as string[]
     },
+    socket: {
+        /**
+         * The port where the HTTP server for the authentication api and the websocket is exposed.
+         */
+        port: 4000
+    },
     webdav: {
-        enabled: true
+        enabled: true,
+        /**
+         * The port where the HTTP server for webdav should be exposed. If `enabled` is `false`,
+         * this server is never exposed.
+         */
+        port: 4001,
+        realmName: "discord-cloud"
     },
     discord: {
         /**

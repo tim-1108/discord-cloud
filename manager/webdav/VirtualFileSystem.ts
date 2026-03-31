@@ -22,11 +22,13 @@ import {
     type TypeInfo
 } from "webdav-server/lib/index.v2.js";
 import { Database } from "../database";
-import type { Readable, Writable } from "node:stream";
+import { PassThrough, type Readable, type Writable } from "node:stream";
 import { PropertyManager } from "./PropertyManager";
 import { LockManager } from "./LockManager";
 import { patterns } from "../../common/patterns";
 import { logInfo } from "../../common/logging";
+import { WebDAVHelpers } from "./helpers";
+import { streamFileContents } from "../utils/stream-download";
 
 export class VirtualFileSystem extends FileSystem {
     private propertyManagerInstance = new PropertyManager();
@@ -44,8 +46,7 @@ export class VirtualFileSystem extends FileSystem {
         if (folder) {
             return callback(true);
         }
-        callback(true);
-        const file = await Database.file.get(path.getParent().toString(), path.fileName());
+        const file = await WebDAVHelpers.getFileFromPath(path);
         callback(file !== null);
     }
 
@@ -64,7 +65,7 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected async _readDir(path: Path, ctx: ReadDirInfo, callback: ReturnCallback<string[] | Path[]>): Promise<void> {
-        console.log("readdir", path.toString());
+        //console.log("readdir", path.toString());
         const folderId = Database.folderId.get(path.paths);
         if (folderId === null) {
             return callback(Error("folder not found"));
@@ -83,24 +84,35 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected async _creationDate(path: Path, ctx: CreationDateInfo, callback: ReturnCallback<number>): Promise<void> {
-        console.log("_creationDate", path.toString());
-        callback(undefined, 1);
+        const file = await WebDAVHelpers.getFileFromPath(path);
+        if (file) {
+            return callback(undefined, WebDAVHelpers.convertDateStringToUTC(file.created_at));
+        }
+        callback(undefined, 0);
+    }
+
+    protected async _lastModifiedDate(path: Path, ctx: LastModifiedDateInfo, callback: ReturnCallback<number>): Promise<void> {
+        const file = await WebDAVHelpers.getFileFromPath(path);
+        if (file) {
+            return callback(undefined, WebDAVHelpers.convertDateStringToUTC(file.updated_at));
+        }
+        callback(undefined, 0);
     }
 
     protected _copy(pathFrom: Path, pathTo: Path, ctx: CopyInfo, callback: ReturnCallback<boolean>): void {
-        console.log("readdir", pathFrom.toString());
+        console.log("_copy", pathFrom.toString(), pathTo.toString(), ctx);
         callback(undefined, false);
     }
 
     protected async _mimeType(path: Path, ctx: MimeTypeInfo, callback: ReturnCallback<string>): Promise<void> {
-        console.log("_mimeType", path.toString());
+        //console.log("_mimeType", path.toString());
         if (path.isRoot()) {
             return callback(Error("is no file"));
         }
         if (!patterns.stringifiedPath.test(path.toString())) {
             return callback(Error("invalid path"));
         }
-        const handle = await Database.file.get(path.getParent().toString(), path.fileName());
+        const handle = await WebDAVHelpers.getFileFromPath(path);
         if (handle) {
             return callback(undefined, handle.type);
         }
@@ -108,34 +120,22 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected async _size(path: Path, ctx: SizeInfo, callback: ReturnCallback<number>): Promise<void> {
-        console.log("_size", path.toString());
-        if (path.isRoot()) {
-            return callback(undefined, 100000);
-        }
-        const parent = path.parentName();
-        if (parent) {
-            const file = await Database.file.get(parent.toString(), path.fileName());
-            if (file) {
-                return callback(undefined, file.size);
-            }
+        //console.log("_size", path.toString());
+        const file = await WebDAVHelpers.getFileFromPath(path);
+        if (file) {
+            return callback(undefined, file.size);
         }
 
-        const folder = Database.folderHandle.get(path.toString());
-        if (!folder) {
+        const folderId = WebDAVHelpers.getFolderIdFromPath(path);
+        if (!folderId) {
             return callback(Error("not found"));
         }
-        const sizes = Database.tree.fileTypes.getMap(folder.id);
+        const sizes = Database.tree.fileTypes.getMap(folderId === "root" ? null : folderId);
         const totalSize = sizes.values().reduce((value, acc) => acc + value, 0);
         callback(undefined, totalSize);
     }
 
-    protected _lastModifiedDate(path: Path, ctx: LastModifiedDateInfo, callback: ReturnCallback<number>): void {
-        console.log("_lastModifiedDate", path.toString());
-        callback(undefined, 0);
-    }
-
     protected _displayName(path: Path, ctx: DisplayNameInfo, callback: ReturnCallback<string>): void {
-        console.log("_displayName", path.toString());
         callback(undefined, path.isRoot() ? "Root" : path.fileName());
     }
 
@@ -144,9 +144,19 @@ export class VirtualFileSystem extends FileSystem {
         callback(Error("failed to open write stream"));
     }
 
-    protected _openReadStream(path: Path, ctx: OpenReadStreamInfo, callback: ReturnCallback<Readable>): void {
+    protected async _openReadStream(path: Path, ctx: OpenReadStreamInfo, callback: ReturnCallback<Readable>): Promise<void> {
         console.log("_openReadStream", path.toString());
-        callback(Error("failed to open read stream"));
+
+        const file = await WebDAVHelpers.getFileFromPath(path);
+        if (!file) {
+            return callback(Error("not found"));
+        }
+
+        // TODO: Read permissions check
+        const passthrough = new PassThrough({ autoDestroy: true });
+        callback(undefined, passthrough);
+        const status = await streamFileContents(passthrough, file);
+        console.log("_openReadStream end", status);
     }
 
     protected _lockManager(path: Path, ctx: LockManagerInfo, callback: ReturnCallback<ILockManager>): void {
@@ -160,19 +170,13 @@ export class VirtualFileSystem extends FileSystem {
         if (!patterns.stringifiedPath.test(path.toString())) {
             return callback(Error("invalid path"));
         }
-        if (path.isRoot()) {
+        const folderId = WebDAVHelpers.getFolderIdFromPath(path);
+        if (folderId !== null) {
             return callback(undefined, { isDirectory: true, isFile: false });
         }
-        const folder = Database.folderHandle.get(path.toString());
-        if (folder) {
-            return callback(undefined, { isDirectory: true, isFile: false });
-        }
-        const parent = path.getParent();
-        if (parent) {
-            const file = await Database.file.get(parent.toString(), path.fileName());
-            if (file) {
-                return callback(undefined, { isDirectory: false, isFile: true });
-            }
+        const file = await WebDAVHelpers.getFileFromPath(path);
+        if (file) {
+            return callback(undefined, { isDirectory: false, isFile: true });
         }
         callback(Error("not found"));
     }

@@ -24,16 +24,6 @@ const fileIdCache = new Map<number, FileHandle>();
 
 type IdOrPath = FolderOrRoot | `${string}`;
 
-function isPath(input: IdOrPath): input is `${string}` {
-    return typeof input === "string" && input.startsWith("/");
-}
-
-export async function resolvePath(input: IdOrPath, createPath: boolean = false): Promise<FolderOrRoot | null> {
-    if (!isPath(input)) return input;
-    // We do not create the path if it does not exist.
-    return createPath ? Database.folderId.getOrCreate(input) : Database.folderId.get(input);
-}
-
 export async function getFileHandleById_Cached(id: number) {
     const hit = fileIdCache.get(id);
     if (hit) {
@@ -54,10 +44,10 @@ export async function getFileHandleById_Cached(id: number) {
  *
  * To get the id for a path, use {@link resolvePathToFolderId_Cached}.
  * @param name The file name
- * @param folder Specify the folder id. If "root", the root folder is chosen.
+ * @param folderIdOrPath Specify the folder id or a path. If "root", the root folder is chosen.
  */
-export async function getFileHandle_Cached(folder: IdOrPath, name: string) {
-    const folderId = await resolvePath(folder);
+export async function getFileHandle_Cached(folderIdOrPath: IdOrPath, name: string) {
+    const folderId = folderIdOrPath === "root" || typeof folderIdOrPath === "number" ? folderIdOrPath : Database.folderId.get(folderIdOrPath);
     if (folderId === null) {
         return null;
     }
