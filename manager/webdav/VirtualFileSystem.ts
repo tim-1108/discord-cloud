@@ -29,19 +29,28 @@ import { patterns } from "../../common/patterns";
 import { logInfo } from "../../common/logging";
 import { WebDAVHelpers } from "./helpers";
 import { streamFileContents } from "../utils/stream-download";
+import { createDAVWriteStream } from "./uploader";
 
 export class VirtualFileSystem extends FileSystem {
     private propertyManagerInstance = new PropertyManager();
     private lockManagerInstance = new LockManager();
 
+    private creationQueue = new Set<string>();
+
     protected async _fastExistCheck(ctx: RequestContext, path: Path, callback: (exists: boolean) => void): Promise<void> {
-        //console.log("_fastExistCheck", path.toString());
+        if (path.toString().includes("gimp-3.2.2-setup.exe")) console.log("_fastExistCheck", path.toString());
         if (!patterns.stringifiedPath.test(path.toString())) {
             return callback(false);
         }
         if (path.isRoot()) {
             return callback(true);
         }
+
+        if (this.creationQueue.has(path.toString())) {
+            console.log("_fastexistcheck exists");
+            return callback(true);
+        }
+
         const folder = Database.folderHandle.get(path.toString());
         if (folder) {
             return callback(true);
@@ -51,7 +60,7 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected async _create(path: Path, ctx: CreateInfo, callback: SimpleCallback): Promise<void> {
-        console.log("_create", path.toString());
+        if (path.toString().includes("gimp-3.2.2-setup.exe")) console.log("_create", path.toString(), ctx.type.isDirectory, ctx.type.isFile);
         if (ctx.type.isDirectory) {
             const exists = Database.folderHandle.get(path.toString());
             if (exists) {
@@ -60,12 +69,13 @@ export class VirtualFileSystem extends FileSystem {
             Database.folder.add(path.fileName(), "root");
             callback();
         } else if (ctx.type.isFile) {
+            this.creationQueue.add(path.toString());
             callback(undefined);
         }
     }
 
     protected async _readDir(path: Path, ctx: ReadDirInfo, callback: ReturnCallback<string[] | Path[]>): Promise<void> {
-        //console.log("readdir", path.toString());
+        console.log("readdir", path.toString());
         const folderId = Database.folderId.get(path.paths);
         if (folderId === null) {
             return callback(Error("folder not found"));
@@ -84,6 +94,7 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected async _creationDate(path: Path, ctx: CreationDateInfo, callback: ReturnCallback<number>): Promise<void> {
+        console.log("_creationDate", path.toString());
         const file = await WebDAVHelpers.getFileFromPath(path);
         if (file) {
             return callback(undefined, WebDAVHelpers.convertDateStringToUTC(file.created_at));
@@ -92,6 +103,7 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected async _lastModifiedDate(path: Path, ctx: LastModifiedDateInfo, callback: ReturnCallback<number>): Promise<void> {
+        console.log("_lastmodifieddate", path.toString());
         const file = await WebDAVHelpers.getFileFromPath(path);
         if (file) {
             return callback(undefined, WebDAVHelpers.convertDateStringToUTC(file.updated_at));
@@ -105,7 +117,7 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected async _mimeType(path: Path, ctx: MimeTypeInfo, callback: ReturnCallback<string>): Promise<void> {
-        //console.log("_mimeType", path.toString());
+        console.log("_mimeType", path.toString());
         if (path.isRoot()) {
             return callback(Error("is no file"));
         }
@@ -120,7 +132,7 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected async _size(path: Path, ctx: SizeInfo, callback: ReturnCallback<number>): Promise<void> {
-        //console.log("_size", path.toString());
+        console.log("_size", path.toString());
         const file = await WebDAVHelpers.getFileFromPath(path);
         if (file) {
             return callback(undefined, file.size);
@@ -141,7 +153,8 @@ export class VirtualFileSystem extends FileSystem {
 
     protected _openWriteStream(path: Path, ctx: OpenWriteStreamInfo, callback: ReturnCallback<Writable>): void {
         console.log("_openWriteStream", path.toString());
-        callback(Error("failed to open write stream"));
+        const writable = createDAVWriteStream(path, ctx);
+        callback(undefined, writable);
     }
 
     protected async _openReadStream(path: Path, ctx: OpenReadStreamInfo, callback: ReturnCallback<Readable>): Promise<void> {
@@ -155,6 +168,9 @@ export class VirtualFileSystem extends FileSystem {
         // TODO: Read permissions check
         const passthrough = new PassThrough({ autoDestroy: true });
         callback(undefined, passthrough);
+        // Sadly, the way this library is implemented means that we stream the entire file
+        // to this readable and within it is housed a RangedStream. We could do that task
+        // ourselves by reading the Range header, but have to send the whole file.
         const status = await streamFileContents(passthrough, file);
         console.log("_openReadStream end", status);
     }

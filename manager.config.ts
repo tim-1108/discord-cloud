@@ -18,7 +18,13 @@ export default {
          * this server is never exposed.
          */
         port: 4001,
-        realmName: "discord-cloud"
+        realmName: "discord-cloud",
+        /**
+         * Turns off all authentication checks when the webdav instance is initialized. Use only
+         * ever in testing environments, for instance when connecting over localhost, as Windows
+         * Explorer will not authenticate using Basic over just HTTP.
+         */
+        disableAuthentication: false
     },
     discord: {
         /**

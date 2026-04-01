@@ -2,7 +2,7 @@ import { v2 as webdav } from "webdav-server";
 import { VirtualFileSystem } from "./VirtualFileSystem";
 import { VirutalSerializer } from "./Serializer";
 import managerConfig from "../../manager.config";
-import { logInfo } from "../../common/logging";
+import { logInfo, logWarn } from "../../common/logging";
 import { DAVUserManager } from "./DAVUserManager";
 
 // We cannot use digest authentication because that would either require us to:
@@ -12,10 +12,13 @@ import { DAVUserManager } from "./DAVUserManager";
 // with for instance rainbow tables.
 // Basic authentication is insecure, but only when occuring over non-TLS HTTP.
 // This is the same lack of security as the default api would expose the /login route to.
+// For instance, Windows Explorer only handles Basic authentication over HTTPS
 
 const server = new webdav.WebDAVServer({
-    requireAuthentification: true,
-    httpAuthentication: new webdav.HTTPBasicAuthentication(new DAVUserManager(), managerConfig.webdav.realmName),
+    requireAuthentification: !managerConfig.webdav.disableAuthentication,
+    httpAuthentication: !managerConfig.webdav.disableAuthentication
+        ? new webdav.HTTPBasicAuthentication(new DAVUserManager(), managerConfig.webdav.realmName)
+        : undefined,
     rootFileSystem: new VirtualFileSystem(new VirutalSerializer()),
     port: managerConfig.webdav.port
 });
@@ -29,5 +32,10 @@ export function startWebDAVServer() {
         throw new Error("Attempted to start WebDAV instance, but is disabled in config");
     }
     hasStarted = true;
+
+    if (managerConfig.webdav.disableAuthentication) {
+        logWarn("Init: WebDAV authentication is disabled, for non-production use only");
+    }
+
     server.start(() => logInfo("Init: WebDAV instance live on port", managerConfig.webdav.port));
 }
