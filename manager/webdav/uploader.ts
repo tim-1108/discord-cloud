@@ -26,6 +26,8 @@ export function createDAVWriteStream(path: Path, ctx: OpenWriteStreamInfo): Writ
         const output = Buffer.concat([buffer, chunk.slice(0, cs - buffer.byteLength)]);
         buffer = Buffer.from(chunk.slice(cs - buffer.byteLength - 1));
         console.log(index, output.byteLength);
+        readable.pause();
+        setTimeout(() => readable.resume(), 5000);
         index++;
     });
 

@@ -1,1 +1,1 @@
-["node_modules", ".git", ".pyenv"]
+["node_modules", ".git", ".pyenv", ".cache", "__pycache__", "venv", ".dart_tool"]

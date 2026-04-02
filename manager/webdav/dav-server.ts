@@ -3,7 +3,7 @@ import { VirtualFileSystem } from "./VirtualFileSystem";
 import { VirutalSerializer } from "./Serializer";
 import managerConfig from "../../manager.config";
 import { logInfo, logWarn } from "../../common/logging";
-import { DAVUserManager } from "./DAVUserManager";
+import { BasicAuthentication } from "./BasicAuthentication";
 
 // We cannot use digest authentication because that would either require us to:
 // - store the password in plaintext
@@ -16,9 +16,7 @@ import { DAVUserManager } from "./DAVUserManager";
 
 const server = new webdav.WebDAVServer({
     requireAuthentification: !managerConfig.webdav.disableAuthentication,
-    httpAuthentication: !managerConfig.webdav.disableAuthentication
-        ? new webdav.HTTPBasicAuthentication(new DAVUserManager(), managerConfig.webdav.realmName)
-        : undefined,
+    httpAuthentication: !managerConfig.webdav.disableAuthentication ? new BasicAuthentication() : undefined,
     rootFileSystem: new VirtualFileSystem(new VirutalSerializer()),
     port: managerConfig.webdav.port
 });

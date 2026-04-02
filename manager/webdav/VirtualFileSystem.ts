@@ -1,4 +1,5 @@
 import {
+    Errors,
     FileSystem,
     Path,
     RequestContext,
@@ -30,6 +31,7 @@ import { logInfo } from "../../common/logging";
 import { WebDAVHelpers } from "./helpers";
 import { streamFileContents } from "../utils/stream-download";
 import { createDAVWriteStream } from "./uploader";
+import { Authentication } from "../authentication";
 
 export class VirtualFileSystem extends FileSystem {
     private propertyManagerInstance = new PropertyManager();
@@ -37,8 +39,10 @@ export class VirtualFileSystem extends FileSystem {
 
     private creationQueue = new Set<string>();
 
+    private testingFileName = "encryption.txt";
+
     protected async _fastExistCheck(ctx: RequestContext, path: Path, callback: (exists: boolean) => void): Promise<void> {
-        if (path.toString().includes("gimp-3.2.2-setup.exe")) console.log("_fastExistCheck", path.toString());
+        if (path.toString().includes(this.testingFileName)) console.log("_fastExistCheck", path.toString());
         if (!patterns.stringifiedPath.test(path.toString())) {
             return callback(false);
         }
@@ -60,7 +64,7 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected async _create(path: Path, ctx: CreateInfo, callback: SimpleCallback): Promise<void> {
-        if (path.toString().includes("gimp-3.2.2-setup.exe")) console.log("_create", path.toString(), ctx.type.isDirectory, ctx.type.isFile);
+        if (path.toString().includes(this.testingFileName)) console.log("_create", path.toString(), ctx.type.isDirectory, ctx.type.isFile);
         if (ctx.type.isDirectory) {
             const exists = Database.folderHandle.get(path.toString());
             if (exists) {
@@ -94,7 +98,7 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected async _creationDate(path: Path, ctx: CreationDateInfo, callback: ReturnCallback<number>): Promise<void> {
-        console.log("_creationDate", path.toString());
+        if (path.toString().includes(this.testingFileName)) console.log("_creationDate", path.toString());
         const file = await WebDAVHelpers.getFileFromPath(path);
         if (file) {
             return callback(undefined, WebDAVHelpers.convertDateStringToUTC(file.created_at));
@@ -103,7 +107,7 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected async _lastModifiedDate(path: Path, ctx: LastModifiedDateInfo, callback: ReturnCallback<number>): Promise<void> {
-        console.log("_lastmodifieddate", path.toString());
+        if (path.toString().includes(this.testingFileName)) console.log("_lastmodifieddate", path.toString());
         const file = await WebDAVHelpers.getFileFromPath(path);
         if (file) {
             return callback(undefined, WebDAVHelpers.convertDateStringToUTC(file.updated_at));
@@ -117,7 +121,7 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected async _mimeType(path: Path, ctx: MimeTypeInfo, callback: ReturnCallback<string>): Promise<void> {
-        console.log("_mimeType", path.toString());
+        if (path.toString().includes(this.testingFileName)) console.log("_mimeType", path.toString());
         if (path.isRoot()) {
             return callback(Error("is no file"));
         }
@@ -132,7 +136,7 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected async _size(path: Path, ctx: SizeInfo, callback: ReturnCallback<number>): Promise<void> {
-        console.log("_size", path.toString());
+        if (path.toString().includes(this.testingFileName)) console.log("_size", path.toString());
         const file = await WebDAVHelpers.getFileFromPath(path);
         if (file) {
             return callback(undefined, file.size);
@@ -162,7 +166,13 @@ export class VirtualFileSystem extends FileSystem {
 
         const file = await WebDAVHelpers.getFileFromPath(path);
         if (!file) {
-            return callback(Error("not found"));
+            return callback(Errors.ResourceNotFound);
+        }
+
+        const uid = WebDAVHelpers.getUserIdFromContext(ctx);
+        const permissions = await Authentication.ownership(uid, file);
+        if (!permissions || permissions.can === "none") {
+            return callback(Errors.NotEnoughPrivilege);
         }
 
         // TODO: Read permissions check
@@ -182,7 +192,7 @@ export class VirtualFileSystem extends FileSystem {
         callback(undefined, this.propertyManagerInstance);
     }
     protected async _type(path: Path, ctx: TypeInfo, callback: ReturnCallback<ResourceType>): Promise<void> {
-        //console.log("_type", path.toString());
+        if (path.toString().includes("encryption.txt")) console.log("_type", path.toString());
         if (!patterns.stringifiedPath.test(path.toString())) {
             return callback(Error("invalid path"));
         }
@@ -190,6 +200,11 @@ export class VirtualFileSystem extends FileSystem {
         if (folderId !== null) {
             return callback(undefined, { isDirectory: true, isFile: false });
         }
+
+        if (this.creationQueue.has(path.toString())) {
+            return callback(undefined, { isDirectory: false, isFile: true });
+        }
+
         const file = await WebDAVHelpers.getFileFromPath(path);
         if (file) {
             return callback(undefined, { isDirectory: false, isFile: true });

@@ -87,7 +87,17 @@ export const patterns = {
      * each other or are entirely invalid.
      */
     rangeHeader: /^(?:bytes=)((\d+-\d+)|(-\d+)|(\d+-))((?:, )((\d+-\d+)|(-\d+)|(\d+-)))*$/,
-    jwt: /^[A-Za-z0-9-_]*\.[A-Za-z0-9-_]*\.[A-Za-z0-9-_]*$/
+    jwt: /^[A-Za-z0-9-_]*\.[A-Za-z0-9-_]*\.[A-Za-z0-9-_]*$/,
+    /**
+     * The definition of a Authorization header using the Basic format, wherein
+     * the second segment of the content is a base64 buffer of username and password
+     * split with ":"
+     */
+    basicAuthorizationHeader: /^Basic \s*([a-zA-Z0-9+/]+={0,2})\s*$/,
+    /**
+     * Matches a whole string to a base 10 integer, which can also have a negative sign.
+     */
+    base10Number: /^((-)?([1-9]\d*)|0)$/
 };
 
 /**

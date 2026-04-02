@@ -1,4 +1,4 @@
-import type { Path } from "webdav-server/lib/index.v2.js";
+import type { IContextInfo, Path } from "webdav-server/lib/index.v2.js";
 import type { FileHandle } from "../../common/supabase.js";
 import type { FolderOrRoot } from "../database/core.js";
 import { Database } from "../database/index.js";
@@ -7,7 +7,8 @@ import { patterns } from "../../common/patterns.js";
 export const WebDAVHelpers = {
     getFileFromPath,
     getFolderIdFromPath,
-    convertDateStringToUTC
+    convertDateStringToUTC,
+    getUserIdFromContext
 } as const;
 
 async function getFileFromPath(path: Path): Promise<FileHandle | null> {
@@ -35,4 +36,16 @@ function convertDateStringToUTC(str: string | null): number {
     if (!str) return 0;
     const obj = new Date(str);
     return obj.getTime();
+}
+
+function getUserIdFromContext(ctx: IContextInfo) {
+    const { uid } = ctx.context.user;
+    if (!patterns.base10Number.test(uid)) {
+        throw new TypeError("UID is no valid base 10 number: " + uid);
+    }
+    const id = parseInt(uid, 10);
+    if (Number.isNaN(id) || Number.isSafeInteger(id) || id < 0) {
+        throw new TypeError("UID is an invalid user id: " + uid);
+    }
+    return id;
 }
