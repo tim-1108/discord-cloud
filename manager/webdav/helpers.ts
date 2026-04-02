@@ -44,7 +44,7 @@ function getUserIdFromContext(ctx: IContextInfo) {
         throw new TypeError("UID is no valid base 10 number: " + uid);
     }
     const id = parseInt(uid, 10);
-    if (Number.isNaN(id) || Number.isSafeInteger(id) || id < 0) {
+    if (Number.isNaN(id) || !Number.isSafeInteger(id) || id < 0) {
         throw new TypeError("UID is an invalid user id: " + uid);
     }
     return id;
