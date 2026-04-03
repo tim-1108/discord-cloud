@@ -12,6 +12,13 @@ import type { DataErrorFields } from "../../common/index.js";
 import { Locks } from "../lock.js";
 import { Replacement } from "../replacement.js";
 
+export const Database$File = {
+    cacheOnly: {
+        getById: getFileHandleById_CacheOnly,
+        get: getFileHandle_CacheOnly
+    }
+} as const;
+
 /**
  * Maps file name to a handle.
  */
@@ -23,6 +30,14 @@ const fileCache = new Map<FolderOrRoot, FileCacheValue>();
 const fileIdCache = new Map<number, FileHandle>();
 
 type IdOrPath = FolderOrRoot | `${string}`;
+
+function getFileHandleById_CacheOnly(id: number): FileHandle | null {
+    return fileIdCache.get(id) ?? null;
+}
+
+function getFileHandle_CacheOnly(folderId: FolderOrRoot, name: string): FileHandle | null {
+    return fileCache.get(folderId)?.get(name) ?? null;
+}
 
 export async function getFileHandleById_Cached(id: number) {
     const hit = fileIdCache.get(id);

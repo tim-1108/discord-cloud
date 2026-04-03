@@ -27,21 +27,22 @@ import { PassThrough, type Readable, type Writable } from "node:stream";
 import { PropertyManager } from "./PropertyManager";
 import { LockManager } from "./LockManager";
 import { patterns } from "../../common/patterns";
-import { logInfo } from "../../common/logging";
 import { WebDAVHelpers } from "./helpers";
 import { streamFileContents } from "../utils/stream-download";
 import { createDAVWriteStream } from "./uploader";
 import { Authentication } from "../authentication";
 
+// TODO: Use the errors from the Errors object
+
 export class VirtualFileSystem extends FileSystem {
-    private propertyManagerInstance = new PropertyManager();
-    private lockManagerInstance = new LockManager();
+    private propertyManagers = new Map<string, PropertyManager>();
+    private lockManagers = new Map<string, LockManager>();
 
     private creationQueue = new Set<string>();
 
     private testingFileName = "encryption.txt";
 
-    protected async _fastExistCheck(ctx: RequestContext, path: Path, callback: (exists: boolean) => void): Promise<void> {
+    protected _fastExistCheck(ctx: RequestContext, path: Path, callback: (exists: boolean) => void): void {
         if (path.toString().includes(this.testingFileName)) console.log("_fastExistCheck", path.toString());
         if (!patterns.stringifiedPath.test(path.toString())) {
             return callback(false);
@@ -59,8 +60,11 @@ export class VirtualFileSystem extends FileSystem {
         if (folder) {
             return callback(true);
         }
-        const file = await WebDAVHelpers.getFileFromPath(path);
-        callback(file !== null);
+        const params = WebDAVHelpers.getFileRouteFromPath(path);
+        if (!params) {
+            return callback(false);
+        }
+        callback(Database.file.cacheOnly.get(params.folderId, params.name) !== null);
     }
 
     protected async _create(path: Path, ctx: CreateInfo, callback: SimpleCallback): Promise<void> {
@@ -175,7 +179,6 @@ export class VirtualFileSystem extends FileSystem {
             return callback(Errors.NotEnoughPrivilege);
         }
 
-        // TODO: Read permissions check
         const passthrough = new PassThrough({ autoDestroy: true });
         callback(undefined, passthrough);
         // Sadly, the way this library is implemented means that we stream the entire file
@@ -186,13 +189,15 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected _lockManager(path: Path, ctx: LockManagerInfo, callback: ReturnCallback<ILockManager>): void {
-        callback(undefined, this.lockManagerInstance);
+        const value = this.lockManagers.get(path.toString());
+        callback(value ? undefined : Errors.MustIgnore, value);
     }
     protected _propertyManager(path: Path, ctx: PropertyManagerInfo, callback: ReturnCallback<IPropertyManager>): void {
-        callback(undefined, this.propertyManagerInstance);
+        const value = this.propertyManagers.get(path.toString());
+        callback(value ? undefined : Errors.MustIgnore, value);
     }
     protected async _type(path: Path, ctx: TypeInfo, callback: ReturnCallback<ResourceType>): Promise<void> {
-        if (path.toString().includes("encryption.txt")) console.log("_type", path.toString());
+        if (path.toString().includes(this.testingFileName)) console.log("_type", path.toString());
         if (!patterns.stringifiedPath.test(path.toString())) {
             return callback(Error("invalid path"));
         }

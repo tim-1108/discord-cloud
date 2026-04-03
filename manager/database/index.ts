@@ -1,6 +1,7 @@
 import { deleteAllFileShares, deleteFileShare, getFileShare, insertFileShare, updateFileShare } from "./file-share.js";
 import {
     addFileHandle,
+    Database$File,
     deleteFileHandle,
     dropFolderFromFileCache,
     getFileHandle_Cached,
@@ -69,7 +70,8 @@ export const Database = {
             delete: deleteFileShare,
             update: updateFileShare,
             deleteAll: deleteAllFileShares
-        }
+        },
+        ...Database$File
     },
     folderId: Database$FolderId,
     folderHandle: Database$FolderHandle,

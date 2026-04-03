@@ -8,7 +8,8 @@ export const WebDAVHelpers = {
     getFileFromPath,
     getFolderIdFromPath,
     convertDateStringToUTC,
-    getUserIdFromContext
+    getUserIdFromContext,
+    getFileRouteFromPath
 } as const;
 
 async function getFileFromPath(path: Path): Promise<FileHandle | null> {
@@ -20,6 +21,18 @@ async function getFileFromPath(path: Path): Promise<FileHandle | null> {
         return null;
     }
     return Database.file.get(path.getParent().toString(), path.fileName());
+}
+
+function getFileRouteFromPath(path: Path): { folderId: FolderOrRoot; name: string } | null {
+    if (!patterns.stringifiedPath.test(path.toString()) || path.isRoot()) {
+        return null;
+    }
+    const parent = path.getParent();
+    if (!parent) {
+        return null;
+    }
+    const folderId = Database.folderId.get(parent.toString());
+    return folderId ? { folderId, name: path.fileName() } : null;
 }
 
 function getFolderIdFromPath(path: Path): FolderOrRoot | null {
