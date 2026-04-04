@@ -31,6 +31,7 @@ import { WebDAVHelpers } from "./helpers";
 import { streamFileContents } from "../utils/stream-download";
 import { createDAVWriteStream } from "./uploader";
 import { Authentication } from "../authentication";
+import managerConfig from "../../manager.config";
 
 // TODO: Use the errors from the Errors object
 
@@ -43,7 +44,8 @@ export class VirtualFileSystem extends FileSystem {
     private testingFileName = "encryption.txt";
 
     protected _fastExistCheck(ctx: RequestContext, path: Path, callback: (exists: boolean) => void): void {
-        if (path.toString().includes(this.testingFileName)) console.log("_fastExistCheck", path.toString());
+        callback = WebDAVHelpers.logCallback("fastExistCheck", callback, path.toString());
+
         if (!patterns.stringifiedPath.test(path.toString())) {
             return callback(false);
         }
@@ -60,6 +62,8 @@ export class VirtualFileSystem extends FileSystem {
         if (folder) {
             return callback(true);
         }
+        // A fastExistCheck on a file only tends to happen when a listing for that folder
+        // has already happend, meaning that it is stored in database/file.ts's cache.
         const params = WebDAVHelpers.getFileRouteFromPath(path);
         if (!params) {
             return callback(false);
@@ -83,7 +87,7 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected async _readDir(path: Path, ctx: ReadDirInfo, callback: ReturnCallback<string[] | Path[]>): Promise<void> {
-        console.log("readdir", path.toString());
+        callback = WebDAVHelpers.logCallback("readDir", callback, path.toString());
         const folderId = Database.folderId.get(path.paths);
         if (folderId === null) {
             return callback(Error("folder not found"));
@@ -125,7 +129,7 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected async _mimeType(path: Path, ctx: MimeTypeInfo, callback: ReturnCallback<string>): Promise<void> {
-        if (path.toString().includes(this.testingFileName)) console.log("_mimeType", path.toString());
+        callback = WebDAVHelpers.logCallback("mimeType", callback, path.toString());
         if (path.isRoot()) {
             return callback(Error("is no file"));
         }
@@ -140,7 +144,7 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected async _size(path: Path, ctx: SizeInfo, callback: ReturnCallback<number>): Promise<void> {
-        if (path.toString().includes(this.testingFileName)) console.log("_size", path.toString());
+        callback = WebDAVHelpers.logCallback("size", callback, path.toString());
         const file = await WebDAVHelpers.getFileFromPath(path);
         if (file) {
             return callback(undefined, file.size);
@@ -159,8 +163,21 @@ export class VirtualFileSystem extends FileSystem {
         callback(undefined, path.isRoot() ? "Root" : path.fileName());
     }
 
-    protected _openWriteStream(path: Path, ctx: OpenWriteStreamInfo, callback: ReturnCallback<Writable>): void {
+    protected async _openWriteStream(path: Path, ctx: OpenWriteStreamInfo, callback: ReturnCallback<Writable>): Promise<void> {
         console.log("_openWriteStream", path.toString());
+
+        const file = await WebDAVHelpers.getFileFromPath(path);
+        if (!file) {
+            return callback(Errors.ResourceNotFound);
+        }
+
+        if (!managerConfig.webdav.disableAuthentication) {
+            const uid = WebDAVHelpers.getUserIdFromContext(ctx);
+            const permissions = await Authentication.ownership(uid, file);
+            if (!permissions || permissions.can !== "rw") {
+                return callback(Errors.NotEnoughPrivilege);
+            }
+        }
         const writable = createDAVWriteStream(path, ctx);
         callback(undefined, writable);
     }
@@ -173,10 +190,12 @@ export class VirtualFileSystem extends FileSystem {
             return callback(Errors.ResourceNotFound);
         }
 
-        const uid = WebDAVHelpers.getUserIdFromContext(ctx);
-        const permissions = await Authentication.ownership(uid, file);
-        if (!permissions || permissions.can === "none") {
-            return callback(Errors.NotEnoughPrivilege);
+        if (!managerConfig.webdav.disableAuthentication) {
+            const uid = WebDAVHelpers.getUserIdFromContext(ctx);
+            const permissions = await Authentication.ownership(uid, file);
+            if (!permissions || permissions.can === "none") {
+                return callback(Errors.NotEnoughPrivilege);
+            }
         }
 
         const passthrough = new PassThrough({ autoDestroy: true });
@@ -189,15 +208,17 @@ export class VirtualFileSystem extends FileSystem {
     }
 
     protected _lockManager(path: Path, ctx: LockManagerInfo, callback: ReturnCallback<ILockManager>): void {
-        const value = this.lockManagers.get(path.toString());
-        callback(value ? undefined : Errors.MustIgnore, value);
+        // We should not use just getOrInsert, as that will create the LockManager instance even
+        // when we don't use it. Even then, it would get garbage collected afterwards, as it is unused, but still.
+        const value = this.lockManagers.getOrInsertComputed(path.toString(), () => new LockManager());
+        callback(undefined, value);
     }
     protected _propertyManager(path: Path, ctx: PropertyManagerInfo, callback: ReturnCallback<IPropertyManager>): void {
-        const value = this.propertyManagers.get(path.toString());
-        callback(value ? undefined : Errors.MustIgnore, value);
+        const value = this.propertyManagers.getOrInsertComputed(path.toString(), () => new PropertyManager());
+        callback(undefined, value);
     }
     protected async _type(path: Path, ctx: TypeInfo, callback: ReturnCallback<ResourceType>): Promise<void> {
-        if (path.toString().includes(this.testingFileName)) console.log("_type", path.toString());
+        callback = WebDAVHelpers.logCallback("type", callback, path.toString());
         if (!patterns.stringifiedPath.test(path.toString())) {
             return callback(Error("invalid path"));
         }

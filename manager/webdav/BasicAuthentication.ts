@@ -23,7 +23,7 @@ export class BasicAuthentication implements HTTPAuthentication {
         // For the RequestContext class to work properly in the library,
         // it expects us to use their errors as defined in their list.
         function returnDefaultUser(error: (typeof Errors)[Exclude<keyof typeof Errors, "None">]): void {
-            callback(error, { isAdministrator: false, isDefaultUser: true, uid: "default", username: "default" });
+            callback(error, { isAdministrator: false, isDefaultUser: true, uid: "DefaultUser", username: "default" });
         }
 
         if (!header || !patterns.basicAuthorizationHeader.test(header)) {

@@ -9,7 +9,8 @@ export const WebDAVHelpers = {
     getFolderIdFromPath,
     convertDateStringToUTC,
     getUserIdFromContext,
-    getFileRouteFromPath
+    getFileRouteFromPath,
+    logCallback
 } as const;
 
 async function getFileFromPath(path: Path): Promise<FileHandle | null> {
@@ -61,4 +62,13 @@ function getUserIdFromContext(ctx: IContextInfo) {
         throw new TypeError("UID is an invalid user id: " + uid);
     }
     return id;
+}
+
+function logCallback(name: string, callback: (...args: any[]) => void, functionArgs?: any): (...args: any[]) => void {
+    const $callback = callback;
+    callback = (...args) => {
+        console.log(name, functionArgs, "|", ...args);
+        $callback(...args);
+    };
+    return callback;
 }
